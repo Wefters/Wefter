@@ -1,0 +1,86 @@
+---
+title: wefter eject
+description: The strongest warning on this tab — and what actually still works afterward.
+---
+
+```bash
+wefter eject [projectDir]
+```
+
+| Argument | Type | Default | Purpose |
+| --- | --- | --- | --- |
+| `projectDir` | positional, optional | current working directory | Project root. |
+
+```bash
+wefter eject
+```
+
+<Callout type="warn">
+  This is a one-way door. There is no `wefter un-eject`, no CLI command
+  that reverses it. Once a project is ejected, `wefter sync` permanently
+  stops regenerating the native Android project shell for it — every
+  future `wefter sync`/`build`/`run` in this project operates on
+  `android/` as a hand-owned directory, forever. Only run this once
+  you're actually ready to hand-edit native code, not to "just take a
+  look."
+</Callout>
+
+## What it does
+
+1. Refuses to run twice — if the project is already ejected, it fails
+   immediately with `Already ejected — android/ is already yours.`
+   instead of silently doing nothing.
+2. Runs a full [`wefter sync`](/cli/sync) first, so the project being
+   copied out is fully up to date with your current config and declared
+   plugins — not whatever the last sync happened to leave behind. This
+   means a `sync` failure (a permission audit violation, lockfile drift,
+   a plugin that fails validation) blocks `eject` too, the same as it
+   would block a plain `sync`.
+3. Copies the entire generated native project — everything under
+   `.wefter/native/android` — to `<projectDir>/android`.
+4. Writes a `.wefter-ejected` marker file at the project root containing
+   `true`. Every path-resolution helper in the CLI checks this marker
+   before deciding whether the "native project root" is the disposable
+   `.wefter/native/android` or your own `android/`.
+
+On success:
+
+```
+Ejected. /path/to/project/android is now yours — wefter will no longer regenerate it automatically.
+```
+
+## "Stops regenerating" doesn't mean "stops running sync"
+
+This is the part worth being precise about: after ejecting, `wefter
+sync` keeps running, and keeps being useful — it just skips the two
+steps that would blow away hand-edits. Specifically, once ejected, `sync`
+no longer:
+
+- wipes and recreates the native shell from Wefter's template, or
+- rewrites the Android namespace across the project.
+
+Everything else in [the sync sequence](/cli/sync#what-it-does-in-the-actual-order-it-happens)
+still runs against your now-hand-owned `android/`: web assets still get
+copied in, newly declared plugins still get their native source woven in
+and their Gradle deps/permissions/ProGuard rules merged, the plugin
+registry still gets regenerated, and `wefter.lock.json` still gets
+written. All of it runs inside a snapshot-and-restore transaction, so if
+any step fails, the specific files `sync` touches (the generated
+registry, the plugin source directory, `build.gradle.kts`, the manifest,
+web assets, `proguard-rules.pro`) are restored to their pre-sync state
+rather than left half-modified — your other hand-edits elsewhere in
+`android/` are never touched by `sync` at all, ejected or not.
+
+[`wefter build`](/cli/build) and [`wefter run`](/cli/run) behave exactly
+the same post-eject as before — they just now compile whatever's sitting
+in `android/`, hand-edits included.
+
+## Why you'd actually do this
+
+Reach for this the moment you need something Wefter's generated project
+genuinely can't express — custom Gradle configuration, a native
+dependency with awkward setup, hand-written Kotlin outside the plugin
+system. It's explicitly not the default path; the [Installing](/docs/installing)
+and [Development Workflow](/docs/development-workflow) guides on the Docs
+tab never reach for it, because the generated, disposable project is
+meant to cover the common case on its own.

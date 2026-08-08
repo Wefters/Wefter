@@ -1,0 +1,9 @@
+{
+  "name": "ping-test",
+  "nativeDependencies": {
+    "android": {
+      "gradle": "com.example:ping-lib:1.0.0",
+      "proguardRules": "-keep class com.example.pinglib.** { *; }"
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "webDir": "dist",
+  "environments": {
+    "development": {
+      "appId": "dev.wefter.bridge.demo.dev",
+      "appName": "Wefter Demo (Dev)"
+    },
+    "production": {
+      "appId": "dev.wefter.bridge.demo",
+      "appName": "Wefter Demo"
+    }
+  },
+  "icon": "./resources/icon.png",
+  "splash": {
+    "html": "./resources/splash.html",
+    "minDurationMs": 1200,
+    "fadeOutDurationMs": 400
+  },
+  "plugins": [
+    "@wefter/plugin-device-info",
+    "@wefter/plugin-ping-test"
+  ]
+}

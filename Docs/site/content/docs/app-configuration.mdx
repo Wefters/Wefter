@@ -1,0 +1,75 @@
+---
+title: App Configuration
+description: Full wefter.config.json field reference.
+---
+
+## Fields
+
+| Field          | Type                               | Default                  | Purpose                                                                                                                                        |
+| -------------- | ---------------------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `webDir`       | `string`                           | `"dist"`                 | Where your built web app lives; copied into the native project's assets on every `sync`.                                                       |
+| `plugins`      | `string[]`                         | `[]`                     | Explicit list of plugin package names to weave in. See [Plugin Registry](/docs/plugin-registry) — nothing outside this array is ever included. |
+| `pluginsDir`   | `string`                           | `"node_modules"`         | Where declared plugin packages are resolved from.                                                                                              |
+| `environments` | `Record<string, Environment>`      | `{ development: {...} }` | Named build environments (see below).                                                                                                          |
+| `icon`         | `string` (optional)                | —                        | Path to a source icon image. See [App Icon](/docs/app-icon).                                                                                   |
+| `splash`       | `false \| SplashConfig` (optional) | — (disabled)             | Splash screen config. See [App Splash Screen](/docs/app-splash-screen).                                                                        |
+| `signing`      | `SigningConfig` (optional)         | —                        | Release signing config (see below).                                                                                                            |
+
+### `environments.<name>`
+
+| Field     | Type     | Purpose                                                                                                  |
+| --------- | -------- | -------------------------------------------------------------------------------------------------------- |
+| `appId`   | `string` | Android application ID (e.g. `com.yourcompany.app`). Must match `^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$`. |
+| `appName` | `string` | Display name shown on the device.                                                                        |
+
+Referenced via `--env` on `wefter build`/`wefter run` (defaults to `development`).
+
+### `splash`
+
+| Field               | Type              | Default                             | Purpose                                                            |
+| ------------------- | ----------------- | ----------------------------------- | ------------------------------------------------------------------ |
+| `html`              | `string`          | — (required when splash is enabled) | Path to your splash HTML file.                                     |
+| `minDurationMs`     | `number` (0–5000) | `600`                               | Minimum time the splash stays up, even if the app is ready sooner. |
+| `fadeOutDurationMs` | `number` (0–1000) | `300`                               | Fade-out transition length.                                        |
+
+`splash: false` and omitting the key entirely are identical, both mean no
+splash at all. Full detail on [App Splash Screen](/docs/app-splash-screen).
+
+### `signing`
+
+| Field          | Type     | Purpose                             |
+| -------------- | -------- | ----------------------------------- |
+| `keystorePath` | `string` | Path to your release keystore file. |
+| `keyAlias`     | `string` | Key alias within that keystore.     |
+
+The keystore password is not stored in config; set `WEFTER_KEYSTORE_PASSWORD`
+in a gitignored `.env` file instead. `wefter doctor --release-readiness`
+checks for a `signing` block, that the keystore file actually exists at
+`keystorePath`, and that `WEFTER_KEYSTORE_PASSWORD` is set, before you
+attempt a `--release` build.
+
+## Full example
+
+```json
+{
+  "webDir": "dist",
+  "environments": {
+    "development": {
+      "appId": "com.yourcompany.app.dev",
+      "appName": "Your App (Dev)"
+    },
+    "production": { "appId": "com.yourcompany.app", "appName": "Your App" }
+  },
+  "icon": "./resources/icon.png",
+  "splash": {
+    "html": "./resources/splash.html",
+    "minDurationMs": 1200,
+    "fadeOutDurationMs": 400
+  },
+  "signing": {
+    "keystorePath": "./release.keystore",
+    "keyAlias": "release"
+  },
+  "plugins": ["@wefter/plugin-device-info"]
+}
+```

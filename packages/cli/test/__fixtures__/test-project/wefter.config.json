@@ -1,0 +1,9 @@
+{
+  "pluginsDir": "plugins",
+  "webDir": "web",
+  "environments": {
+    "development": { "appId": "com.example.app.dev", "appName": "Example (Dev)" },
+    "production": { "appId": "com.example.app", "appName": "Example" }
+  },
+  "plugins": ["device-info", "ping-test"]
+}

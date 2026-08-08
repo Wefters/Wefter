@@ -1,0 +1,223 @@
+---
+title: JavaScript APIs
+description: "@wefter/core's public surface — everything your app code can call directly."
+---
+
+`@wefter/core` is what your app imports to talk to native plugins and check
+on the state of the bridge itself. Most of the time, you won't call these
+functions directly. A plugin you've added, like a camera or storage plugin,
+exposes its own functions (`Scanner.open()`, `Storage.get()`) that call into
+these underneath. You'll reach for the functions on this page directly in a
+few real situations: calling a built-in system capability that doesn't have
+its own plugin wrapper, handling errors consistently across every plugin
+you use, or checking whether your app is even running inside the native
+shell before you try to use a plugin at all.
+
+## `invokeNative`
+
+```ts
+function invokeNative<T = unknown>(
+  plugin: string,
+  method: string,
+  payload?: unknown,
+  options?: { signal?: AbortSignal; timeoutMs?: number },
+): Promise<T>;
+```
+
+Calls a single native method and returns its result as a Promise. This is
+the function every plugin's own wrapper calls internally, so you'll mostly
+encounter it secondhand through a plugin's own API, but it's fully public
+and safe to call yourself for anything that doesn't have a dedicated
+wrapper, most commonly built-in system calls like the one used to signal
+splash screen readiness.
+
+```ts
+const info = await invokeNative<{ platform: string; osVersion: string }>(
+  "device-info",
+  "getInfo",
+);
+```
+
+The call rejects, never hangs, in three situations: the native side takes
+longer than `timeoutMs` to respond (10 seconds by default), you pass an
+`AbortSignal` and it fires before the call completes, or there's no native
+bridge to call into at all, which happens if your app is running in a plain
+browser tab rather than the native shell, something that comes up often
+during frontend development before you've built and installed a real APK.
+
+```ts
+const controller = new AbortController();
+setTimeout(() => controller.abort(), 3000);
+
+try {
+  await invokeNative("scanner", "open", {}, { signal: controller.signal });
+} catch (err) {
+  // rejects cleanly if the scan takes longer than 3 seconds
+}
+```
+
+Every rejection is a [`WefterBridgeError`](#wefterbridgeerror-and-wefterErrorcode),
+covered below, so you can branch on exactly what went wrong instead of
+parsing an error message.
+
+## `registerHook`
+
+```ts
+function registerHook(
+  hookName: string,
+  callback: (data: unknown) => void,
+): { remove(): void };
+```
+
+Subscribes to something the native side pushes to your app on its own
+schedule, rather than something you asked for and waited on. A plugin that
+reports periodic sensor readings, or one that emits an event when a scan
+result comes in, uses this underneath its own `.on()`-style method. Call
+`.remove()` on the object it returns when you're done listening, for
+example when a component that set up the listener unmounts, so you're not
+leaking a handler that fires into code that no longer exists.
+
+```ts
+const listener = registerHook("scanner:result", (data) => {
+  console.log("Scanned:", data);
+});
+
+// later
+listener.remove();
+```
+
+## `onBridgeReady`
+
+```ts
+function onBridgeReady(): Promise<void>;
+```
+
+Resolves once the native bridge is actually available. Depending on exactly
+when your app's JS starts running relative to the native shell finishing
+its own setup, calling a plugin function immediately on app start can
+occasionally race against the bridge not being wired up yet. Awaiting this
+once, before your app renders anything that depends on native plugins,
+removes that race entirely.
+
+```ts
+await onBridgeReady();
+// safe to call any plugin function from here on
+```
+
+## `isNativeBridgeAvailable`
+
+```ts
+function isNativeBridgeAvailable(): boolean;
+```
+
+A synchronous, immediate check rather than something you await. Returns
+`true` only when your app is actually running inside the native shell with
+a working bridge, and `false` in a plain browser tab. This is genuinely
+useful day to day: if you're iterating on UI in a regular browser for speed
+before testing on a real device, you can use this to skip a native-only
+feature or show a fallback instead of letting a call to it fail.
+
+```ts
+if (isNativeBridgeAvailable()) {
+  const info = await invokeNative("device-info", "getInfo");
+} else {
+  console.log("Running in browser preview, native features unavailable");
+}
+```
+
+## `getPlatformInfo`
+
+```ts
+function getPlatformInfo(): {
+  platform: "android" | "ios" | "web";
+  coreVersion: string;
+  environment: string;
+};
+```
+
+Returns three things about the environment your app is currently running
+in: which platform it's on, the installed version of `@wefter/core`, and
+which entry from your `wefter.config.json` `environments` block the current
+build was made for, `development` or `production`, or whatever names you've
+configured. That last one is useful for anything you want to behave
+differently between a dev build and a production build, like pointing at a
+different API endpoint or showing a debug banner only in development.
+
+```ts
+const { environment } = getPlatformInfo();
+if (environment === "development") {
+  showDebugBanner();
+}
+```
+
+## `WefterBridgeError` and `WefterErrorCode`
+
+```ts
+class WefterBridgeError extends Error {
+  readonly code: WefterErrorCode;
+}
+
+type WefterErrorCode =
+  | "TIMEOUT"
+  | "ABORTED"
+  | "NO_BRIDGE"
+  | "UNKNOWN_PLUGIN"
+  | "INVALID_PAYLOAD"
+  | "PLUGIN_THREW"
+  | "PERMISSION_DENIED"
+  | "UNKNOWN";
+```
+
+Every rejection from `invokeNative`, whether called directly or through a
+plugin's own wrapper, is a `WefterBridgeError` with a `.code` you can branch
+on. Always check `.code`, not the error message text, since the message is
+meant for a person reading logs, not for your app to pattern-match against.
+
+| Code                | What it means                                                                                                | What to do about it                                                                                         |
+| ------------------- | ------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| `TIMEOUT`           | The call took longer than its timeout to respond.                                                            | Retry, or show a "taking longer than expected" state.                                                       |
+| `ABORTED`           | Your own `AbortSignal` fired before the call finished.                                                       | Usually expected; no error UI needed if you triggered the abort yourself.                                   |
+| `NO_BRIDGE`         | There's no native bridge to call into, most often because you're running in a browser, not the native shell. | Check `isNativeBridgeAvailable()` before calling, or handle this case explicitly.                           |
+| `UNKNOWN_PLUGIN`    | You called a plugin name that isn't declared in your `wefter.config.json`.                                   | Confirm you ran `wefter add` for it and re-synced.                                                          |
+| `INVALID_PAYLOAD`   | The native side rejected the shape of what you sent.                                                         | Check the plugin's documented payload shape for that method.                                                |
+| `PLUGIN_THREW`      | The plugin's own native code threw an unhandled error.                                                       | A bug in the plugin itself; check its error message for detail, and report it if it's a third-party plugin. |
+| `PERMISSION_DENIED` | An Android runtime permission the plugin needs wasn't granted.                                               | Prompt the user to grant the permission, or explain why it's needed.                                        |
+| `UNKNOWN`           | Something failed that doesn't map to a specific code.                                                        | Read the message for detail; this is the catch-all.                                                         |
+
+```ts
+try {
+  await invokeNative("scanner", "open", {});
+} catch (err) {
+  if (err instanceof WefterBridgeError && err.code === "PERMISSION_DENIED") {
+    showPermissionExplanation();
+  }
+}
+```
+
+## Testing your app's plugin usage
+
+From `@wefter/core/testing`, for testing your own components that call
+plugins, without needing a real device or emulator running:
+
+```ts
+import { installMockBridge, uninstallMockBridge } from "@wefter/core/testing";
+
+installMockBridge({
+  "device-info": async (method, payload) => {
+    if (method === "getInfo") return { platform: "android", osVersion: "14" };
+    throw new Error(`unhandled method ${method}`);
+  },
+});
+
+// render your component, trigger the call, assert against the mocked response
+const result = await invokeNative("device-info", "getInfo");
+expect(result.platform).toBe("android");
+
+uninstallMockBridge();
+```
+
+Each handler you pass to `installMockBridge` receives `(method, payload)`
+for calls made to that plugin name, and can return or throw whatever result
+you want your test to see, without any of it actually touching a device.
+Call `uninstallMockBridge()` afterward so later tests don't accidentally
+inherit a mock they didn't set up themselves.

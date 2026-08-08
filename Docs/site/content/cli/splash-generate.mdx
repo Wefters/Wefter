@@ -1,0 +1,88 @@
+---
+title: wefter splash generate
+description: Scaffolds an example splash.html — no image source involved.
+---
+
+```bash
+wefter splash generate [targetPath] [projectDir]
+```
+
+| Argument | Type | Default | Purpose |
+| --- | --- | --- | --- |
+| `targetPath` | positional, optional | `"splash.html"` | Where to write the scaffolded file, relative to `projectDir`. |
+| `projectDir` | positional, optional | current working directory | Project root. |
+
+```bash
+wefter splash generate
+wefter splash generate ./resources/splash.html
+```
+
+Fails rather than overwriting if something's already at the destination:
+
+```
+<resolved path> already exists — remove it first or choose a different path.
+```
+
+## No image source — this scaffolds HTML, not icons
+
+Unlike [`wefter icon generate`](/cli/icon-generate), this command takes
+no source asset. Wefter's splash screen is developer-authored HTML, not
+generated from an image, so what this command produces is a working
+starting point you're expected to edit by hand, not a final asset. See
+[App Splash Screen](/docs/app-splash-screen) on the Docs tab for the full
+system this file plugs into — two stages, the `appReady` dismissal hook,
+`minDurationMs`/`fadeOutDurationMs`.
+
+## The exact scaffold written
+
+```html
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { margin: 0; display: flex; align-items: center; justify-content: center;
+           height: 100vh; background: #0F766E; }
+    img { width: 96px; height: 96px; animation: pulse 1.2s ease-in-out infinite; }
+    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.6; } }
+  </style>
+</head>
+<body>
+  <!-- Replace this with your own artwork/animation. -->
+  <img src="./icon.png" alt="">
+</body>
+</html>
+```
+
+A centered, pulsing icon on a solid teal background — meant to be replaced,
+not shipped as-is. The `<!-- Replace this... -->` comment is in the file
+itself as a reminder.
+
+## Wiring it up
+
+Scaffolding the file alone doesn't enable the splash screen. Point
+`wefter.config.json` at it, then sync:
+
+```json
+{
+  "splash": {
+    "html": "splash.html",
+    "minDurationMs": 600,
+    "fadeOutDurationMs": 300
+  }
+}
+```
+
+```bash
+wefter sync
+```
+
+`minDurationMs` and `fadeOutDurationMs` are optional (defaulting to `600`
+and `300`); full field reference on [App
+Configuration](/docs/app-configuration#splash). The CLI's success output
+after `splash generate` reminds you of the exact config shape:
+
+```
+Scaffolded /path/to/project/splash.html
+Set "splash": { "html": "splash.html" } in wefter.config.json, then `wefter sync`.
+```

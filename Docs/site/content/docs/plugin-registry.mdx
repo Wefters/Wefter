@@ -1,0 +1,76 @@
+---
+title: Plugin Registry
+description: How native plugins get woven into your app, and why nothing is auto-discovered.
+---
+
+A Wefter plugin pairs a JS package (what your web app imports) with native
+Kotlin source (what actually talks to the device). `wefter sync` is what
+fuses the two into your generated Android project.
+
+## Explicit-only — no auto-detection
+
+`sync` reads exactly the `plugins` array in `wefter.config.json` and
+resolves each entry from `node_modules`. It never scans `node_modules`
+looking for anything that looks like a plugin.
+
+A package sitting in `node_modules`, even one your web app directly
+imports, contributes zero native code, permissions, or Gradle dependencies
+unless its name is explicitly listed in `plugins`. This keeps a transitive
+dependency from silently gaining a native footprint in your app just
+because it happens to be installed somewhere in your tree.
+
+```json
+{
+  "plugins": ["@wefter/plugin-device-info", "@wefter/plugin-ping-test"]
+}
+```
+
+## What `sync` actually does
+
+For each declared plugin, `sync`:
+
+1. Resolves the package directory and reads `plugin.json`.
+2. Verifies the package against `wefter.lock.json` (see below).
+3. Scans the plugin's `android/*.kt` source for `@WefterMethod`/`@WefterHook`
+   and cross-checks them against `plugin.json`'s declared `methods`/`hooks`.
+   A mismatch fails the sync loudly.
+4. Regenerates the native Android project's plugin registry from scratch.
+
+`sync` is not incremental or additive. Every run rebuilds the generated
+registry from your current config, so there's no persistent state that can
+drift from what's actually declared.
+
+## `wefter add`
+
+```bash
+wefter add @yourorg/some-plugin
+```
+
+Installs the package, validates it, and declares it in
+`wefter.config.json`, all or nothing. If validation fails, the package is
+still installed on disk but `wefter.config.json` is left untouched, so a
+bad plugin never silently becomes part of your app.
+
+## `wefter.lock.json`
+
+```json
+{
+  "plugins": {
+    "device-info": { "resolved": "0.0.1", "integrity": "sha256-..." },
+    "ping-test": { "resolved": "0.0.1", "integrity": "sha256-..." }
+  },
+  "syncedAt": "2026-08-07T07:49:27.830Z"
+}
+```
+
+Records the exact resolved version and content hash of every synced
+plugin, and is meant to be committed to version control. `sync` fails if a
+plugin's installed content no longer matches its lock entry. Pass
+`--update-lock` to intentionally accept the drift and re-lock. Reading a
+diff: a changed `integrity` hash means the plugin's native source or
+manifest changed since it was last synced, and a changed `resolved` version
+means it was upgraded or downgraded.
+
+Plugin-authoring depth, the `WefterPlugin` base class,
+`@WefterMethod`/`@WefterHook`, and `plugin.json`'s full schema, lives on the
+[Plugin tab](/plugin).

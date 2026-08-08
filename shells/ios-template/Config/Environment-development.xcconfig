@@ -1,0 +1,13 @@
+// Rewritten in place by native/inject-environment-ios.ts on every `wefter sync`, exactly the
+// way Android's injectEnvironmentConfig() rewrites the "development" productFlavor block in
+// build.gradle.kts — same WEFTER-ENV-CONFIG markers, same idempotent regex-replace-between-
+// markers mechanism, just targeting a plain xcconfig KEY = value pair instead of a Kotlin DSL
+// call. Unlike Android's namespace/package weave, there is no separate physical-move step
+// here: Swift has no package-to-directory coupling, so setting PRODUCT_BUNDLE_IDENTIFIER is
+// the whole story (see Section 3 of IOS_IMPLEMENTATION_GUIDE.md, "Namespace rewriting is
+// simpler, not harder").
+//
+// WEFTER-ENV-CONFIG-START
+PRODUCT_BUNDLE_IDENTIFIER = dev.wefter.bridge.dev
+PRODUCT_NAME = Wefter (Dev)
+// WEFTER-ENV-CONFIG-END

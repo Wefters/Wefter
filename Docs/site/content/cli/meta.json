@@ -1,0 +1,25 @@
+{
+  "title": "CLI",
+  "pages": [
+    "index",
+    "---Overview---",
+    "installing-and-running",
+    "config-role",
+    "lockfile-role",
+    "---Commands---",
+    "doctor",
+    "sync",
+    "build",
+    "run",
+    "add",
+    "audit",
+    "icon-generate",
+    "splash-generate",
+    "create-plugin",
+    "plugin-validate",
+    "eject"
+  ],
+  "root": true,
+  "description": "Every command, every flag, every failure mode, documented.",
+  "icon": "Terminal"
+}

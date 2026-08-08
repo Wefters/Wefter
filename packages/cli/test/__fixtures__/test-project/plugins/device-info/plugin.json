@@ -1,0 +1,6 @@
+{
+  "name": "device-info",
+  "permissions": {
+    "android": ["android.permission.INTERNET"]
+  }
+}

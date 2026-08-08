@@ -1,0 +1,31 @@
+{
+  "name": "wefter-demo-app",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc -b && vite build",
+    "preview": "vite preview",
+    "wefter:sync": "wefter sync .",
+    "wefter:dev:android": "pnpm run build && wefter sync . && wefter run android --env development --watch .",
+    "wefter:dev:ios": "pnpm run build && wefter sync . && wefter run ios --env development --watch .",
+    "wefter:build:android": "pnpm run build && wefter sync . && wefter build android --env production .",
+    "wefter:build:ios": "pnpm run build && wefter sync . && wefter build ios --env production ."
+  },
+  "dependencies": {
+    "vue": "^3.5.40",
+    "@wefter/core": "workspace:*",
+    "@wefter/plugin-device-info": "workspace:*",
+    "@wefter/plugin-ping-test": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "@vitejs/plugin-vue": "^6.0.8",
+    "@vue/tsconfig": "^0.9.1",
+    "@wefter/cli": "workspace:*",
+    "typescript": "~6.0.2",
+    "vite": "^8.2.0",
+    "vue-tsc": "^3.3.8"
+  }
+}

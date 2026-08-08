@@ -1,0 +1,6 @@
+// See Environment-development.xcconfig for the mechanism this file shares.
+//
+// WEFTER-ENV-CONFIG-START
+PRODUCT_BUNDLE_IDENTIFIER = dev.wefter.bridge
+PRODUCT_NAME = Wefter
+// WEFTER-ENV-CONFIG-END

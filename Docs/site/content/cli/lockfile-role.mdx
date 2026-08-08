@@ -1,0 +1,103 @@
+---
+title: wefter.lock.json's Role
+description: What triggers drift detection, what --update-lock does.
+---
+
+<Callout type="info">
+  [Plugin Registry](/docs/plugin-registry) on the Docs tab covers the lockfile
+  as part of the full sync story. This page is narrower: exactly what counts as
+  drift, and exactly what `--update-lock` changes.
+</Callout>
+
+## What gets recorded
+
+Every successful `wefter sync` overwrites `wefter.lock.json` with one entry
+per resolved plugin:
+
+```json
+{
+  "plugins": {
+    "device-info": {
+      "resolved": "0.0.1",
+      "integrity": "sha256-b74045472a2336e36fe54a6c9310507e5968064b597a269d963fbd296ebb2403"
+    }
+  },
+  "syncedAt": "2026-08-07T09:44:05.704Z"
+}
+```
+
+- `resolved`: the plugin package's own `version` field from its
+  `package.json` at sync time (`"0.0.0"` if the package has no
+  `package.json` or no version).
+- `integrity`: a `sha256-` hash over three things concatenated, the raw
+  bytes of the plugin's `plugin.json`, its resolved version string, and
+  every `.kt` file under its `android/` directory (sorted by filename, name
+  and contents both hashed).
+
+This file is meant to be committed to version control, the same as any
+other lockfile.
+
+## The very first sync
+
+If `wefter.lock.json` doesn't exist yet, there's nothing to compare
+against, so nothing can be drift. The first successful sync just creates
+the file fresh with whatever's currently installed. Drift detection only
+starts mattering from the second sync onward, once there's a prior state
+to check against.
+
+## What counts as drift
+
+On the next `sync`, for every plugin already present in the lockfile, the
+CLI recomputes the installed version and compares it against the locked
+`resolved` value. Any mismatch is drift:
+
+```
+Plugin version drift detected against wefter.lock.json:
+  - device-info: locked at 0.0.1, found 0.1.0
+Run `wefter sync --update-lock` if this is expected.
+```
+
+Note what's compared: only the installed version string, not a fresh
+integrity hash. A plugin's `android/*.kt` source or `plugin.json` changing
+without a version bump doesn't trigger this check. The integrity hash is
+recorded for your own diffing (see below), not re-verified automatically
+on every sync.
+
+A plugin with no matching entry in the existing lockfile yet (first time
+it's been synced) is never drift, drift only applies to plugins the
+lockfile already knows about.
+
+## Failing on purpose
+
+If drift is detected and `--update-lock` wasn't passed, `sync` throws
+before touching the native project at all, no partial regeneration, no
+silently-stale registry. This is the guardrail against a plugin silently
+being upgraded or downgraded underneath a project (e.g. by a routine `pnpm
+install` bumping a caret range) without anyone noticing.
+
+## `--update-lock`
+
+```bash
+wefter sync --update-lock
+```
+
+Skips the drift check for this run and proceeds normally, `sync` still
+does everything it always does, including rewriting the lockfile at the
+end with whatever's actually installed right now. There's no partial
+"accept just this one plugin's drift" mode; it's all-or-nothing for the
+run.
+
+**Deleting the file entirely is a valid alternative to `--update-lock`**
+when you want to reset tracking for every plugin at once rather than
+accept drift for one specific run: with no lockfile to compare against, the
+next sync behaves like the very first sync described above and writes a
+brand-new one from scratch. Useful after a deliberate, large-scale plugin
+version bump across a project where you don't want a drift warning at all,
+just a clean new baseline.
+
+## Reading a diff by hand
+
+- `resolved` changed → the plugin was upgraded or downgraded.
+- `integrity` changed but `resolved` didn't → the plugin's native source or
+  `plugin.json` changed without a version bump (worth asking why, since it
+  means two different builds could ship under the same declared version).

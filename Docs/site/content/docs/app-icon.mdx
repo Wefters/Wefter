@@ -1,0 +1,53 @@
+---
+title: App Icon
+description: How the launcher icon is generated, and what ships by default.
+---
+
+## What gets generated
+
+From one source image, any size, it's resized per density, `wefter sync`
+generates a launcher icon (`ic_launcher.png`) at every Android mipmap
+density:
+
+| Density   | Size  |
+| --------- | ----- |
+| `mdpi`    | 48px  |
+| `hdpi`    | 72px  |
+| `xhdpi`   | 96px  |
+| `xxhdpi`  | 144px |
+| `xxxhdpi` | 192px |
+
+<Callout type="warn">
+  Adaptive icon layers (separate foreground/background, Android 8 and newer)
+  aren't generated yet, only the legacy per-density `ic_launcher.png`. If your
+  icon looks different on adaptive-icon-aware launchers than you expected, this
+  is why.
+</Callout>
+
+## Regenerated fresh on every `sync`
+
+Icon output is derived from config every run, not persisted state. Set
+`icon` once in `wefter.config.json` and every `sync` regenerates all five
+density files from that source. There's nothing to keep in sync by hand.
+
+```json
+{ "icon": "./resources/icon.png" }
+```
+
+## The default icon when `icon` is omitted
+
+If `icon` isn't set, `sync` doesn't touch the mipmap files at all, the app
+simply keeps the default Wefter launcher icon it ships with. A fresh
+project never shows a broken or missing icon; it shows this default until
+you configure your own.
+
+## Previewing without committing to config
+
+```bash
+wefter icon generate ./my-logo.png
+```
+
+Generates icons from a source image immediately, without touching
+`wefter.config.json`. Useful for a quick look, but this output is lost on
+the next `wefter sync` unless you also set `icon` in config to make it
+permanent. Full flag reference on the [CLI tab](/cli/icon-generate).

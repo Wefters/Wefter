@@ -1,0 +1,8 @@
+// One of 4 leaf configurations (Debug|Release × Development|Production), mirroring Android's
+// `assemble<Env><Type>` matrix (2 productFlavors × 2 buildTypes). Purely #include glue — never
+// touched by the CLI. Each composite pulls in the build-type xcconfig (Debug/Release, for
+// compilation conditions) and the environment xcconfig (bundle id / app name); the CLI's
+// injectors only ever write into Debug.xcconfig, Release.xcconfig, or an Environment-*.xcconfig
+// — never into one of these 4 files directly.
+#include "Debug.xcconfig"
+#include "Environment-development.xcconfig"

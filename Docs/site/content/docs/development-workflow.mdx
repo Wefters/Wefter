@@ -1,0 +1,102 @@
+---
+title: Development Workflow
+description: The real day-to-day loop — sync vs build vs run, and hot reload.
+---
+
+## `sync` vs `build` vs `run`
+
+All three overlap, but they do genuinely different amounts of work, and
+knowing which one you actually need saves real time over a session.
+
+**`wefter sync`** reads `wefter.config.json`, resolves whatever plugins
+you've declared, verifies them against `wefter.lock.json`, and regenerates
+the entire native Android project from scratch under `.wefter/native/`.
+That includes copying in your web build, weaving plugin source, and merging
+Gradle dependencies and Android permissions. It does not compile Kotlin,
+does not produce an APK, and does not touch a device. This is the cheapest
+of the three commands, and the one you'd reach for when you want to inspect
+what a config or plugin change actually produces without waiting on a full
+Gradle build.
+
+**`wefter build android`** calls `sync` first, then hands the regenerated
+project to Gradle and produces a real APK. `--release` switches from a
+debug build to a signed release artifact; `--env <name>` picks which entry
+under `environments` to build against, defaulting to `development` if you
+leave it off. This is what you want when you need the actual file, for
+example to hand off a build to someone else or archive one, but don't need
+it installed anywhere right now.
+
+**`wefter run android`** calls `sync` and `build`, then installs the result
+on whatever device or emulator is currently connected and launches it.
+Add `--watch` for hot reload, covered below. This is the command you'll
+run the most.
+
+Day to day, you rarely call `sync` on its own. The common cases where you
+do: you changed `wefter.config.json` and want to see the generated native
+project before building anything, or you're debugging something in the
+weaving step itself and want to isolate it from the slower build/install
+cycle.
+
+## The hot-reload loop
+
+```bash
+wefter run android --watch
+```
+
+This builds a debug APK, but instead of pointing its WebView at the
+bundled assets from your last build, it points it at a local Vite dev
+server running on your machine. The APK gets installed and launched once,
+then stays open while the dev server keeps running in the same terminal.
+From there, saving a change to your web app reloads on the device directly,
+no reinstall, the same feel as editing in a browser tab with Vite's own dev
+server open. Press <kbd>Ctrl+C</kbd> to stop the session; this shuts the
+dev server down and leaves the last installed build on the device as-is.
+
+Worth knowing: this only gives you live reload for your web code. Changing
+a plugin's Kotlin source, its `plugin.json`, or anything else that affects
+the native project isn't picked up by `--watch` at all. That needs a real
+`wefter sync` and a fresh `wefter run`, since native code has to actually
+be recompiled by Gradle, not hot-swapped the way JS can be.
+
+## What happens if the dev server goes away
+
+The app doesn't silently fall back to a stale bundled build. When it can't
+reach the dev server, it shows a clear "Dev server unreachable" message on
+screen instead of a browser-style connection error. This is a deliberate
+choice: a debug build silently serving old bundled content while you think
+you're looking at live changes would be a worse failure mode than an
+obvious, honest one. If you see that message, the fix is simply to restart
+`wefter run android --watch` and reload the app once the new session is up.
+
+## Switching between environments
+
+Since each entry under `environments` carries its own Android application
+ID, a development build and a production build aren't just different
+config, they're different apps as far as the device is concerned. That
+means you can have both installed on the same phone at the same time
+without one overwriting the other, which is genuinely useful for comparing
+a production build's real behavior against whatever you're actively
+changing in development, side by side, without uninstalling anything.
+
+```bash
+wefter run android --env production
+```
+
+## Building for release
+
+```bash
+wefter doctor --release-readiness
+wefter build android --release --env production
+```
+
+Run the readiness check first. It verifies your `signing` config is
+present, that the keystore file it points at actually exists on disk, and
+that `WEFTER_KEYSTORE_PASSWORD` is set in your environment, before you
+spend a full Gradle build only to have it fail right at the signing step
+with nothing to show for the wait. Once that passes, `--release --env
+production` produces a real, signed artifact using your production
+environment's application ID and app name. Install it on a real device and
+actually open it before shipping it anywhere further; a build that
+compiles and signs cleanly can still have a config mistake (wrong `webDir`,
+a plugin that failed to weave silently) that only shows up once it's
+actually running.

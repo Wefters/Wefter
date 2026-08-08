@@ -1,0 +1,9 @@
+#include "Shared.xcconfig"
+
+// Enables `#if DEBUG` in Swift (unlike Objective-C, Swift does not get this for free from a
+// configuration merely being named "Debug" — it must be listed explicitly here). Consumed by
+// BuildConfig.swift's `#if DEBUG` branch, which is where DEV_SERVER_URL actually lives — see
+// the note in BuildConfig.swift for why that value is a Swift source marker, not an xcconfig
+// key like this file's other settings.
+SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG
+ONLY_ACTIVE_ARCH = YES

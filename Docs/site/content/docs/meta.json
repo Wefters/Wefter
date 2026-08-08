@@ -1,0 +1,20 @@
+{
+  "title": "Docs",
+  "pages": [
+    "index",
+    "---Getting Started---",
+    "introduction",
+    "environment-setup",
+    "installing",
+    "faq",
+    "---Basics---",
+    "development-workflow",
+    "plugin-registry",
+    "app-configuration",
+    "app-icon",
+    "app-splash-screen",
+    "javascript-apis"
+  ],
+  "root": true,
+  "description": "Architecture, setup, and configuration", "icon": "BookOpen"
+}

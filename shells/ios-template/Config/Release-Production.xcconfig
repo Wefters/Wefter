@@ -1,0 +1,3 @@
+// See Debug-Development.xcconfig for what this composite-configuration group is for.
+#include "Release.xcconfig"
+#include "Environment-production.xcconfig"

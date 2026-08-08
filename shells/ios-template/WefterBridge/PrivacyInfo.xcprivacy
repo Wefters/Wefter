@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Apple-required privacy manifest — no Android analog at all (see
+  IOS_IMPLEMENTATION_GUIDE.md Section 15). Ships as a minimal, honest default: the shell
+  itself tracks nothing, collects nothing, and uses no "required reason" API. If a plugin's
+  native code uses one of Apple's required-reason API categories (e.g. UserDefaults, file
+  timestamps, disk space), its entry belongs in NSPrivacyAccessedAPITypes below — this is a
+  static, hand-maintained file for now, not something registry-codegen merges into
+  automatically. Treat that as a real gap if a plugin ever needs one, not a silent guarantee.
+-->
+<plist version="1.0">
+<dict>
+	<key>NSPrivacyTracking</key>
+	<false/>
+	<key>NSPrivacyTrackingDomains</key>
+	<array/>
+	<key>NSPrivacyCollectedDataTypes</key>
+	<array/>
+	<key>NSPrivacyAccessedAPITypes</key>
+	<array/>
+</dict>
+</plist>

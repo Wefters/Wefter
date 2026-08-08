@@ -1,0 +1,72 @@
+---
+title: wefter audit
+description: Read-only — what it prints, and what it never touches.
+---
+
+```bash
+wefter audit [projectDir]
+```
+
+| Argument | Type | Default | Purpose |
+| --- | --- | --- | --- |
+| `projectDir` | positional, optional | current working directory | Project root. |
+
+Resolves declared plugins from `wefter.config.json` and reports exactly
+what the next [`wefter sync`](/cli/sync) would weave in — without writing
+anything. No `wefter.lock.json` update, no native project regeneration, no
+`wefter.config.json` change. Safe to run anytime, including in CI as a
+pre-merge check.
+
+## What it prints
+
+**Every resolved plugin**, with its declared permissions and Gradle
+dependency (if any):
+
+```
+Plugins (2):
+  device-info — permissions: android.permission.INTERNET
+  ping-test — permissions: none, gradle: com.squareup.okhttp3:okhttp:4.12.0
+```
+
+**Declared but not installed** — plugin names in `config.plugins` with no
+matching package found under `config.pluginsDir`:
+
+```
+Declared but not installed: @wefter/plugin-missing
+```
+
+**Permission audit violations** — the same sensitive-API check `sync` runs
+(a plugin's Kotlin source uses `CameraX` or `LocationManager` without
+declaring the matching permission in `plugin.json`):
+
+```
+Permission audit violations:
+  - scanner: uses CameraX but does not declare android.permission.CAMERA in plugin.json
+```
+
+**Lockfile drift** — the same comparison covered on [wefter.lock.json's
+role](/cli/lockfile-role), between each resolved plugin's installed
+version and what's recorded in `wefter.lock.json`:
+
+```
+Lockfile drift:
+  - device-info: locked at 0.0.1, found 0.1.0
+```
+
+## Reports instead of blocking
+
+This is the key difference from `sync`: where a permission violation or
+lockfile drift *fails* `wefter sync`, `audit` only reports them and still
+exits `0`. It's a look-before-you-sync command, not a gate — useful for
+seeing what a `sync` would object to without actually running it (and
+without needing `--update-lock` to get past drift just to inspect
+plugins).
+
+## Exit codes
+
+`0` on a completed audit, regardless of what it found. `1` only if the
+audit itself couldn't run — e.g. an invalid `wefter.config.json`:
+
+```
+Audit failed: <reason>
+```

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <style name="Theme.Wefter" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="android:windowBackground">@color/splashBackground</item>
+        <item name="android:windowLayoutInDisplayCutoutMode" tools:targetApi="28">shortEdges</item>
+    </style>
+
+    <!-- Stage 1 — brief, unavoidable, OS-level. Exits on first frame with no custom hold
+         condition; purely a background + icon so the OS never shows a bare default flash.
+         The real, brandable splash is Stage 2 (developer-authored HTML, see MainActivity). -->
+    <style name="Theme.App.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/splashBackground</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher</item>
+        <item name="postSplashScreenTheme">@style/Theme.Wefter</item>
+    </style>
+</resources>

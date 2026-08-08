@@ -1,0 +1,109 @@
+---
+title: Installing
+description: Assembling a Wefter project today, by hand.
+---
+
+<Callout type="warn">
+  As of 2026-08-07, `wefter init` does not exist yet, this page documents the
+  current manual setup. Once `init` ships, this page gets replaced entirely, not
+  appended to.
+</Callout>
+
+Wefter doesn't have a scaffolding command yet, so putting together your
+first project right now means four manual steps: install the two packages,
+write a config file, weave the native project, and run it. This page
+assumes you've already worked through [Environment
+Setup](/docs/environment-setup) and have a working JDK, Android SDK, and a
+device or emulator ready to go.
+
+## 1. Install the CLI and core package
+
+Two separate packages doing two separate jobs. `@wefter/cli` is the
+command-line tool itself, the thing that reads your config and drives
+`sync`, `build`, and `run`. `@wefter/core` is the runtime library that
+actually ships inside your compiled app, giving your JS code `invokeNative`
+and `registerHook` to talk to native plugins. The CLI is a dev dependency
+since it never runs on the device, and core is a real dependency since your
+app needs it at runtime.
+
+In your web app's project, or a fresh one:
+
+```bash
+pnpm add -D @wefter/cli
+pnpm add @wefter/core
+```
+
+## 2. Create `wefter.config.json`
+
+This file, sitting at your project root next to `package.json`, is what
+`wefter sync` reads to figure out what your native project should actually
+look like. Nothing in it is optional boilerplate; every field changes real
+behavior.
+
+```json
+{
+  "webDir": "dist",
+  "environments": {
+    "development": {
+      "appId": "com.yourcompany.app.dev",
+      "appName": "Your App (Dev)"
+    },
+    "production": { "appId": "com.yourcompany.app", "appName": "Your App" }
+  },
+  "plugins": []
+}
+```
+
+`webDir` points at wherever your frontend's build output lands, `dist` by
+default for a Vite project. This is the folder `sync` copies into the
+native app as its bundled assets.
+
+The two entries under `environments` aren't just labels. Each one carries
+its own Android application ID, which is what makes a development build
+and a production build two separate, independently installable apps on the
+same device, rather than one app that keeps overwriting itself every time
+you rebuild.
+
+`plugins` starts empty on purpose. Wefter doesn't scan your `node_modules`
+looking for anything that might be a plugin. A package only gets woven into
+your app once you explicitly run `wefter add` against it, so this array is
+your project's complete, honest list of every native capability the app can
+reach.
+
+The full field-by-field breakdown lives on the [App Configuration
+reference](/docs/app-configuration).
+
+## 3. Sync
+
+```bash
+wefter sync
+```
+
+This is the step that turns config into an actual native project. It
+recreates the Android shell from scratch under `.wefter/native/`, copies
+your built web assets in, weaves in whatever plugins you've declared,
+merges their Gradle dependencies and Android permissions, and writes out
+`wefter.lock.json` recording exactly which plugin versions went in.
+
+That directory is disposable. You never hand-edit anything inside
+`.wefter/native/`, because the next `sync` throws it away and rebuilds it
+fresh from your config. If you ever need to hand-edit the native project
+directly, that's what `wefter eject` is for, and it's a one-way door, not
+something you'd reach for by default.
+
+## 4. Run it
+
+```bash
+wefter run android --watch
+```
+
+This builds the app, installs it on whatever device or emulator is
+currently connected, and launches it. With `--watch`, the app's WebView
+points at a live local dev server instead of the bundled files, so editing
+your code and saving reflects on the device in well under a second, the
+same hot reload you'd get from Vite in a browser tab.
+
+Once it's running, [Development Workflow](/docs/development-workflow)
+covers the rest of the day-to-day loop: when to reach for a plain `sync`,
+when you need a full `build`, and what happens if the dev server becomes
+unreachable mid-session.

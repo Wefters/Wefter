@@ -1,0 +1,92 @@
+---
+title: wefter doctor
+description: Every check it runs, --release-readiness.
+---
+
+```bash
+wefter doctor [projectDir] [--release-readiness]
+```
+
+| Argument/Option | Type | Default | Purpose |
+| --- | --- | --- | --- |
+| `projectDir` | positional, optional | current working directory | Only actually needed for `--release-readiness`, since the plain environment checks don't touch a project at all. |
+| `--release-readiness` | boolean flag | `false` | Also run the release-blocking checks below. |
+
+Exits `0` if every check passes, `1` if any fail. Every failing check
+prints a `Fix:` line underneath it, never just a bare pass/fail.
+
+## The environment checks (always run)
+
+Five checks, always run in this order, regardless of `--release-readiness`:
+
+| Check | Passes when | Fix shown on failure |
+| --- | --- | --- |
+| Node.js version | `process.version` major ≥ 18 | Install Node.js 18+ (nvm install 18, or from nodejs.org) |
+| `ANDROID_HOME` set | `ANDROID_HOME` or `ANDROID_SDK_ROOT` env var is set | Set `ANDROID_HOME` (or `ANDROID_SDK_ROOT`) to your Android SDK install path |
+| `adb` on PATH | `adb version` runs without error | Add `$ANDROID_HOME/platform-tools` to your PATH |
+| JDK version | `java -version` reports major version ≥ 17 | Install JDK 17 and set `JAVA_HOME` |
+| Connected device or emulator | `adb devices` lists at least one line ending in `device` | Run `emulator -avd <name>` or connect a device with USB debugging enabled |
+
+Sample output when everything passes:
+
+```
+Running environment checks...
+✔ Node.js version (v22.1.0)
+✔ ANDROID_HOME set (/home/you/Android/Sdk)
+✔ adb on PATH
+✔ JDK version (17)
+✔ Connected device or emulator (1 device(s))
+All checks passed.
+```
+
+Sample output with a failure:
+
+```
+Running environment checks...
+✔ Node.js version (v22.1.0)
+✘ ANDROID_HOME set
+    Fix: set ANDROID_HOME (or ANDROID_SDK_ROOT) to your Android SDK install path
+...
+Some checks failed — see the Fix lines above.
+```
+
+## `--release-readiness` (additional checks)
+
+```bash
+wefter doctor --release-readiness
+```
+
+Loads `wefter.config.json` from `projectDir` and runs these on top of the
+five above:
+
+| Check | Passes when | Fix shown on failure |
+| --- | --- | --- |
+| Release security lint | See below — the same check `wefter build --release` runs before compiling | Run `wefter sync` and address each issue listed |
+| Signing config | `wefter.config.json` has a `signing` block | Add a `signing` block to `wefter.config.json` (`keystorePath`, `keyAlias`) |
+| Signing keystore present | The file at `signing.keystorePath` actually exists on disk | Keystore not found at `<resolved path>` |
+| `WEFTER_KEYSTORE_PASSWORD` set | The env var is set in the current shell/`.env` | Set `WEFTER_KEYSTORE_PASSWORD` in `.env` (gitignored) before running a release build |
+
+The **release security lint** itself checks four things in the generated
+native project:
+
+- The release build type's `DEV_SERVER_URL` build config field is empty
+  (it should never carry a dev server URL into a release artifact).
+- No `.kt` file under `src/main` hardcodes
+  `setWebContentsDebuggingEnabled(true)` outside a `BuildConfig.DEBUG`
+  gate.
+- The debug network security config file exists at its expected path.
+- A `signing` block is present in config and its keystore file exists —
+  checked again here in addition to the two dedicated checks above,
+  since this lint doubles as the exact gate `wefter build --release` runs
+  before it will compile anything.
+
+If `--release-readiness` is skipped, the CLI reads `signing` for nothing —
+skipping it is the whole point of the flag: fast, no-project-context
+checks by default, and the release-specific ones only when you ask.
+
+<Callout type="info">
+  The Docs tab's [Environment Setup](/docs/environment-setup) and
+  [Development Workflow](/docs/development-workflow) pages walk through
+  *why* each of these matters and when to reach for `--release-readiness`
+  in your actual workflow. This page is the flag reference.
+</Callout>

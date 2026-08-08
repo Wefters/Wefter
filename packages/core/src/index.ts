@@ -1,0 +1,11 @@
+export {
+  invokeNative,
+  registerHook,
+  onBridgeReady,
+  isNativeBridgeAvailable,
+} from './internal/native-bridge.js';
+export { WefterBridgeError, type WefterErrorCode } from './internal/errors.js';
+export { getPlatformInfo, CORE_PROTOCOL_VERSION, type PlatformInfo } from './internal/platform-info.js';
+export { definePlugin } from './internal/define-plugin.js';
+
+import './internal/error-safety-net.js';

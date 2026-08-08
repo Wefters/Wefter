@@ -1,0 +1,9 @@
+// Settings shared by every environment × build-type combination. Static — the CLI never
+// writes into this file. Mirrors the fixed, non-flavor-specific settings block at the top of
+// shells/android-template/app/build.gradle.kts (compileSdk/minSdk/compileOptions).
+
+IPHONEOS_DEPLOYMENT_TARGET = 16.0
+SWIFT_VERSION = 5.0
+TARGETED_DEVICE_FAMILY = 1,2
+ENABLE_BITCODE = NO
+CODE_SIGN_STYLE = Automatic

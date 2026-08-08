@@ -1,0 +1,111 @@
+---
+title: Wefter Docs
+description: Ship Android apps as a WebView + native bridge — no interpreter, no separate mobile codebase.
+---
+
+# Build native Android apps with the JavaScript you already know
+
+Wefter wraps your web app in a thin native shell and gives it typed,
+pluggable access to real device capability, camera, storage, biometrics,
+and more, through a lean JS to Kotlin bridge. No backend interpreter
+bundled into your app, no custom rendering engine to learn, no second
+codebase to maintain. Vue, React, Angular, Svelte, or plain JS, the bridge
+doesn't care which one you bring.
+
+```bash
+npx wefter add @wefter/plugin-device-info
+npx wefter run android --watch
+```
+
+That's the whole workflow: write JS, declare the native capability you
+need, run one command, see it on a real device.
+
+---
+
+## How it works
+
+Four moving parts, in order:
+
+**1. You write your app.** Vue, React, Angular, Svelte, or plain JS, the
+same code you'd already write for the web, running inside an Android
+`WebView`.
+
+**2. You declare what native capability you need.** `wefter add
+@yourorg/scanner-plugin` installs a plugin package, validates it, and only
+if it passes, declares it in `wefter.config.json`.
+
+**3. `wefter sync` weaves it into a real native project.** Native source
+gets copied in, Gradle dependencies and Android permissions get merged, and
+a typed registry gets generated, all inside `.wefter/native/android`, a
+disposable, fully regenerated project you never hand-edit.
+
+**4. `wefter run` builds, installs, and launches it** on a real device or
+emulator, with live reload while you're actively developing.
+
+At runtime, your JS calls a native method through a single typed bridge
+call, `invokeNative('scanner', 'open', {})`, and gets a real Promise back.
+There's no local server sitting between your UI and your native code and
+nothing to boot before that call can go through.
+
+---
+
+## Start here
+
+<Cards>
+  <Card
+    title="Introduction"
+    href="/docs/introduction"
+    description="What Wefter is and how it's built."
+  />
+  <Card
+    title="Environment Setup"
+    href="/docs/environment-setup"
+    description="Get your machine ready — Node, JDK, Android SDK, and a device or emulator to run against."
+  />
+  <Card
+    title="Installing"
+    href="/docs/installing"
+    description="Set up your first Wefter project and get it running on a real device."
+  />
+  <Card
+    title="App Configuration"
+    href="/docs/app-configuration"
+    description="The full wefter.config.json reference — every field, what it controls, and what it defaults to."
+  />
+</Cards>
+
+---
+
+## Why Wefter
+
+**No interpreter, no bundled backend.** Your app is JS running in a
+WebView, nothing else is spinning up underneath it. Native calls cross a
+single, typed bridge with no server process in between.
+
+**Framework-agnostic, genuinely.** The bridge doesn't know or care what
+rendered the page. `invokeNative` and `registerHook` are plain function
+exports, not tied to any component model. A Vue app, a React app, and a
+plain `<script>` tag all call the exact same two functions the exact same
+way.
+
+**Small on purpose.** No custom rendering engine, no framework runtime
+baked into the shell. The compiled app size is a tracked constraint,
+checked in CI, not an afterthought bolted on after the fact.
+
+**Native code you can actually read.** The generated Android project isn't
+a black box, it's a small, readable Kotlin shell plus whatever plugins you
+declare. Nothing is hidden behind a compiled binary or a proprietary
+format.
+
+---
+
+## Where to go next
+
+- Building a plugin, not just an app? Head to the **[Plugin](/plugin)** tab
+  for anatomy, the native API surface, and a full worked tutorial.
+- Looking up a specific command? Head to the **[CLI](/cli)** tab for every
+  command, every flag, every failure mode documented.
+- Want the full architecture story first? Read
+  [Introduction](/docs/introduction), then
+  [Plugin Registry](/docs/plugin-registry) to see exactly how declaration,
+  validation, and weaving fit together.

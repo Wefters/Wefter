@@ -1,0 +1,126 @@
+---
+title: App Splash Screen
+description: HTML-authored, parallel-loaded, and fully optional.
+---
+
+## Decorative, not load-bearing
+
+Wefter has no framework boot time to hide behind a splash screen. There's
+nothing to wait for before your app can render, so the splash screen exists
+purely for branding, and it's disabled by default.
+
+## Two stages
+
+**Stage 1, OS-level, unavoidable, brief.** Backed by
+`androidx.core.splashscreen`'s `installSplashScreen()`. It's just a
+background color and an icon, gone by the first frame. Its only job is
+making sure the OS never shows a bare white flash before anything else
+renders.
+
+**Stage 2, your branded splash.** A second WebView, loaded in parallel with
+the main app WebView, not sequentially before it, since there's no boot
+time to justify a real wait. It shows whatever HTML you author yourself.
+
+## Fully disableable
+
+```json
+{ "splash": false }
+```
+
+is identical to omitting the `splash` key entirely, both mean zero Stage 2
+splash. When enabled:
+
+```json
+{
+  "splash": {
+    "html": "./resources/splash.html",
+    "minDurationMs": 600,
+    "fadeOutDurationMs": 300
+  }
+}
+```
+
+| Field               | Type              | Default  |
+| ------------------- | ----------------- | -------- |
+| `html`              | `string`          | required |
+| `minDurationMs`     | `number` (0–5000) | `600`    |
+| `fadeOutDurationMs` | `number` (0–1000) | `300`    |
+
+## Disabled means never constructed
+
+When splash is disabled, the splash WebView isn't just hidden, it's never
+created at all. There's no second WebView sitting inertly in memory, and no
+overhead from a feature you're not using.
+
+The splash WebView also never gets access to the native bridge. It runs
+with JavaScript enabled, so JS-driven animation works and not just CSS, but
+it has no way to call `invokeNative` or reach anything on the native side.
+
+## Dismissal: the `appReady` hook
+
+Zero-config default: the main WebView's page-load completion fires the
+`appReady` hook automatically. No code required on your end.
+
+Opt-in, for apps that want to hold the splash open past first paint, for
+example until initial data has loaded:
+
+```ts
+import { invokeNative } from "@wefter/core";
+
+await invokeNative("system", "appReady", {});
+```
+
+Either path converges on the same dismissal: the splash fades out over
+`fadeOutDurationMs`, respecting `minDurationMs` as a floor. A fallback
+timer also exists as a safety net, in case a page never finishes loading,
+so a broken page can't strand a user on the splash forever.
+
+## A complete example
+
+```html
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      body {
+        margin: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        background: #0f766e;
+      }
+      .mark {
+        width: 72px;
+        height: 72px;
+        border-radius: 20px;
+        background: #ffffff;
+        animation: pulse 1.2s ease-in-out infinite;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+          transform: scale(1);
+        }
+        50% {
+          opacity: 0.7;
+          transform: scale(0.92);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="mark"></div>
+  </body>
+</html>
+```
+
+Scaffold this exact starting point with:
+
+```bash
+wefter splash generate
+```
+
+See the [CLI tab](/cli/splash-generate) for flags.

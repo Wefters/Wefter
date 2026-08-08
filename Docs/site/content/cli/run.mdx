@@ -1,0 +1,99 @@
+---
+title: wefter run
+description: --watch, --env, and dev-server-unreachable behavior.
+---
+
+```bash
+wefter run <platform> [projectDir] [--watch] [--env <environment>]
+```
+
+| Argument/Option | Type | Default | Purpose |
+| --- | --- | --- | --- |
+| `platform` | positional, required | — | Only `"android"` is supported right now, same as `build`. |
+| `projectDir` | positional, optional | current working directory | Project root. |
+| `--watch` | boolean flag | `false` | Point the installed app's WebView at a live local dev server instead of bundled assets. |
+| `--env <environment>` | string | `"development"` | Which `config.environments` entry to build, install, and launch. Must exist in config or the command fails: `Unknown environment "<x>". Configured environments: <list>`. |
+
+```bash
+wefter run android --watch
+wefter run android --env production
+```
+
+Always builds a **debug** artifact — `run` has no `--release` option;
+that's what [`wefter build android --release`](/cli/build) is for.
+
+## Same freshness requirement as `build`
+
+`run` requires the project already be synced and current, with the exact
+same check and error messages as [`wefter build`](/cli/build#requires-an-already-fresh-sync--it-does-not-sync-for-you).
+Run [`wefter sync`](/cli/sync) first if you've changed config or a plugin.
+
+## What `--watch` actually does
+
+1. **Resolves a LAN IP** the device can reach your machine on.
+   `WEFTER_LAN_IP` overrides everything if set. Otherwise it enumerates
+   network interfaces, skips virtualization ones (`docker`, `veth`,
+   `tailscale`, `wg`, etc.), and if more than one real candidate remains
+   and the terminal is interactive, prompts you to pick one — the
+   Wi-Fi-named interface is pre-selected as the recommended default. In a
+   non-interactive shell (CI, a script) with multiple candidates, it picks
+   the recommended one automatically and prints a warning rather than
+   hanging on a prompt.
+2. **Starts a Vite dev server** at `node_modules/.bin/vite --host 0.0.0.0
+   --port 5173 --strictPort`, and waits for its own "ready" output before
+   continuing. Fails immediately with a clear message if `vite` isn't
+   installed in the project.
+3. **Wires the dev server into the native project** — adds a network
+   security exception for your LAN IP to the debug network security
+   config, and injects the dev server's URL into the debug build type's
+   `DEV_SERVER_URL` build config field. Both edits are wrapped in the same
+   snapshot-and-restore transaction [`sync`](/cli/sync#ejected-projects-transactional)
+   uses on ejected projects, so a failure here doesn't leave the native
+   project half-wired.
+4. Builds, installs, and launches as normal (see below). The app comes up
+   already pointed at your dev server — editing and saving your web code
+   reloads on-device directly, no reinstall.
+
+Press <kbd>Ctrl+C</kbd> to stop — this kills the Vite process and exits
+cleanly; the last installed build stays on the device as-is.
+
+<Callout type="warn">
+  `--watch` only gives you live reload for web code. A plugin's Kotlin
+  source, its `plugin.json`, or anything else that changes the native
+  project isn't picked up — that needs a real `wefter sync` and a fresh
+  `wefter run`, since native code has to be recompiled by Gradle.
+</Callout>
+
+## Build, install, launch (every run, `--watch` or not)
+
+After the dev-server wiring above (skipped entirely without `--watch`),
+every `run` builds a debug APK for the chosen `--env`, then:
+
+```bash
+adb install -r <apkPath>
+adb shell am start -n <applicationId>/<namespace>.MainActivity
+```
+
+`applicationId` comes from the chosen environment's `appId`; `namespace`
+is the Android namespace derived from config (see [wefter.config.json's
+role](/cli/config-role)). If a plugin is declared but not resolvable in
+`node_modules`, the same warning `build` shows is printed here too,
+before install proceeds.
+
+## Dev-server-unreachable behavior
+
+This part happens on the device, not in the CLI: if the app (built with
+`--watch`) ever can't reach the dev server — the machine went to sleep,
+the network dropped, you stopped the CLI process — the WebView doesn't
+silently fall back to stale bundled content or show a generic browser
+connection error. It shows a `"Dev server unreachable"` message and
+blanks the page, a deliberate, honest failure rather than a confusing
+one. The fix is simply restarting `wefter run android --watch` and
+reloading. Full context on this behavior lives on [Development
+Workflow](/docs/development-workflow#what-happens-if-the-dev-server-goes-away).
+
+## Failure and exit codes
+
+Any failure — unsupported platform, unknown environment, stale sync, a
+missing Vite binary, a failed `adb install`/`adb shell` — prints `Run
+failed: <reason>` and sets `process.exitCode = 1`.

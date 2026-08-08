@@ -1,0 +1,62 @@
+---
+title: wefter icon generate
+description: Standalone icon preview — and the "lost on next sync" caveat.
+---
+
+```bash
+wefter icon generate <source> [projectDir]
+```
+
+| Argument | Type | Purpose |
+| --- | --- | --- |
+| `source` | positional, required | Path to a source image, relative to `projectDir`. Any size — it's resized per density. Fails with `Icon source not found: <resolved path>` if it doesn't exist. |
+| `projectDir` | positional, optional, default current working directory | Project root. |
+
+```bash
+wefter icon generate ./my-logo.png
+```
+
+## What it generates
+
+Resizes the source image to five Android launcher icon densities and
+writes each as `ic_launcher.png`:
+
+| Density | Size |
+| --- | --- |
+| `mdpi` | 48px |
+| `hdpi` | 72px |
+| `xhdpi` | 96px |
+| `xxhdpi` | 144px |
+| `xxxhdpi` | 192px |
+
+<Callout type="warn">
+  Only the legacy per-density `ic_launcher.png` is generated — adaptive
+  icon layers (separate foreground/background, Android 8+) aren't
+  supported yet. Full context on this on the Docs tab's [App
+  Icon](/docs/app-icon) page.
+</Callout>
+
+## Standalone means it writes straight into the current native project
+
+Unlike setting `icon` in `wefter.config.json`, this command writes
+directly into the *current* generated (or ejected) native project's
+resource directory immediately — it does not read or write
+`wefter.config.json`, and it runs entirely independent of
+[`wefter sync`](/cli/sync).
+
+## Lost on the next `wefter sync`, unless config says otherwise
+
+Because `sync` regenerates the native shell from scratch, running this
+command as a one-off preview means the icons it wrote are gone the moment
+you next run `wefter sync` — unless `icon` is also set in
+`wefter.config.json`, in which case `sync` regenerates the same five
+files from that source itself, every time, and this command becomes
+redundant for anything but a quick before-you-commit-to-config look:
+
+```json
+{ "icon": "./resources/icon.png" }
+```
+
+Use `wefter icon generate` to preview quickly on a device without editing
+config yet; set `icon` in config once you're happy with the source image,
+so it survives every future sync automatically.

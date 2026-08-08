@@ -1,0 +1,5 @@
+{
+  "name": "ping-test",
+  "methods": ["ping"],
+  "events": ["tick"]
+}

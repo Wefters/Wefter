@@ -1,0 +1,14 @@
+{
+  "name": "full-plugin",
+  "permissions": {
+    "android": ["android.permission.CAMERA"]
+  },
+  "nativeDependencies": {
+    "android": {
+      "gradle": "com.google.zxing:core:3.5.3"
+    }
+  },
+  "methods": ["scan", "cancel"],
+  "hooks": ["onActivityResult"],
+  "events": ["result", "error"]
+}

@@ -1,0 +1,82 @@
+---
+title: Installing and Running
+description: npx wefter vs. a local devDependency install.
+---
+
+## It's a devDependency, not a global install
+
+`@wefter/cli` is meant to sit in your project's own `devDependencies`, not
+installed globally. It never ships inside your compiled app (that's
+`@wefter/core`'s job), it only runs on your machine during development and
+in CI.
+
+```bash
+pnpm add -D @wefter/cli
+```
+
+The package declares one bin:
+
+```json
+{ "bin": { "wefter": "dist/cli.js" } }
+```
+
+Once installed, `wefter` resolves through `node_modules/.bin`, no global
+install, no version drift between machines or CI runners, since the exact
+version is whatever's pinned in your `package.json`/lockfile like any other
+dependency.
+
+## The very first time, before it's installed at all
+
+If you run `npx wefter` in a project that's never installed `@wefter/cli`
+as a devDependency, `npx` doesn't fail, it offers to fetch the package
+temporarily and run it once:
+
+```
+Need to install the following packages:
+@wefter/cli@1.x.x
+Ok to proceed? (y)
+```
+
+That's fine for a one-off command, but it's not what you want for actual
+development, since it re-downloads on every invocation and isn't pinned to
+a specific version. Run `pnpm add -D @wefter/cli` once, and every `npx
+wefter` after that resolves the local, pinned install instead.
+
+## Two ways to invoke it
+
+**`npx wefter <command>`.** `npx` checks `node_modules/.bin` first before
+it would ever reach out to the registry, so once `@wefter/cli` is a local
+devDependency this runs the local install, not a fresh download. This is
+what every example on the Docs tab uses.
+
+```bash
+npx wefter add @wefter/plugin-device-info
+npx wefter run android --watch
+```
+
+**A `package.json` script.** The more common pattern once a project is
+past the getting-started stage, since `pnpm run <script>` (or `npm
+run`/`yarn`) also resolves local bins without the `npx` prefix:
+
+```json
+{
+  "scripts": {
+    "wefter:watch": "wefter run android --watch --env development .",
+    "wefter:build": "pnpm run build && wefter build android --env production --release ."
+  }
+}
+```
+
+Both invoke the exact same binary. Which one you reach for is a style
+choice, not a functional difference.
+
+## No-args behavior
+
+Running `wefter` with no command prints the full command list with
+one-line descriptions instead of an error:
+
+```bash
+wefter
+```
+
+Add `--help` after any individual command for that command's own usage.

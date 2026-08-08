@@ -1,0 +1,80 @@
+---
+title: wefter add
+description: The validation-gate explanation — install, validate, then declare or reject.
+---
+
+```bash
+wefter add <plugin> [projectDir]
+```
+
+| Argument | Type | Purpose |
+| --- | --- | --- |
+| `plugin` | positional, required | An npm package spec: `name` or `name@version` (e.g. `@wefter/plugin-device-info` or `some-plugin@1.2.0`). Scoped and unscoped names both accepted. |
+| `projectDir` | positional, optional, default current working directory | Project root. |
+
+```bash
+wefter add @wefter/plugin-device-info
+wefter add some-plugin@1.2.0
+```
+
+An invalid-looking spec is rejected before anything runs: `"<spec>"
+doesn't look like a valid npm package name.`
+
+## Install → validate → declare, or reject — never partial
+
+`add` is deliberately all-or-nothing about what ends up in
+`wefter.config.json`, in this exact order:
+
+1. **Your own config is checked first.** `wefter.config.json` is loaded
+   and validated before `add` touches anything, so a broken config fails
+   immediately rather than after an npm install.
+2. **The package is installed** with `npm install <spec>` inside
+   `projectDir` — note this shells out to `npm` specifically, not
+   whatever package manager your project otherwise uses.
+3. **The installed package is validated** — the exact same check
+   [`wefter plugin validate`](/cli/plugin-validate) runs standalone: a
+   `plugin.json` that matches the schema, an `android/` directory, no
+   malformed `@WefterMethod`/`@WefterHook` signatures, and `plugin.json`'s
+   declared `methods`/`hooks` matching what's actually in the Kotlin
+   source.
+4. **Only if validation passes** does `add` touch `wefter.config.json` at
+   all — appending the plugin's bare package name (not the version spec)
+   to the `plugins` array and writing the file back out.
+
+## If validation fails
+
+The package stays installed in `node_modules` — `add` doesn't undo the
+npm install — but `wefter.config.json` is left completely untouched:
+
+```
+@some/bad-plugin failed validation and will NOT be added:
+  - No android/ directory found — a Wefter plugin must ship native source.
+The package was installed but NOT declared in wefter.config.json.
+```
+
+Exit code `1`. This is the point of validating before declaring: a plugin
+that fails validation can never silently become part of what
+[`wefter sync`](/cli/sync) weaves into your app, even though it's sitting
+in `node_modules` right next to the ones that are declared.
+
+## Already declared
+
+If the package name is already present in `config.plugins`, `add` does
+nothing further and exits `0` with a warning rather than duplicating the
+entry:
+
+```
+@wefter/plugin-device-info is already declared in wefter.config.json — nothing to add.
+```
+
+## On success
+
+```
+Validated and added @wefter/plugin-device-info to wefter.config.json.
+Run `wefter sync` to weave it into the native project.
+```
+
+Note that `add` only declares the plugin — it doesn't run `sync` itself.
+The plugin isn't actually woven into the native project (Gradle deps,
+permissions, generated registry) until you run [`wefter
+sync`](/cli/sync).

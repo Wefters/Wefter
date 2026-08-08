@@ -1,0 +1,92 @@
+---
+title: wefter.config.json's Role
+description: How the CLI reads config, and where the full field reference actually lives.
+---
+
+<Callout type="info">
+  This page covers how the CLI *reads and uses* config. For the full
+  field-by-field schema, every key, type, default, and a complete example, see
+  [App Configuration](/docs/app-configuration) on the Docs tab. This page won't
+  repeat that table.
+</Callout>
+
+## Loaded fresh, every command
+
+Every command that touches a project reads `wefter.config.json` from
+scratch at the start of that run via a single `loadWefterConfig(projectDir)`
+call. There's no cached or long-lived config object. If the file changed
+since the last command, the next one sees the new version immediately.
+
+If the file doesn't exist at all, an empty object is used instead of
+failing, and an existing-but-empty `{}` file resolves identically, since
+both paths just fall through to the same schema defaults (`plugins: []`,
+`webDir: "dist"`, a `development` environment, and so on). A brand-new
+project with no config file yet still resolves to something usable.
+
+If the file exists but fails schema validation, every command fails fast
+with:
+
+```
+Invalid wefter.config.json: <zod validation detail>
+```
+
+before doing any other work, no partial sync, no partial build.
+
+## Not every command needs it
+
+`wefter` (bare) and `wefter --help` never touch a project at all, so they
+work with no config file anywhere nearby. `wefter create-plugin` scaffolds
+a standalone plugin package and doesn't require an app project's config
+either. `wefter plugin validate`, when run against a plugin's own
+directory rather than inside an app project, is the same, it validates
+that plugin's own `plugin.json`, not any `wefter.config.json`. Every other
+command genuinely needs a valid config to do anything.
+
+## Where the Android namespace comes from
+
+There's no separate "package name" field. The Android namespace (the
+Kotlin `package` every generated and woven file uses) is derived from your
+`environments` block: the `production` entry's `appId` if one exists,
+falling back to `development`, falling back to whichever environment is
+listed first.
+
+```json
+{
+  "environments": {
+    "development": {
+      "appId": "com.yourcompany.app.dev",
+      "appName": "Your App (Dev)"
+    },
+    "production": { "appId": "com.yourcompany.app", "appName": "Your App" }
+  }
+}
+```
+
+For this config, the Android namespace is `com.yourcompany.app`, the
+`production` entry, even though `development` might be the one you build
+against most often day to day. A config with zero environments defined
+fails with:
+
+```
+wefter.config.json needs at least one environment with an appId — the Android package is derived from it.
+```
+
+This is deliberate. Production is treated as the canonical identity of the
+app, and dev/staging environments are variations on it, not the other way
+around.
+
+## `pluginsDir` and where plugins actually resolve from
+
+`config.pluginsDir` (default `"node_modules"`) is joined with the project
+directory to get the directory `wefter sync`/`add`/`audit` resolve declared
+plugin packages from. Changing it doesn't change how npm/pnpm installs
+packages, it only changes where the CLI looks for `plugin.json` files
+matching the names in `config.plugins`, see
+[Plugin Registry](/docs/plugin-registry) for the full resolution flow.
+
+## Ejected projects still read config
+
+`wefter.config.json` keeps being read normally after [`wefter
+eject`](/cli/eject). Ejecting stops the native project from being
+regenerated, it doesn't stop the CLI from reading your config to know
+things like which environment maps to which `appId` at build/run time.

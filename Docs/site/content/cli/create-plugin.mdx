@@ -1,0 +1,127 @@
+---
+title: wefter create-plugin
+description: What gets scaffolded, and the namespace-constraint warning.
+---
+
+```bash
+wefter create-plugin <name> [targetDir]
+```
+
+| Argument | Type | Default | Purpose |
+| --- | --- | --- | --- |
+| `name` | positional, required | — | Plugin package name, e.g. `secure-storage`. Used as the directory name and (in PascalCase) the generated class name. |
+| `targetDir` | positional, optional | current working directory | Directory to scaffold the new `<name>/` folder into. |
+
+```bash
+wefter create-plugin secure-storage
+```
+
+## What gets scaffolded
+
+A working, buildable-as-is starting point at `<targetDir>/<name>/`:
+
+```
+secure-storage/
+├── package.json
+├── plugin.json
+├── README.md
+├── src/
+│   └── index.ts
+└── android/
+    └── SecureStoragePlugin.kt
+```
+
+**`package.json`** — `name` set to `@yourorg/<name>` (edit the scope to
+your own), depends on `@wefter/core`:
+
+```json
+{
+  "name": "@yourorg/secure-storage",
+  "version": "0.0.1",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "dependencies": { "@wefter/core": "^0.0.1" }
+}
+```
+
+**`plugin.json`** — the manifest [`wefter plugin
+validate`](/cli/plugin-validate) and [`wefter sync`](/cli/sync) both read,
+starting empty:
+
+```json
+{
+  "name": "secure-storage",
+  "permissions": { "android": [] },
+  "methods": [],
+  "hooks": [],
+  "events": []
+}
+```
+
+**`src/index.ts`** — the JS-side export your app will import, with a
+commented example call ready to uncomment:
+
+```ts
+import { invokeNative } from "@wefter/core";
+
+export const SecureStorage = {
+  // example(payload: {}): Promise<unknown> {
+  //   return invokeNative("secure-storage", "example", payload);
+  // },
+};
+```
+
+**`android/SecureStoragePlugin.kt`** — a real, minimal working method
+using the `@WefterMethod` convention:
+
+```kotlin
+package dev.wefter.bridge
+
+import android.content.Context
+import org.json.JSONObject
+
+class SecureStoragePlugin(context: Context, dispatcher: BridgeDispatcher) : WefterPlugin(context, dispatcher) {
+    @WefterMethod
+    fun example(payload: JSONObject, callback: (Result<Any>) -> Unit) {
+        resolve(callback, JSONObject().put("ok", true))
+    }
+}
+```
+
+**`README.md`** — a one-line stub pointing at the plugin-authoring guide.
+
+## The namespace constraint — don't change that `package` line
+
+<Callout type="warn">
+  Leave `package dev.wefter.bridge` at the top of every `.kt` file under
+  `android/` exactly as scaffolded, even though it isn't your plugin's
+  real package and never will be.
+</Callout>
+
+Every Wefter plugin's native source is authored against this one fixed
+placeholder package, on purpose — a plugin author never needs to know
+which namespace any particular host app will actually use. When
+[`wefter sync`](/cli/sync) weaves your plugin's `android/` source into a
+host app, it does a literal string replace of `package dev.wefter.bridge`
+with that app's real namespace, for every `.kt` file it copies in.
+
+If you rename that package line to anything else — even something that
+looks more "correct" for your plugin — the rewrite has nothing to match,
+so your file gets copied in with whatever package you wrote instead of
+the host app's real one. The class ends up outside the namespace the
+generated registry expects it in, and the woven project won't build. The
+class name (`SecureStoragePlugin`) is yours to change freely; the
+`package` line at the top of each file is not.
+
+## Next steps
+
+```bash
+wefter plugin validate ./secure-storage
+```
+
+confirms the scaffold (or your edited version of it) passes validation
+standalone, without needing a full app project around it — see [`wefter
+plugin validate`](/cli/plugin-validate). From there, [`wefter
+add`](/cli/add) it into a real project once it's published or linked
+locally.

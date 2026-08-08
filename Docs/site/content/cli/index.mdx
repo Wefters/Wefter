@@ -1,0 +1,75 @@
+---
+title: Wefter CLI
+description: Every command, every flag, every failure mode, documented.
+---
+
+# `wefter` — the CLI
+
+One binary, one job: read `wefter.config.json`, weave it into a real
+Android project, and drive that project through build, install, and
+launch. Everything below is the actual command surface as of this
+package's current version, nothing aspirational.
+
+```bash
+npx wefter <command> [options]
+```
+
+## Reading this reference
+
+Square brackets mean optional, angle brackets mean required.
+`wefter build <platform> [--release] [projectDir]` means `platform` is the one thing you
+must supply, `--release` and a project directory are both optional. Every
+command that touches a project directory accepts that optional
+`[projectDir]` argument and defaults to your current working directory, so
+running a command from inside your project needs nothing extra, and
+running it against a project elsewhere just means passing the path.
+
+## All commands
+
+| Command                                          | What it does                                                                                         |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------------------------- |
+| [`wefter doctor`](/cli/doctor)                   | Checks your machine is set up to build Wefter apps, Node, Android SDK, adb, JDK, a connected device. |
+| [`wefter sync`](/cli/sync)                       | Resolves declared plugins and regenerates the native Android project from `wefter.config.json`.      |
+| [`wefter build android`](/cli/build)             | Syncs, then produces a real APK via Gradle.                                                          |
+| [`wefter run android`](/cli/run)                 | Syncs, builds, installs on a device, launches it, optionally with hot reload.                        |
+| [`wefter add`](/cli/add)                         | Installs an npm plugin package, validates it, and declares it in config, all or nothing.             |
+| [`wefter audit`](/cli/audit)                     | Read-only: prints exactly what the next `sync` would weave in.                                       |
+| [`wefter icon generate`](/cli/icon-generate)     | Previews Android launcher icons from a source image.                                                 |
+| [`wefter splash generate`](/cli/splash-generate) | Scaffolds a working example `splash.html`.                                                           |
+| [`wefter create-plugin`](/cli/create-plugin)     | Scaffolds a new plugin package from working boilerplate.                                             |
+| [`wefter plugin validate`](/cli/plugin-validate) | Validates a plugin directory against the plugin schema and source conventions, standalone.           |
+| [`wefter eject`](/cli/eject)                     | Copies the generated native project to `android/` for hand-editing, a one-way door.                  |
+
+## Three things worth understanding before the individual pages
+
+<Cards>
+  <Card
+    title="Installing and running"
+    href="/cli/installing-and-running"
+    description="npx wefter vs. a local devDependency install."
+  />
+  <Card
+    title="wefter.config.json's role"
+    href="/cli/config-role"
+    description="How the CLI reads config, and where the full field reference actually lives."
+  />
+  <Card
+    title="wefter.lock.json's role"
+    href="/cli/lockfile-role"
+    description="What drift means, what triggers it, and what --update-lock does."
+  />
+</Cards>
+
+## The shape most sessions follow
+
+```bash
+wefter doctor
+wefter sync
+wefter run android --watch
+```
+
+Check the machine once, weave config into a real project, run it with hot
+reload. [Development Workflow](/docs/development-workflow) on the Docs tab
+covers the day-to-day loop between `sync`, `build`, and `run` in more depth
+than this tab does. This tab is command reference; that page is the
+narrative.

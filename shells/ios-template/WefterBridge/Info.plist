@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleDisplayName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundleExecutable</key>
+	<string>$(EXECUTABLE_NAME)</string>
+	<key>CFBundleIdentifier</key>
+	<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+	<key>CFBundleName</key>
+	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>0.0.1</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSRequiresIPhoneOS</key>
+	<true/>
+	<key>UIApplicationSceneManifest</key>
+	<dict>
+		<key>UIApplicationSupportsMultipleScenes</key>
+		<false/>
+		<key>UISceneConfigurations</key>
+		<dict>
+			<key>UIWindowSceneSessionRoleApplication</key>
+			<array>
+				<dict>
+					<key>UISceneConfigurationName</key>
+					<string>Default Configuration</string>
+					<key>UISceneDelegateClassName</key>
+					<string>$(PRODUCT_MODULE_NAME).SceneDelegate</string>
+				</dict>
+			</array>
+		</dict>
+	</dict>
+	<key>UILaunchStoryboardName</key>
+	<string>LaunchScreen</string>
+	<key>UISupportedInterfaceOrientations</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+
+	<!-- Privacy usage-description keys merged in here by registry-codegen's
+	     merge-info-plist.ts, one <key>NSFooUsageDescription</key><string>...</string> pair per
+	     entry in an installed plugin's plugin.json "permissions.ios" map. Unlike Android's
+	     permissions.android (a bare string[] of manifest constants), each iOS entry is a
+	     {key: description} pair — iOS requires the app to supply the user-facing dialog text
+	     itself, or the app is rejected at App Store review. See
+	     IOS_IMPLEMENTATION_GUIDE.md Section 15. Everything between the two markers below is
+	     replaced wholesale on every merge — comments belong out here, not inside them. -->
+	<!-- WEFTER-PERMISSIONS-START -->
+	<!-- WEFTER-PERMISSIONS-END -->
+
+	<!-- LAN dev-server domain exceptions merged into NSExceptionDomains below by
+	     native/inject-dev-server-ios.ts's injectNetworkSecurityExceptionIos, mirroring
+	     Android's network_security_config.xml <domain> entries — the direct ATS equivalent.
+	     Unlike Android, which keeps this in a debug-only source set so release builds
+	     physically cannot ship it, iOS has one Info.plist for the whole target: this block
+	     MUST be emptied for release the same way DEV_SERVER_URL is reset (see
+	     resetNetworkSecurityExceptionsIos), and release-security-check-ios.ts audits that it's
+	     empty before a release build is allowed to proceed. -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<!-- WEFTER-ATS-EXCEPTIONS-START -->
+		<key>NSExceptionDomains</key>
+		<dict/>
+		<!-- WEFTER-ATS-EXCEPTIONS-END -->
+	</dict>
+</dict>
+</plist>

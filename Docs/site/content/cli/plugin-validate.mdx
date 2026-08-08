@@ -1,0 +1,93 @@
+---
+title: wefter plugin validate
+description: Standalone usage — the same validation core wefter add and wefter sync both run.
+---
+
+```bash
+wefter plugin validate [pluginDir]
+```
+
+| Argument | Type | Default | Purpose |
+| --- | --- | --- | --- |
+| `pluginDir` | positional, optional | current working directory | Directory to validate — a plugin package root, containing `plugin.json` and `android/`. |
+
+```bash
+wefter plugin validate ./secure-storage
+```
+
+This is the exact same validation function [`wefter add`](/cli/add) runs
+on a freshly-installed package and [`wefter sync`](/cli/sync) runs on
+every declared plugin before weaving — exposed standalone so a plugin
+author can check their work without a full host app project around it at
+all.
+
+## What it checks, in order
+
+1. **`plugin.json` exists.** Missing entirely fails with `No plugin.json
+   found — not a Wefter plugin.`
+2. **`plugin.json` matches the schema** — `name` (required string),
+   `permissions.android` (string array, defaults to `[]`),
+   `nativeDependencies.android.gradle`/`proguardRules` (both optional),
+   `methods`, `hooks`, `events` (string arrays, all default `[]`).
+   Failure: `Invalid plugin.json: <schema error detail>`.
+3. **`android/` directory exists.** Missing fails with `No android/
+   directory found — a Wefter plugin must ship native source.`
+4. **Every `@WefterMethod` and `@WefterHook` signature is well-formed.**
+   All `.kt` files under `android/` are concatenated and scanned. A
+   well-formed method looks exactly like:
+   ```kotlin
+   @WefterMethod
+   fun methodName(payload: JSONObject, callback: (Result<Any>) -> Unit) {
+   ```
+   and a well-formed hook exactly like:
+   ```kotlin
+   @WefterHook("hookName")
+   fun methodName() {
+   ```
+   Anything annotated `@WefterMethod`/`@WefterHook` that doesn't match
+   this shape fails with `Malformed @WefterMethod signature at line <n>`
+   or `Malformed @WefterHook signature at line <n>` — line numbers point
+   at the concatenated source, in file-read order, so with a single `.kt`
+   file per plugin (the common case) it lines up with that file directly.
+   Any malformed signature stops validation here; consistency (next step)
+   isn't checked until signatures are all clean.
+5. **`plugin.json` and source agree on `methods`/`hooks`.** The
+   `methods`/`hooks` actually found via `@WefterMethod`/`@WefterHook` in
+   source are compared against what `plugin.json` declares:
+   ```
+   Plugin "secure-storage": plugin.json's "methods" declares [store, retrieve] but source has [store]. Missing: [retrieve]. Undeclared: [].
+   ```
+   Both directions are checked — a method declared in `plugin.json` but
+   missing from source, and a method present in source but never declared.
+
+<Callout type="info">
+  Step 5 only runs once `plugin.json` actually declares at least one
+  method or hook. An empty `methods: []`/`hooks: []` doesn't force your
+  Kotlin source to have zero `@WefterMethod`/`@WefterHook` functions —
+  the check activates the moment you start declaring, not before.
+</Callout>
+
+## Output
+
+Failure lists every issue found and exits `1`:
+
+```
+Plugin validation failed:
+  - No android/ directory found — a Wefter plugin must ship native source.
+```
+
+Success:
+
+```
+Plugin is valid.
+```
+
+with `process.exitCode = 0`.
+
+## Where this fits
+
+[`wefter create-plugin`](/cli/create-plugin) scaffolds a plugin that
+passes this validation as-shipped — running `plugin validate` right after
+scaffolding (or after any edit) is the fast standalone check, before
+ever installing the plugin into a real app with [`wefter
+add`](/cli/add).

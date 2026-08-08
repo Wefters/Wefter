@@ -1,0 +1,7 @@
+packages:
+  - "packages/*"
+  - "plugins/*"
+  - "demo/*"
+  - "Docs/*"
+allowBuilds:
+  esbuild: true
