@@ -8,10 +8,10 @@
     "build": "vue-tsc -b && vite build",
     "preview": "vite preview",
     "wefter:sync": "wefter sync .",
-    "wefter:dev:android": "pnpm run build && wefter sync . && wefter run android --env development --watch .",
-    "wefter:dev:ios": "pnpm run build && wefter sync . && wefter run ios --env development --watch .",
-    "wefter:build:android": "pnpm run build && wefter sync . && wefter build android --env production .",
-    "wefter:build:ios": "pnpm run build && wefter sync . && wefter build ios --env production ."
+    "wefter:dev:android": "wefter run android --env development --watch .",
+    "wefter:dev:ios": "wefter run ios --env development --watch .",
+    "wefter:build:android": "pnpm run build && wefter build android --env production .",
+    "wefter:build:ios": "pnpm run build && wefter build ios --env production ."
   },
   "dependencies": {
     "vue": "^3.5.40",
