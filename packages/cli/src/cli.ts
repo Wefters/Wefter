@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { resolve } from "node:path";
 import { config as loadDotenv } from "dotenv";
-import { Command } from "commander";
+import { Command, type Help } from "commander";
 import { sync } from "./commands/sync.js";
 import { build, buildIosCommand } from "./commands/build.js";
 import { run, runIos } from "./commands/run.js";
@@ -15,7 +15,7 @@ import { pluginValidate } from "./commands/plugin-validate.js";
 import { runAllChecks } from "./doctor/checks.js";
 import { runReleaseReadinessChecks } from "./doctor/release-readiness.js";
 import { allPassed, buildReportLines } from "./doctor/report.js";
-import { buildHelpLines } from "./help/render-help.js";
+import { renderHelp } from "./help/render-help.js";
 import logger from "./utils/logger.js";
 
 loadDotenv();
@@ -317,19 +317,20 @@ pluginCommand
     process.exitCode = 0;
   });
 
-function printHelp(): void {
-  for (const line of buildHelpLines(program)) logger.segmentColor(line);
+function applyHelpStyle(cmd: Command): void {
+  cmd.configureHelp({
+    formatHelp: (targetCmd: Command, helper: Help) => {
+      for (const line of renderHelp(targetCmd, helper)) logger.segmentColor(line);
+      return "";
+    },
+  });
+  for (const sub of cmd.commands) applyHelpStyle(sub);
 }
 
-program.configureHelp({
-  formatHelp: () => {
-    printHelp();
-    return "";
-  },
-});
+applyHelpStyle(program);
 
 if (process.argv.length <= 2) {
-  printHelp();
+  program.outputHelp();
   process.exitCode = 0;
 } else {
   program.parse();
