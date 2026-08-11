@@ -64,6 +64,7 @@ import { shellTemplatePath, iosShellTemplatePath } from "../native/shell-templat
 import { resolveRegisteredPlugins, unresolvedRegisteredPlugins } from "../plugins/registry.js";
 import { checkLockDrift, writeLockfile } from "../plugins/lockfile.js";
 import { writeSyncMarker } from "../plugins/sync-freshness.js";
+import { runHook } from "../hooks/run-hook.js";
 
 export interface SyncResult {
   plugins: string[];
@@ -128,6 +129,8 @@ export async function sync(
   projectDir: string,
   options: SyncOptions = {},
 ): Promise<SyncResult> {
+  await runHook(projectDir, "sync", "before");
+
   const requireWebAssets = options.requireWebAssets ?? true;
   const config = loadWefterConfig(projectDir);
   const ejected = isEjected(projectDir);
@@ -286,23 +289,27 @@ export async function sync(
     };
   };
 
-  if (ejected) {
-    const protectedPaths = [
-      outFile,
-      pluginSourceDir,
-      buildGradlePath,
-      manifestPath,
-      webAssetsDir,
-      proguardRulesPath,
-      iosOutFile,
-      iosPluginSourceDirPath,
-      iosBuildConfigPathVar,
-      iosInfoPlistPathVar,
-      iosWebAssetsDirPath,
-      iosNativeDependenciesPackagePathVar,
-    ];
-    return runTransactionalSync(protectedPaths, doSync);
-  }
+  const result = ejected
+    ? await runTransactionalSync(
+        [
+          outFile,
+          pluginSourceDir,
+          buildGradlePath,
+          manifestPath,
+          webAssetsDir,
+          proguardRulesPath,
+          iosOutFile,
+          iosPluginSourceDirPath,
+          iosBuildConfigPathVar,
+          iosInfoPlistPathVar,
+          iosWebAssetsDirPath,
+          iosNativeDependenciesPackagePathVar,
+        ],
+        doSync,
+      )
+    : await doSync();
 
-  return doSync();
+  await runHook(projectDir, "sync", "after");
+
+  return result;
 }

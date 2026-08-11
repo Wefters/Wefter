@@ -20,6 +20,7 @@ import {
 import { runTransactionalSync } from "../utils/transactional-sync.js";
 import { checkSyncFreshness } from "../plugins/sync-freshness.js";
 import { unresolvedRegisteredPlugins } from "../plugins/registry.js";
+import { runHook } from "../hooks/run-hook.js";
 import logger from "../utils/logger.js";
 
 export interface RunOptions {
@@ -52,6 +53,8 @@ export async function run(projectDir: string, options: RunOptions): Promise<DevS
     );
   }
 
+  await runHook(projectDir, "run", "before", { platform: "android", environment: options.env });
+
   if (options.watch) {
     const lanIp = await resolveLanIp();
     devServer = await startDevServer(projectDir, lanIp);
@@ -71,6 +74,8 @@ export async function run(projectDir: string, options: RunOptions): Promise<DevS
 
   logger.info(`Installing ${chalk.cyan(apkPath)} on the device...`);
   await installAndLaunch(apkPath, environment.appId, androidNamespace(config));
+
+  await runHook(projectDir, "run", "after", { platform: "android", environment: options.env });
 
   return devServer;
 }
@@ -122,6 +127,8 @@ export async function runIos(projectDir: string, options: IosRunOptions): Promis
     );
   }
 
+  await runHook(projectDir, "run", "before", { platform: "ios", environment: options.env });
+
   if (options.watch) {
     const lanIp = await resolveLanIp();
     devServer = await startDevServer(projectDir, lanIp);
@@ -142,6 +149,8 @@ export async function runIos(projectDir: string, options: IosRunOptions): Promis
   const simulator = await resolveSimulator(options.simulator);
   logger.info(`Installing ${chalk.cyan(appPath)} on ${chalk.bold(simulator)}...`);
   await installAndLaunchIos(appPath, iosBundleId(config, options.env), simulator);
+
+  await runHook(projectDir, "run", "after", { platform: "ios", environment: options.env });
 
   return devServer;
 }

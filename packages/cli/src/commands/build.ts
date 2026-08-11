@@ -5,6 +5,7 @@ import { checkReleaseSecurityIos } from "../native/release-security-check-ios.js
 import { loadWefterConfig, pluginsDirPath } from "../config/project-paths.js";
 import { checkSyncFreshness } from "../plugins/sync-freshness.js";
 import { resolveRegisteredPlugins, unresolvedRegisteredPlugins } from "../plugins/registry.js";
+import { runHook } from "../hooks/run-hook.js";
 
 export interface BuildResult extends AndroidBuildResult {
   syncedPlugins: string[];
@@ -24,6 +25,8 @@ export async function build(projectDir: string, options: BuildOptions): Promise<
 
   const config = loadWefterConfig(projectDir);
 
+  await runHook(projectDir, "build", "before", { platform: "android", environment: options.env });
+
   if (options.release) {
     const releaseCheck = checkReleaseSecurity(projectDir, config);
     if (!releaseCheck.passed) {
@@ -38,6 +41,8 @@ export async function build(projectDir: string, options: BuildOptions): Promise<
   const unresolved = unresolvedRegisteredPlugins(pluginsDir, config.plugins);
 
   const { apkPath, sizeBytes } = await buildAndroid(projectDir, config, options.env, options.release);
+
+  await runHook(projectDir, "build", "after", { platform: "android", environment: options.env });
 
   return {
     apkPath,
@@ -64,6 +69,8 @@ export async function buildIosCommand(projectDir: string, options: IosBuildComma
 
   const config = loadWefterConfig(projectDir);
 
+  await runHook(projectDir, "build", "before", { platform: "ios", environment: options.env });
+
   if (options.release) {
     const releaseCheck = checkReleaseSecurityIos(projectDir, config);
     if (!releaseCheck.passed) {
@@ -80,6 +87,8 @@ export async function buildIosCommand(projectDir: string, options: IosBuildComma
   const { appPath, sizeBytes } = await buildIos(projectDir, config, options.env, options.release, {
     simulator: options.simulator,
   });
+
+  await runHook(projectDir, "build", "after", { platform: "ios", environment: options.env });
 
   return {
     appPath,
