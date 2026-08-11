@@ -93,6 +93,15 @@ class MainActivity : AppCompatActivity() {
         loadInitialContent()
     }
 
+    override fun onRequestPermissionsResult(
+            requestCode: Int,
+            permissions: Array<out String>,
+            grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        dispatcher.handlePermissionResult(requestCode, grantResults)
+    }
+
     private fun setupSplash() {
         val splash =
                 WebView(this).also {
@@ -120,7 +129,9 @@ class MainActivity : AppCompatActivity() {
 
     private fun interceptWithCsp(request: WebResourceRequest): WebResourceResponse? {
         val response = assetLoader.shouldInterceptRequest(request.url) ?: return null
-        val headers = (response.responseHeaders ?: emptyMap()) + mapOf("Content-Security-Policy" to CONTENT_SECURITY_POLICY)
+        val headers =
+                (response.responseHeaders
+                        ?: emptyMap()) + mapOf("Content-Security-Policy" to CONTENT_SECURITY_POLICY)
         response.responseHeaders = headers
         return response
     }
@@ -155,9 +166,7 @@ class MainActivity : AppCompatActivity() {
                         if (scheme == "http" || scheme == "https") {
                             try {
                                 startActivity(Intent(Intent.ACTION_VIEW, request.url))
-                            } catch (e: ActivityNotFoundException) {
-
-                            }
+                            } catch (e: ActivityNotFoundException) {}
                         }
                         return true
                     }

@@ -16,6 +16,7 @@ import {
   findMalformedWefterMethodsSwift,
 } from "./extract-wefter-plugin-swift.js";
 import { auditPluginConsistency } from "./audit-plugin-consistency.js";
+import { auditPermissionHandling } from "./audit-permission-handling.js";
 import type { PluginExtraction } from "./codegen-android.js";
 import type { PluginExtractionSwift } from "./codegen-ios.js";
 
@@ -88,6 +89,9 @@ export function validatePluginDirectory(pluginDir: string): PluginValidationResu
   } catch (e) {
     return { valid: false, issues: [(e as Error).message] };
   }
+
+  const permissionIssues = hasAndroid ? auditPermissionHandling(manifest, androidSource) : [];
+  if (permissionIssues.length > 0) return { valid: false, issues: permissionIssues };
 
   return {
     valid: true,

@@ -7,6 +7,7 @@ import { resolveLanIp } from "../devserver/lan-ip.js";
 import { injectDevServerUrl, injectNetworkSecurityException } from "../native/inject-dev-server.js";
 import { injectDevServerUrlIos, injectNetworkSecurityExceptionIos } from "../native/inject-dev-server-ios.js";
 import { resolveSimulator, installAndLaunchIos } from "../native/ios-run.js";
+import { checkInfoPlistPermissionKeys } from "../native/check-info-plist-permissions.js";
 import {
   androidNamespace,
   androidBuildGradlePath,
@@ -19,7 +20,7 @@ import {
 } from "../config/project-paths.js";
 import { runTransactionalSync } from "../utils/transactional-sync.js";
 import { checkSyncFreshness } from "../plugins/sync-freshness.js";
-import { unresolvedRegisteredPlugins } from "../plugins/registry.js";
+import { resolveRegisteredPlugins, unresolvedRegisteredPlugins } from "../plugins/registry.js";
 import { runHook } from "../hooks/run-hook.js";
 import logger from "../utils/logger.js";
 
@@ -119,6 +120,7 @@ export async function runIos(projectDir: string, options: IosRunOptions): Promis
   }
 
   const pluginsDir = pluginsDirPath(projectDir, config);
+  const resolved = resolveRegisteredPlugins(pluginsDir, config.plugins);
   const unresolved = unresolvedRegisteredPlugins(pluginsDir, config.plugins);
   if (unresolved.length > 0) {
     logger.warn(
@@ -141,6 +143,13 @@ export async function runIos(projectDir: string, options: IosRunOptions): Promis
       injectNetworkSecurityExceptionIos(infoPlistPath, lanIp);
       injectDevServerUrlIos(buildConfigPath, devServer!.url);
     });
+  }
+
+  const plistCheck = checkInfoPlistPermissionKeys(projectDir, resolved);
+  if (!plistCheck.passed) {
+    throw new Error(
+      `iOS permission configuration check failed:\n${plistCheck.issues.map((i) => `  - ${i}`).join("\n")}`,
+    );
   }
 
   logger.info(`Building the iOS app (env: ${chalk.bold(options.env)})...`);

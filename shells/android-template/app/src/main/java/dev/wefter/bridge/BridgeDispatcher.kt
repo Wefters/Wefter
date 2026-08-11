@@ -1,7 +1,10 @@
 package dev.wefter.bridge
 
+import android.app.Activity
+import android.content.pm.PackageManager
 import android.webkit.JavascriptInterface
 import android.webkit.WebView
+import androidx.core.app.ActivityCompat
 import org.json.JSONObject
 
 interface NativeModule {
@@ -14,6 +17,9 @@ class BridgeDispatcher(private val webView: WebView) {
     private val modules = mutableMapOf<String, NativeModule>()
     private val hookSubscribers = mutableMapOf<String, MutableList<() -> Unit>>()
 
+    private val pendingPermissionRequests = mutableMapOf<Int, (Boolean) -> Unit>()
+    private var nextPermissionRequestCode = 1000
+
     fun register(name: String, module: NativeModule) {
         modules[name] = module
         module.attachEmitter { hookName, data -> emit(hookName, data) }
@@ -25,6 +31,23 @@ class BridgeDispatcher(private val webView: WebView) {
 
     fun dispatchHook(hookName: String) {
         hookSubscribers[hookName]?.forEach { it() }
+    }
+
+    fun requestPermission(
+            activity: Activity,
+            permission: String,
+            onResult: (granted: Boolean) -> Unit
+    ) {
+        val requestCode = nextPermissionRequestCode++
+        pendingPermissionRequests[requestCode] = onResult
+        ActivityCompat.requestPermissions(activity, arrayOf(permission), requestCode)
+    }
+
+    fun handlePermissionResult(requestCode: Int, grantResults: IntArray) {
+        val callback = pendingPermissionRequests.remove(requestCode) ?: return
+        val granted =
+                grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED
+        callback(granted)
     }
 
     @JavascriptInterface

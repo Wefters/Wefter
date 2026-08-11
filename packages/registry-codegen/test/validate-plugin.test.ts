@@ -27,6 +27,25 @@ class ScannerPlugin(context: android.content.Context, dispatcher: BridgeDispatch
 }
 `;
 
+const WELL_FORMED_KOTLIN_WITH_PERMISSION_HANDLING = `
+package dev.wefter.bridge
+
+import org.json.JSONObject
+
+class ScannerPlugin(context: android.content.Context, dispatcher: BridgeDispatcher) : WefterPlugin(context, dispatcher) {
+    @WefterMethod
+    fun open(payload: JSONObject, callback: (Result<Any>) -> Unit) {
+        requestPermission(activity, "android.permission.CAMERA") { granted ->
+            if (granted) {
+                resolve(callback)
+            } else {
+                reject(callback, "PERMISSION_DENIED", "Camera permission not granted")
+            }
+        }
+    }
+}
+`;
+
 describe("validatePluginDirectory", () => {
   it("fails when there is no plugin.json at all", () => {
     pluginDir = makePluginDir();
@@ -97,6 +116,36 @@ describe("validatePluginDirectory", () => {
     expect(result.manifest?.name).toBe("scanner");
     expect(result.extraction?.methods.map((m) => m.name)).toEqual(["open"]);
     expect(result.iosExtraction).toBeUndefined();
+  });
+
+  it("fails when plugin.json declares an Android permission but no method rejects with PERMISSION_DENIED", () => {
+    pluginDir = makePluginDir();
+    writeFileSync(
+      join(pluginDir, "plugin.json"),
+      JSON.stringify({ name: "scanner", methods: ["open"], permissions: { android: ["android.permission.CAMERA"] } }),
+    );
+    mkdirSync(join(pluginDir, "android"));
+    writeFileSync(join(pluginDir, "android", "ScannerPlugin.kt"), WELL_FORMED_KOTLIN);
+
+    const result = validatePluginDirectory(pluginDir);
+
+    expect(result.valid).toBe(false);
+    expect(result.issues[0]).toContain("PERMISSION_DENIED");
+  });
+
+  it("passes when the declared Android permission's denial path rejects with PERMISSION_DENIED", () => {
+    pluginDir = makePluginDir();
+    writeFileSync(
+      join(pluginDir, "plugin.json"),
+      JSON.stringify({ name: "scanner", methods: ["open"], permissions: { android: ["android.permission.CAMERA"] } }),
+    );
+    mkdirSync(join(pluginDir, "android"));
+    writeFileSync(join(pluginDir, "android", "ScannerPlugin.kt"), WELL_FORMED_KOTLIN_WITH_PERMISSION_HANDLING);
+
+    const result = validatePluginDirectory(pluginDir);
+
+    expect(result.valid).toBe(true);
+    expect(result.issues).toEqual([]);
   });
 });
 

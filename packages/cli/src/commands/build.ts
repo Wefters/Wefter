@@ -2,6 +2,7 @@ import { buildAndroid, type AndroidBuildResult } from "../native/android-builder
 import { buildIos, type IosBuildResult } from "../native/ios-builder.js";
 import { checkReleaseSecurity } from "../native/release-security-check.js";
 import { checkReleaseSecurityIos } from "../native/release-security-check-ios.js";
+import { checkInfoPlistPermissionKeys } from "../native/check-info-plist-permissions.js";
 import { loadWefterConfig, pluginsDirPath } from "../config/project-paths.js";
 import { checkSyncFreshness } from "../plugins/sync-freshness.js";
 import { resolveRegisteredPlugins, unresolvedRegisteredPlugins } from "../plugins/registry.js";
@@ -83,6 +84,13 @@ export async function buildIosCommand(projectDir: string, options: IosBuildComma
   const pluginsDir = pluginsDirPath(projectDir, config);
   const resolved = resolveRegisteredPlugins(pluginsDir, config.plugins);
   const unresolved = unresolvedRegisteredPlugins(pluginsDir, config.plugins);
+
+  const plistCheck = checkInfoPlistPermissionKeys(projectDir, resolved);
+  if (!plistCheck.passed) {
+    throw new Error(
+      `iOS permission configuration check failed:\n${plistCheck.issues.map((i) => `  - ${i}`).join("\n")}`,
+    );
+  }
 
   const { appPath, sizeBytes } = await buildIos(projectDir, config, options.env, options.release, {
     simulator: options.simulator,

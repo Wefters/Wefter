@@ -1,11 +1,18 @@
 package dev.wefter.bridge
 
+import android.app.Activity
+import android.content.pm.PackageManager
 import android.webkit.WebView
+import androidx.core.app.ActivityCompat
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import org.mockito.ArgumentCaptor
+import org.mockito.ArgumentMatchers.any
+import org.mockito.ArgumentMatchers.eq
+import org.mockito.Mockito
 import org.mockito.Mockito.doAnswer
 import org.mockito.Mockito.mock
 
@@ -143,7 +150,14 @@ class BridgeDispatcherTest {
                             payload: JSONObject,
                             callback: (Result<Any>) -> Unit
                     ) {
-                        callback(Result.failure(WefterError("PERMISSION_DENIED", "Camera permission not granted")))
+                        callback(
+                                Result.failure(
+                                        WefterError(
+                                                "PERMISSION_DENIED",
+                                                "Camera permission not granted"
+                                        )
+                                )
+                        )
                     }
                 }
         )
@@ -207,5 +221,132 @@ class BridgeDispatcherTest {
     @Test
     fun `dispatchHook with no subscribers is a harmless no-op`() {
         dispatcher.dispatchHook("onPause")
+    }
+
+    @Test
+    fun `requestPermission delivers a granted result to the matching callback`() {
+        val activity = mock(Activity::class.java)
+        var result: Boolean? = null
+
+        val requestCode =
+                requestPermissionCapturingCode(activity, "android.permission.CAMERA") { granted ->
+                    result = granted
+                }
+
+        dispatcher.handlePermissionResult(
+                requestCode,
+                intArrayOf(PackageManager.PERMISSION_GRANTED)
+        )
+
+        assertEquals(true, result)
+    }
+
+    @Test
+    fun `requestPermission delivers a denied result when the grant result isn't PERMISSION_GRANTED`() {
+        val activity = mock(Activity::class.java)
+        var result: Boolean? = null
+
+        val requestCode =
+                requestPermissionCapturingCode(activity, "android.permission.CAMERA") { granted ->
+                    result = granted
+                }
+
+        dispatcher.handlePermissionResult(requestCode, intArrayOf(PackageManager.PERMISSION_DENIED))
+
+        assertEquals(false, result)
+    }
+
+    @Test
+    fun `an empty grantResults array (interaction interrupted) is treated as denied, not a crash`() {
+        val activity = mock(Activity::class.java)
+        var result: Boolean? = null
+
+        val requestCode =
+                requestPermissionCapturingCode(activity, "android.permission.CAMERA") { granted ->
+                    result = granted
+                }
+
+        dispatcher.handlePermissionResult(requestCode, intArrayOf())
+
+        assertEquals(false, result)
+    }
+
+    @Test
+    fun `each requestPermission call gets its own request code, even for the same permission`() {
+        val activity = mock(Activity::class.java)
+        val firstCode = requestPermissionCapturingCode(activity, "android.permission.CAMERA") {}
+        val secondCode = requestPermissionCapturingCode(activity, "android.permission.CAMERA") {}
+
+        assertTrue(firstCode != secondCode)
+    }
+
+    @Test
+    fun `a result for an unknown or already-resolved request code is a safe no-op, not a crash`() {
+        dispatcher.handlePermissionResult(9999, intArrayOf(PackageManager.PERMISSION_GRANTED))
+
+        val activity = mock(Activity::class.java)
+        var callCount = 0
+        val requestCode =
+                requestPermissionCapturingCode(activity, "android.permission.CAMERA") {
+                    callCount++
+                }
+
+        dispatcher.handlePermissionResult(
+                requestCode,
+                intArrayOf(PackageManager.PERMISSION_GRANTED)
+        )
+        dispatcher.handlePermissionResult(
+                requestCode,
+                intArrayOf(PackageManager.PERMISSION_GRANTED)
+        )
+
+        assertEquals(1, callCount)
+    }
+
+    @Test
+    fun `two concurrent permission requests from two different plugins resolve independently, not cross-resolved`() {
+        val cameraActivity = mock(Activity::class.java)
+        val locationActivity = mock(Activity::class.java)
+        var cameraResult: Boolean? = null
+        var locationResult: Boolean? = null
+
+        val cameraRequestCode =
+                requestPermissionCapturingCode(cameraActivity, "android.permission.CAMERA") {
+                        granted ->
+                    cameraResult = granted
+                }
+        val locationRequestCode =
+                requestPermissionCapturingCode(
+                        locationActivity,
+                        "android.permission.ACCESS_FINE_LOCATION"
+                ) { granted -> locationResult = granted }
+
+        dispatcher.handlePermissionResult(
+                locationRequestCode,
+                intArrayOf(PackageManager.PERMISSION_DENIED)
+        )
+        dispatcher.handlePermissionResult(
+                cameraRequestCode,
+                intArrayOf(PackageManager.PERMISSION_GRANTED)
+        )
+
+        assertEquals(true, cameraResult)
+        assertEquals(false, locationResult)
+    }
+
+    private fun requestPermissionCapturingCode(
+            activity: Activity,
+            permission: String,
+            onResult: (Boolean) -> Unit
+    ): Int {
+        Mockito.mockStatic(ActivityCompat::class.java).use { mockedStatic ->
+            dispatcher.requestPermission(activity, permission, onResult)
+
+            val requestCodeCaptor = ArgumentCaptor.forClass(Int::class.java)
+            mockedStatic.verify {
+                ActivityCompat.requestPermissions(eq(activity), any(), requestCodeCaptor.capture())
+            }
+            return requestCodeCaptor.value
+        }
     }
 }

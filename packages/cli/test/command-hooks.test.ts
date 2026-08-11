@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EventEmitter } from "node:events";
-import { cpSync, mkdtempSync, rmSync } from "node:fs";
+import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
+import { iosAppDir } from "../src/config/project-paths.js";
 
 const runHookMock = vi.fn().mockResolvedValue(undefined);
 vi.mock("../src/hooks/run-hook.js", () => ({
@@ -46,6 +47,13 @@ beforeEach(async () => {
   cpSync(join(fixtureTestProjectDir, "plugins"), join(projectDir, "plugins"), { recursive: true });
   cpSync(join(fixtureTestProjectDir, "wefter.config.json"), join(projectDir, "wefter.config.json"));
   cpSync(join(fixtureTestProjectDir, "web"), join(projectDir, "web"), { recursive: true });
+
+  const appDir = iosAppDir(projectDir);
+  mkdirSync(appDir, { recursive: true });
+  writeFileSync(
+    join(appDir, "Info.plist"),
+    '<?xml version="1.0" encoding="UTF-8"?>\n<plist version="1.0">\n<dict>\n\t<!-- WEFTER-PERMISSIONS-START -->\n\t<!-- WEFTER-PERMISSIONS-END -->\n</dict>\n</plist>\n',
+  );
 
   const { writeSyncMarker } = await import("../src/plugins/sync-freshness.js");
   writeSyncMarker(projectDir);
