@@ -90,6 +90,10 @@ export function androidThemesPath(projectDir: string): string {
   return join(androidResDir(projectDir), "values/themes.xml");
 }
 
+export function androidColorsPath(projectDir: string): string {
+  return join(androidResDir(projectDir), "values/colors.xml");
+}
+
 const IOS_NATIVE_ROOT = ".wefter/native/ios";
 const IOS_EJECT_DIR_NAME = "ios";
 
@@ -132,6 +136,10 @@ export function iosWebAssetsDir(projectDir: string): string {
 
 export function iosBuildConfigPath(projectDir: string): string {
   return join(iosAppDir(projectDir), "BuildConfig.swift");
+}
+
+export function iosLaunchScreenStoryboardPath(projectDir: string): string {
+  return join(iosAppDir(projectDir), "LaunchScreen.storyboard");
 }
 
 export function iosNativeDependenciesDir(projectDir: string): string {

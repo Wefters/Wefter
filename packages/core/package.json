@@ -1,5 +1,5 @@
 {
-  "name": "@wefter/core",
+  "name": "@wefterjs/core",
   "version": "0.0.1",
   "private": true,
   "type": "module",

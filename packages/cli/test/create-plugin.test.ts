@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { createPlugin } from "../src/commands/create-plugin.js";
-import { validatePluginDirectory } from "@wefter/registry-codegen";
+import { validatePluginDirectory } from "@wefterjs/registry-codegen";
 
 let targetDir: string;
 

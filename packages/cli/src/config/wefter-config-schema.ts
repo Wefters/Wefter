@@ -24,7 +24,11 @@ export const WefterConfigSchema = z.object({
       development: { appId: "dev.wefter.bridge.dev", appName: "Wefter (Dev)" },
     }),
   icon: z.string().optional(),
-  
+  launchBackground: z
+    .string()
+    .regex(/^#[0-9A-Fa-f]{6}$/, "launchBackground must be a 6-digit hex color, e.g. #14161C")
+    .optional(),
+
   splash: z
     .union([
       z.literal(false),

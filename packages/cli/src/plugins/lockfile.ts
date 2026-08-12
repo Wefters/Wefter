@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { DiscoveredPlugin } from "@wefter/registry-codegen";
+import type { DiscoveredPlugin } from "@wefterjs/registry-codegen";
 
 const LOCKFILE_NAME = "wefter.lock.json";
 

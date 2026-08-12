@@ -1,6 +1,6 @@
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import { scanPlugins, type DiscoveredPlugin } from "@wefter/registry-codegen";
+import { scanPlugins, type DiscoveredPlugin } from "@wefterjs/registry-codegen";
 
 export function resolveRegisteredPlugins(
   pluginsDir: string,

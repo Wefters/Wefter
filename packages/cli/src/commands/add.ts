@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { validatePluginDirectory } from "@wefter/registry-codegen";
+import { validatePluginDirectory } from "@wefterjs/registry-codegen";
 import { loadWefterConfig, pluginsDirPath } from "../config/project-paths.js";
 import { runNpmInstall } from "../plugins/npm-install.js";
 

@@ -26,7 +26,7 @@ export function createPlugin(targetDir: string, name: string): string {
         main: "dist/index.js",
         types: "dist/index.d.ts",
         dependencies: {
-          "@wefter/core": "^0.0.1",
+          "@wefterjs/core": "^0.0.1",
         },
       },
       null,
@@ -51,7 +51,7 @@ export function createPlugin(targetDir: string, name: string): string {
 
   writeFileSync(
     join(dir, "src/index.ts"),
-    `import { invokeNative } from "@wefter/core";
+    `import { invokeNative } from "@wefterjs/core";
 
 export const ${pascalName} = {
   // example(payload: {}): Promise<unknown> {

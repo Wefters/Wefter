@@ -1,5 +1,5 @@
 {
-  "name": "@wefter/cli",
+  "name": "@wefterjs/cli",
   "version": "0.0.1",
   "private": true,
   "type": "module",
@@ -20,7 +20,7 @@
     "dev": "tsx src/cli.ts"
   },
   "dependencies": {
-    "@wefter/registry-codegen": "workspace:*",
+    "@wefterjs/registry-codegen": "workspace:*",
     "chalk": "^6.0.0",
     "commander": "^15.0.0",
     "dotenv": "^17.4.2",

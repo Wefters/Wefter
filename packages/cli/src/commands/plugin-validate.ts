@@ -1,4 +1,4 @@
-import { validatePluginDirectory, type PluginValidationResult } from "@wefter/registry-codegen";
+import { validatePluginDirectory, type PluginValidationResult } from "@wefterjs/registry-codegen";
 
 export function pluginValidate(pluginDir: string): PluginValidationResult {
   return validatePluginDirectory(pluginDir);

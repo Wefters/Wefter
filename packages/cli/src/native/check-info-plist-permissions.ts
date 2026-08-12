@@ -1,5 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
-import type { DiscoveredPlugin } from "@wefter/registry-codegen";
+import type { DiscoveredPlugin } from "@wefterjs/registry-codegen";
 import { iosInfoPlistPath } from "../config/project-paths.js";
 
 export interface PlistPermissionCheckResult {

@@ -1,4 +1,4 @@
-import { auditPluginPermissions, type DiscoveredPlugin } from "@wefter/registry-codegen";
+import { auditPluginPermissions, type DiscoveredPlugin } from "@wefterjs/registry-codegen";
 import { loadWefterConfig, pluginsDirPath } from "../config/project-paths.js";
 import { resolveRegisteredPlugins, unresolvedRegisteredPlugins } from "../plugins/registry.js";
 import { checkLockDrift } from "../plugins/lockfile.js";

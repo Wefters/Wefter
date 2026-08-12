@@ -30,11 +30,10 @@ available to compile or verify it).
    Package Dependencies → Add Local...*, pick the `NativeDependencies` folder, and add it to
    the `WefterBridge` target. Until a plugin actually declares an
    `nativeDependencies.ios.spm` entry this has no visible effect either way.
-4. **The demo plugins prove the bridge, not the build.** `WefterBridge/Plugins/DeviceInfoPlugin.swift`
-   and `PingTestPlugin.swift` are checked in so the template is a complete, working demo out of
-   the box (mirroring `shells/android-template`'s own `GeneratedRegistry.kt` placeholder) — but
-   "complete" here means "written to the same contract real plugins use," not "verified to
-   compile." Build it and fix whatever Xcode reports before trusting it further.
+4. **No demo plugin ships in this template.** `WefterBridge/Plugins/` is empty and
+   `GeneratedRegistry.swift` registers nothing until `wefter sync` runs against a real project
+   with at least one plugin declared. Build the template as-is first to confirm the bare bridge
+   compiles before adding a plugin into the mix.
 
 ## What's intentionally not here yet
 

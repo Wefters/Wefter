@@ -238,6 +238,12 @@ class MainActivity : AppCompatActivity() {
                                 result.put("debug", BuildConfig.DEBUG)
                                 callback(Result.success(result))
                             }
+                            "getDeviceInfo" -> {
+                                val result = JSONObject()
+                                result.put("platform", "android")
+                                result.put("osVersion", android.os.Build.VERSION.RELEASE)
+                                callback(Result.success(result))
+                            }
                             "appReady" -> {
                                 dispatcher.dispatchHook("appReady")
                                 callback(Result.success(JSONObject()))

@@ -136,7 +136,7 @@ describe("add", () => {
 
     const result = await add(
       projectDir,
-      "@wefter/plugin-scanner@1.2.3",
+      "@wefterjs/plugin-scanner@1.2.3",
       fakeInstall({ name: "scanner", methods: ["open"] }, WELL_FORMED_KOTLIN)
     );
 

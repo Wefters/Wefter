@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 final class SystemModule: NativeModule {
     private weak var viewController: ViewController?
@@ -15,6 +16,11 @@ final class SystemModule: NativeModule {
             #else
             callback(.success(["debug": false]))
             #endif
+        case "getDeviceInfo":
+            callback(.success([
+                "platform": "ios",
+                "osVersion": UIDevice.current.systemVersion,
+            ]))
         case "appReady":
             viewController?.dispatcher.dispatchHook("appReady")
             callback(.success([:]))

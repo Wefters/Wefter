@@ -24,10 +24,11 @@ import {
   validatePluginDirectory,
   type PluginExtraction,
   type PluginExtractionSwift,
-} from "@wefter/registry-codegen";
+} from "@wefterjs/registry-codegen";
 import {
   androidAppModuleDir,
   androidBuildGradlePath,
+  androidColorsPath,
   androidGeneratedRegistryPath,
   androidManifestPath,
   androidNamespace,
@@ -41,6 +42,7 @@ import {
   iosBundleId,
   iosGeneratedRegistryPath,
   iosInfoPlistPath,
+  iosLaunchScreenStoryboardPath,
   iosNativeDependenciesPackagePath,
   iosPluginSourceDir,
   iosProjectRootDir,
@@ -60,6 +62,9 @@ import { generateAndroidIcons } from "../native/icon-generator.js";
 import { generateIosIcons } from "../native/icon-generator-ios.js";
 import { generateSplash } from "../native/splash-generator.js";
 import { resolveSplash, SPLASH_DEFAULTS } from "../native/resolve-splash.js";
+import { resolveLaunchBackground } from "../native/resolve-launch-background.js";
+import { injectLaunchBackgroundAndroid } from "../native/inject-launch-background.js";
+import { injectLaunchBackgroundIos } from "../native/inject-launch-background-ios.js";
 import { shellTemplatePath, iosShellTemplatePath } from "../native/shell-template.js";
 import { resolveRegisteredPlugins, unresolvedRegisteredPlugins } from "../plugins/registry.js";
 import { checkLockDrift, writeLockfile } from "../plugins/lockfile.js";
@@ -258,6 +263,10 @@ export async function sync(
     };
     injectSplashConfig(buildGradlePath, splashConfigValues);
     injectSplashConfigIos(iosBuildConfigPathVar, splashConfigValues);
+
+    const launchBackground = resolveLaunchBackground(config, projectDir);
+    injectLaunchBackgroundAndroid(androidColorsPath(projectDir), launchBackground);
+    injectLaunchBackgroundIos(iosLaunchScreenStoryboardPath(projectDir), launchBackground);
 
     const kotlin = generateRegistryKotlin(androidPlugins, namespace, extraction);
     mkdirSync(dirname(outFile), { recursive: true });
