@@ -14,7 +14,7 @@
   "splash": {
     "source": "./resources/splash",
     "minDuration": 1200,
-    "maxDuration": 4000,
+    "maxDuration": 2000,
     "dismissOn": "ready",
     "transition": "fade"
   },

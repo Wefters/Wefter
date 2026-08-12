@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import sharp from "sharp";
+import { assertIconSourceSize } from "./icon-source.js";
 
 const APP_ICON_SIZE = 1024;
 
@@ -22,6 +23,7 @@ const APP_ICON_CONTENTS_JSON = `{
 
 export async function generateIosIcons(projectDir: string, iconSourcePath: string, appIconSetDir: string): Promise<void> {
   const source = resolve(projectDir, iconSourcePath);
+  await assertIconSourceSize(source);
 
   mkdirSync(appIconSetDir, { recursive: true });
   

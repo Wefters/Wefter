@@ -17,7 +17,7 @@ describe("generateIosIcons", () => {
     projectDir = mkdtempSync(join(tmpdir(), "wefter-ios-icon-"));
     appIconSetDir = join(projectDir, "AppIcon.appiconset");
     const sourcePath = join(projectDir, "icon.png");
-    await sharp({ create: { width: 512, height: 512, channels: 4, background: "#ff0000" } }).png().toFile(sourcePath);
+    await sharp({ create: { width: 1024, height: 1024, channels: 4, background: "#ff0000" } }).png().toFile(sourcePath);
 
     await generateIosIcons(projectDir, "icon.png", appIconSetDir);
 
@@ -32,7 +32,7 @@ describe("generateIosIcons", () => {
     projectDir = mkdtempSync(join(tmpdir(), "wefter-ios-icon-"));
     appIconSetDir = join(projectDir, "AppIcon.appiconset");
     const sourcePath = join(projectDir, "icon.png");
-    await sharp({ create: { width: 512, height: 512, channels: 4, background: { r: 255, g: 0, b: 0, alpha: 0.5 } } })
+    await sharp({ create: { width: 1024, height: 1024, channels: 4, background: { r: 255, g: 0, b: 0, alpha: 0.5 } } })
       .png()
       .toFile(sourcePath);
 
@@ -46,12 +46,21 @@ describe("generateIosIcons", () => {
     projectDir = mkdtempSync(join(tmpdir(), "wefter-ios-icon-"));
     appIconSetDir = join(projectDir, "AppIcon.appiconset");
     const sourcePath = join(projectDir, "icon.png");
-    await sharp({ create: { width: 512, height: 512, channels: 4, background: "#ff0000" } }).png().toFile(sourcePath);
+    await sharp({ create: { width: 1024, height: 1024, channels: 4, background: "#ff0000" } }).png().toFile(sourcePath);
 
     await generateIosIcons(projectDir, "icon.png", appIconSetDir);
 
     const contents = JSON.parse(readFileSync(join(appIconSetDir, "Contents.json"), "utf-8"));
     expect(contents.images).toHaveLength(1);
     expect(contents.images[0]).toMatchObject({ filename: "icon-1024.png", idiom: "universal", platform: "ios", size: "1024x1024" });
+  });
+
+  it("rejects a source image smaller than 1024x1024", async () => {
+    projectDir = mkdtempSync(join(tmpdir(), "wefter-ios-icon-"));
+    appIconSetDir = join(projectDir, "AppIcon.appiconset");
+    const sourcePath = join(projectDir, "icon.png");
+    await sharp({ create: { width: 512, height: 512, channels: 4, background: "#ff0000" } }).png().toFile(sourcePath);
+
+    await expect(generateIosIcons(projectDir, "icon.png", appIconSetDir)).rejects.toThrow(/1024x1024/);
   });
 });
