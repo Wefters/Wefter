@@ -8,8 +8,10 @@ const BUILD_GRADLE_FIXTURE = `android {
     defaultConfig {
         // WEFTER-SPLASH-CONFIG-START
         buildConfigField("boolean", "SPLASH_ENABLED", "false")
-        buildConfigField("long", "SPLASH_MIN_DURATION_MS", "600L")
-        buildConfigField("long", "SPLASH_FADE_OUT_MS", "300L")
+        buildConfigField("long", "SPLASH_MIN_DURATION_MS", "0L")
+        buildConfigField("long", "SPLASH_MAX_DURATION_MS", "5000L")
+        buildConfigField("boolean", "SPLASH_WAIT_FOR_READY", "true")
+        buildConfigField("boolean", "SPLASH_FADE_TRANSITION", "true")
         // WEFTER-SPLASH-CONFIG-END
     }
 }
@@ -23,17 +25,25 @@ afterEach(() => {
 });
 
 describe("injectSplashConfig", () => {
-  it("injects enabled, minDurationMs, and fadeOutDurationMs as buildConfigFields", () => {
+  it("injects enabled, minDuration, maxDuration, dismissOn, and transition as buildConfigFields", () => {
     tmpDir = mkdtempSync(join(tmpdir(), "wefter-splash-inject-"));
     gradlePath = join(tmpDir, "build.gradle.kts");
     writeFileSync(gradlePath, BUILD_GRADLE_FIXTURE);
 
-    injectSplashConfig(gradlePath, { enabled: true, minDurationMs: 1200, fadeOutDurationMs: 500 });
+    injectSplashConfig(gradlePath, {
+      enabled: true,
+      minDuration: 400,
+      maxDuration: 3000,
+      dismissOn: "timer",
+      transition: "none",
+    });
 
     const result = readFileSync(gradlePath, "utf-8");
     expect(result).toContain('buildConfigField("boolean", "SPLASH_ENABLED", "true")');
-    expect(result).toContain('buildConfigField("long", "SPLASH_MIN_DURATION_MS", "1200L")');
-    expect(result).toContain('buildConfigField("long", "SPLASH_FADE_OUT_MS", "500L")');
+    expect(result).toContain('buildConfigField("long", "SPLASH_MIN_DURATION_MS", "400L")');
+    expect(result).toContain('buildConfigField("long", "SPLASH_MAX_DURATION_MS", "3000L")');
+    expect(result).toContain('buildConfigField("boolean", "SPLASH_WAIT_FOR_READY", "false")');
+    expect(result).toContain('buildConfigField("boolean", "SPLASH_FADE_TRANSITION", "false")');
   });
 
   it("replaces existing injected values on a second run instead of duplicating them", () => {
@@ -41,8 +51,20 @@ describe("injectSplashConfig", () => {
     gradlePath = join(tmpDir, "build.gradle.kts");
     writeFileSync(gradlePath, BUILD_GRADLE_FIXTURE);
 
-    injectSplashConfig(gradlePath, { enabled: true, minDurationMs: 1200, fadeOutDurationMs: 500 });
-    injectSplashConfig(gradlePath, { enabled: false, minDurationMs: 900, fadeOutDurationMs: 250 });
+    injectSplashConfig(gradlePath, {
+      enabled: true,
+      minDuration: 1200,
+      maxDuration: 4000,
+      dismissOn: "ready",
+      transition: "fade",
+    });
+    injectSplashConfig(gradlePath, {
+      enabled: false,
+      minDuration: 900,
+      maxDuration: 2500,
+      dismissOn: "ready",
+      transition: "fade",
+    });
 
     const result = readFileSync(gradlePath, "utf-8");
     expect(result).not.toContain("1200L");
@@ -58,7 +80,13 @@ describe("injectSplashConfig", () => {
     writeFileSync(gradlePath, "android {}\n");
 
     expect(() =>
-      injectSplashConfig(gradlePath, { enabled: false, minDurationMs: 600, fadeOutDurationMs: 300 })
+      injectSplashConfig(gradlePath, {
+        enabled: false,
+        minDuration: 0,
+        maxDuration: 5000,
+        dismissOn: "ready",
+        transition: "fade",
+      }),
     ).toThrow(/WEFTER-SPLASH-CONFIG-START/);
   });
 });

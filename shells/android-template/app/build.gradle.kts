@@ -16,8 +16,10 @@ android {
 
         // WEFTER-SPLASH-CONFIG-START
         buildConfigField("boolean", "SPLASH_ENABLED", "false")
-        buildConfigField("long", "SPLASH_MIN_DURATION_MS", "600L")
-        buildConfigField("long", "SPLASH_FADE_OUT_MS", "300L")
+        buildConfigField("long", "SPLASH_MIN_DURATION_MS", "0L")
+        buildConfigField("long", "SPLASH_MAX_DURATION_MS", "5000L")
+        buildConfigField("boolean", "SPLASH_WAIT_FOR_READY", "true")
+        buildConfigField("boolean", "SPLASH_FADE_TRANSITION", "true")
         // WEFTER-SPLASH-CONFIG-END
     }
 

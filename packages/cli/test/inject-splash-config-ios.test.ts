@@ -14,8 +14,10 @@ const BUILD_CONFIG_FIXTURE = `enum BuildConfig {
 
     // WEFTER-SPLASH-CONFIG-START
     static let splashEnabled = false
-    static let splashMinDurationMs: Double = 600
-    static let splashFadeOutMs: Double = 300
+    static let splashMinDurationMs: Double = 0
+    static let splashMaxDurationMs: Double = 5000
+    static let splashWaitForReady = true
+    static let splashFadeTransition = true
     // WEFTER-SPLASH-CONFIG-END
 }
 `;
@@ -27,17 +29,25 @@ afterEach(() => {
 });
 
 describe("injectSplashConfigIos", () => {
-  it("rewrites all three splash values between the markers", () => {
+  it("rewrites all five splash values between the markers", () => {
     dir = mkdtempSync(join(tmpdir(), "wefter-ios-splash-"));
     const buildConfigPath = join(dir, "BuildConfig.swift");
     writeFileSync(buildConfigPath, BUILD_CONFIG_FIXTURE);
 
-    injectSplashConfigIos(buildConfigPath, { enabled: true, minDurationMs: 800, fadeOutDurationMs: 250 });
+    injectSplashConfigIos(buildConfigPath, {
+      enabled: true,
+      minDuration: 400,
+      maxDuration: 3000,
+      dismissOn: "timer",
+      transition: "none",
+    });
 
     const result = readFileSync(buildConfigPath, "utf-8");
     expect(result).toContain("static let splashEnabled = true");
-    expect(result).toContain("static let splashMinDurationMs: Double = 800");
-    expect(result).toContain("static let splashFadeOutMs: Double = 250");
+    expect(result).toContain("static let splashMinDurationMs: Double = 400");
+    expect(result).toContain("static let splashMaxDurationMs: Double = 3000");
+    expect(result).toContain("static let splashWaitForReady = false");
+    expect(result).toContain("static let splashFadeTransition = false");
   });
 
   it("leaves DEV_SERVER_URL untouched", () => {
@@ -45,7 +55,13 @@ describe("injectSplashConfigIos", () => {
     const buildConfigPath = join(dir, "BuildConfig.swift");
     writeFileSync(buildConfigPath, BUILD_CONFIG_FIXTURE);
 
-    injectSplashConfigIos(buildConfigPath, { enabled: true, minDurationMs: 800, fadeOutDurationMs: 250 });
+    injectSplashConfigIos(buildConfigPath, {
+      enabled: true,
+      minDuration: 400,
+      maxDuration: 3000,
+      dismissOn: "ready",
+      transition: "fade",
+    });
 
     const result = readFileSync(buildConfigPath, "utf-8");
     expect(result).toContain('static let devServerURL = "" // WEFTER overridden per-run by the CLI');
@@ -56,8 +72,20 @@ describe("injectSplashConfigIos", () => {
     const buildConfigPath = join(dir, "BuildConfig.swift");
     writeFileSync(buildConfigPath, BUILD_CONFIG_FIXTURE);
 
-    injectSplashConfigIos(buildConfigPath, { enabled: true, minDurationMs: 800, fadeOutDurationMs: 250 });
-    injectSplashConfigIos(buildConfigPath, { enabled: false, minDurationMs: 600, fadeOutDurationMs: 300 });
+    injectSplashConfigIos(buildConfigPath, {
+      enabled: true,
+      minDuration: 400,
+      maxDuration: 3000,
+      dismissOn: "ready",
+      transition: "fade",
+    });
+    injectSplashConfigIos(buildConfigPath, {
+      enabled: false,
+      minDuration: 0,
+      maxDuration: 5000,
+      dismissOn: "ready",
+      transition: "fade",
+    });
 
     const result = readFileSync(buildConfigPath, "utf-8");
     const markerCount = result.split("// WEFTER-SPLASH-CONFIG-START").length - 1;
@@ -71,7 +99,13 @@ describe("injectSplashConfigIos", () => {
     writeFileSync(buildConfigPath, "enum BuildConfig {}\n");
 
     expect(() =>
-      injectSplashConfigIos(buildConfigPath, { enabled: true, minDurationMs: 800, fadeOutDurationMs: 250 }),
+      injectSplashConfigIos(buildConfigPath, {
+        enabled: true,
+        minDuration: 400,
+        maxDuration: 3000,
+        dismissOn: "ready",
+        transition: "fade",
+      }),
     ).toThrow(/WEFTER-SPLASH-CONFIG-START/);
   });
 });
@@ -82,7 +116,13 @@ describe("injectSplashConfigIos against the real shell template", () => {
     const buildConfigPath = join(dir, "BuildConfig.swift");
     cpSync(join(iosShellTemplatePath(), "WefterBridge/BuildConfig.swift"), buildConfigPath);
 
-    injectSplashConfigIos(buildConfigPath, { enabled: true, minDurationMs: 800, fadeOutDurationMs: 250 });
+    injectSplashConfigIos(buildConfigPath, {
+      enabled: true,
+      minDuration: 400,
+      maxDuration: 3000,
+      dismissOn: "ready",
+      transition: "fade",
+    });
 
     const result = readFileSync(buildConfigPath, "utf-8");
     expect(result).toContain("static let splashEnabled = true");

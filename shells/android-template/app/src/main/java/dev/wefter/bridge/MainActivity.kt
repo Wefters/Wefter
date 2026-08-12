@@ -26,11 +26,11 @@ import org.json.JSONObject
 
 private const val ASSETS_ORIGIN = "appassets.androidplatform.net"
 private const val BUNDLED_URL = "https://$ASSETS_ORIGIN/assets/www/index.html"
-private const val SPLASH_URL = "https://$ASSETS_ORIGIN/assets/www/splash.html"
+private const val SPLASH_URL = "https://$ASSETS_ORIGIN/assets/www/splash/index.html"
 private const val BLANK_URL = "about:blank"
 private const val MAX_RENDER_PROCESS_RETRIES = 3
 
-private const val SPLASH_FALLBACK_TIMEOUT_MS = 15000L
+private const val SPLASH_FADE_TRANSITION_MS = 200L
 
 private const val CONTENT_SECURITY_POLICY =
         "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; " +
@@ -123,8 +123,12 @@ class MainActivity : AppCompatActivity() {
                 }
         splashOverlay = splash
 
-        dispatcher.subscribeHook("appReady") { dismissSplash() }
-        root.postDelayed({ dismissSplash() }, SPLASH_FALLBACK_TIMEOUT_MS)
+        if (BuildConfig.SPLASH_WAIT_FOR_READY) {
+            dispatcher.subscribeHook("hideSplash") { dismissSplash() }
+            root.postDelayed({ dismissSplash() }, BuildConfig.SPLASH_MAX_DURATION_MS)
+        } else {
+            root.postDelayed({ dismissSplash() }, BuildConfig.SPLASH_MIN_DURATION_MS)
+        }
     }
 
     private fun interceptWithCsp(request: WebResourceRequest): WebResourceResponse? {
@@ -238,6 +242,10 @@ class MainActivity : AppCompatActivity() {
                                 dispatcher.dispatchHook("appReady")
                                 callback(Result.success(JSONObject()))
                             }
+                            "hideSplash" -> {
+                                dispatcher.dispatchHook("hideSplash")
+                                callback(Result.success(JSONObject()))
+                            }
                             else -> callback(Result.failure(Exception("Unknown method: $method")))
                         }
                     }
@@ -290,11 +298,12 @@ class MainActivity : AppCompatActivity() {
         splashDismissed = true
         val elapsed = System.currentTimeMillis() - splashStartTime
         val remaining = (BuildConfig.SPLASH_MIN_DURATION_MS - elapsed).coerceAtLeast(0)
+        val fadeMs = if (BuildConfig.SPLASH_FADE_TRANSITION) SPLASH_FADE_TRANSITION_MS else 0L
         overlay.postDelayed(
                 {
                     overlay.animate()
                             .alpha(0f)
-                            .setDuration(BuildConfig.SPLASH_FADE_OUT_MS)
+                            .setDuration(fadeMs)
                             .withEndAction {
                                 overlay.visibility = View.GONE
                                 splashOverlay = null

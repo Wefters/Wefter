@@ -249,16 +249,15 @@ export async function sync(
     const resolvedSplash = resolveSplash(config);
     generateSplash(projectDir, resolvedSplash, webAssetsDir);
     generateSplash(projectDir, resolvedSplash, iosWebAssetsDirPath);
-    injectSplashConfig(buildGradlePath, {
+    const splashConfigValues = {
       enabled: resolvedSplash.enabled,
-      minDurationMs: resolvedSplash.enabled ? resolvedSplash.minDurationMs : SPLASH_DEFAULTS.minDurationMs,
-      fadeOutDurationMs: resolvedSplash.enabled ? resolvedSplash.fadeOutDurationMs : SPLASH_DEFAULTS.fadeOutDurationMs,
-    });
-    injectSplashConfigIos(iosBuildConfigPathVar, {
-      enabled: resolvedSplash.enabled,
-      minDurationMs: resolvedSplash.enabled ? resolvedSplash.minDurationMs : SPLASH_DEFAULTS.minDurationMs,
-      fadeOutDurationMs: resolvedSplash.enabled ? resolvedSplash.fadeOutDurationMs : SPLASH_DEFAULTS.fadeOutDurationMs,
-    });
+      minDuration: resolvedSplash.enabled ? resolvedSplash.minDuration : SPLASH_DEFAULTS.minDuration,
+      maxDuration: resolvedSplash.enabled ? resolvedSplash.maxDuration : SPLASH_DEFAULTS.maxDuration,
+      dismissOn: resolvedSplash.enabled ? resolvedSplash.dismissOn : SPLASH_DEFAULTS.dismissOn,
+      transition: resolvedSplash.enabled ? resolvedSplash.transition : SPLASH_DEFAULTS.transition,
+    };
+    injectSplashConfig(buildGradlePath, splashConfigValues);
+    injectSplashConfigIos(iosBuildConfigPathVar, splashConfigValues);
 
     const kotlin = generateRegistryKotlin(androidPlugins, namespace, extraction);
     mkdirSync(dirname(outFile), { recursive: true });

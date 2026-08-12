@@ -5,8 +5,10 @@ const END = "// WEFTER-SPLASH-CONFIG-END";
 
 export interface IosSplashConfigValues {
   enabled: boolean;
-  minDurationMs: number;
-  fadeOutDurationMs: number;
+  minDuration: number;
+  maxDuration: number;
+  dismissOn: "ready" | "timer";
+  transition: "fade" | "none";
 }
 
 export function injectSplashConfigIos(buildConfigPath: string, values: IosSplashConfigValues): void {
@@ -19,8 +21,10 @@ export function injectSplashConfigIos(buildConfigPath: string, values: IosSplash
 
   const lines = [
     `    static let splashEnabled = ${values.enabled}`,
-    `    static let splashMinDurationMs: Double = ${values.minDurationMs}`,
-    `    static let splashFadeOutMs: Double = ${values.fadeOutDurationMs}`,
+    `    static let splashMinDurationMs: Double = ${values.minDuration}`,
+    `    static let splashMaxDurationMs: Double = ${values.maxDuration}`,
+    `    static let splashWaitForReady = ${values.dismissOn === "ready"}`,
+    `    static let splashFadeTransition = ${values.transition === "fade"}`,
   ].join("\n");
 
   const block = `${START}\n${lines}\n    ${END}`;

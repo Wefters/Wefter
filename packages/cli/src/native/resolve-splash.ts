@@ -1,13 +1,22 @@
 import type { WefterConfig } from "../config/wefter-config-schema.js";
 
 export const SPLASH_DEFAULTS = {
-  minDurationMs: 600,
-  fadeOutDurationMs: 300,
+  minDuration: 0,
+  maxDuration: 5000,
+  dismissOn: "ready" as const,
+  transition: "fade" as const,
 };
 
 export type ResolvedSplash =
   | { enabled: false }
-  | { enabled: true; html: string; minDurationMs: number; fadeOutDurationMs: number };
+  | {
+      enabled: true;
+      source: string;
+      minDuration: number;
+      maxDuration: number;
+      dismissOn: "ready" | "timer";
+      transition: "fade" | "none";
+    };
 
 export function resolveSplash(config: WefterConfig): ResolvedSplash {
   const s = config.splash;
@@ -15,8 +24,10 @@ export function resolveSplash(config: WefterConfig): ResolvedSplash {
 
   return {
     enabled: true,
-    html: s.html,
-    minDurationMs: s.minDurationMs,
-    fadeOutDurationMs: s.fadeOutDurationMs,
+    source: s.source,
+    minDuration: s.minDuration,
+    maxDuration: s.maxDuration,
+    dismissOn: s.dismissOn,
+    transition: s.transition,
   };
 }

@@ -3,11 +3,11 @@ import WebKit
 
 final class ViewController: UIViewController {
     private static let bundledURL = URL(string: "\(AssetSchemeHandler.scheme)://\(AssetSchemeHandler.host)/index.html")!
-    private static let splashURL = URL(string: "\(AssetSchemeHandler.scheme)://\(AssetSchemeHandler.host)/splash.html")!
+    private static let splashURL = URL(string: "\(AssetSchemeHandler.scheme)://\(AssetSchemeHandler.host)/splash/index.html")!
     private static let blankURL = URL(string: "about:blank")!
     private static let maxRenderProcessRetries = 3
 
-    private static let splashFallbackTimeoutSeconds: TimeInterval = 15
+    private static let splashFadeTransitionSeconds: TimeInterval = 0.2
 
     private static let devServerUnreachableMessage = "Dev server unreachable"
 
@@ -104,9 +104,15 @@ final class ViewController: UIViewController {
         splash.load(URLRequest(url: Self.splashURL))
         splashWebView = splash
 
-        dispatcher.subscribeHook("appReady") { [weak self] in self?.dismissSplash() }
-        DispatchQueue.main.asyncAfter(deadline: .now() + Self.splashFallbackTimeoutSeconds) { [weak self] in
-            self?.dismissSplash()
+        if BuildConfig.splashWaitForReady {
+            dispatcher.subscribeHook("hideSplash") { [weak self] in self?.dismissSplash() }
+            DispatchQueue.main.asyncAfter(deadline: .now() + BuildConfig.splashMaxDurationMs / 1000) { [weak self] in
+                self?.dismissSplash()
+            }
+        } else {
+            DispatchQueue.main.asyncAfter(deadline: .now() + BuildConfig.splashMinDurationMs / 1000) { [weak self] in
+                self?.dismissSplash()
+            }
         }
     }
 
@@ -116,9 +122,10 @@ final class ViewController: UIViewController {
 
         let elapsedMs = Date().timeIntervalSince(splashStartTime) * 1000
         let remainingMs = max(0, BuildConfig.splashMinDurationMs - elapsedMs)
+        let fadeSeconds = BuildConfig.splashFadeTransition ? Self.splashFadeTransitionSeconds : 0
         DispatchQueue.main.asyncAfter(deadline: .now() + remainingMs / 1000) { [weak self] in
             UIView.animate(
-                withDuration: BuildConfig.splashFadeOutMs / 1000,
+                withDuration: fadeSeconds,
                 animations: { splash.alpha = 0 },
                 completion: { _ in
                     splash.removeFromSuperview()

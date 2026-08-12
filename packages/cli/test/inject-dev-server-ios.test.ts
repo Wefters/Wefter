@@ -21,8 +21,10 @@ enum BuildConfig {
 
     // WEFTER-SPLASH-CONFIG-START
     static let splashEnabled = false
-    static let splashMinDurationMs: Double = 600
-    static let splashFadeOutMs: Double = 300
+    static let splashMinDurationMs: Double = 0
+    static let splashMaxDurationMs: Double = 5000
+    static let splashWaitForReady = true
+    static let splashFadeTransition = true
     // WEFTER-SPLASH-CONFIG-END
 }
 `;

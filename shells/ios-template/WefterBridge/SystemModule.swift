@@ -18,6 +18,9 @@ final class SystemModule: NativeModule {
         case "appReady":
             viewController?.dispatcher.dispatchHook("appReady")
             callback(.success([:]))
+        case "hideSplash":
+            viewController?.dispatcher.dispatchHook("hideSplash")
+            callback(.success([:]))
         default:
             callback(.failure(WefterError(code: "UNKNOWN_METHOD", message: "No such method: \(method)")))
         }

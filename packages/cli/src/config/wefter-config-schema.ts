@@ -28,11 +28,18 @@ export const WefterConfigSchema = z.object({
   splash: z
     .union([
       z.literal(false),
-      z.object({
-        html: z.string(),
-        minDurationMs: z.number().min(0).max(5000).default(600),
-        fadeOutDurationMs: z.number().min(0).max(1000).default(300),
-      }),
+      z
+        .object({
+          source: z.string(),
+          minDuration: z.number().min(0).max(20000).default(0),
+          maxDuration: z.number().min(0).max(20000).default(5000),
+          dismissOn: z.enum(["ready", "timer"]).default("ready"),
+          transition: z.enum(["fade", "none"]).default("fade"),
+        })
+        .refine((s) => s.minDuration <= s.maxDuration, {
+          message: "splash.minDuration must not be greater than splash.maxDuration",
+          path: ["minDuration"],
+        }),
     ])
     .optional(),
   signing: z

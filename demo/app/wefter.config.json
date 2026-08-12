@@ -12,9 +12,11 @@
   },
   "icon": "./resources/icon.png",
   "splash": {
-    "html": "./resources/splash.html",
-    "minDurationMs": 1200,
-    "fadeOutDurationMs": 400
+    "source": "./resources/splash",
+    "minDuration": 1200,
+    "maxDuration": 4000,
+    "dismissOn": "ready",
+    "transition": "fade"
   },
   "plugins": [
     "@wefter/plugin-device-info",

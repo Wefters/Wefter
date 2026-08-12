@@ -281,17 +281,17 @@ iconCommand
     }
   });
 
-const splashCommand = program.command("splash").description("Scaffold splash screen HTML");
+const splashCommand = program.command("splash").description("Scaffold a splash screen folder");
 splashCommand
   .command("generate")
-  .description("Scaffold a working example splash.html — a starting point to edit, not a build step")
-  .argument("[targetPath]", "where to write the scaffolded file, relative to projectDir", "splash.html")
+  .description("Scaffold a working example splash folder — a starting point to edit, not a build step")
+  .argument("[targetPath]", "where to write the scaffolded folder, relative to projectDir", "splash")
   .argument("[projectDir]", "project root directory", process.cwd())
   .action((targetPath: string, projectDir: string) => {
     try {
       const dest = splashGenerate(resolve(projectDir), targetPath);
       logger.success(`Scaffolded ${dest}`);
-      logger.info(`Set "splash": { "html": "${targetPath}" } in wefter.config.json, then \`wefter sync\`.`);
+      logger.info(`Set "splash": { "source": "${targetPath}" } in wefter.config.json, then \`wefter sync\`.`);
       process.exitCode = 0;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

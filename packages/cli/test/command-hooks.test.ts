@@ -28,8 +28,17 @@ vi.mock("../src/native/ios-run.js", () => ({
   installAndLaunchIos: (...args: unknown[]) => installAndLaunchIosMock(...args),
 }));
 
-const spawnMock = vi.fn(() => {
-  const emitter = new EventEmitter();
+const spawnMock = vi.fn((cmd: string, args: string[] = []) => {
+  const emitter = new EventEmitter() as EventEmitter & { stdout?: EventEmitter; stderr?: EventEmitter };
+  if (cmd === "adb" && args[0] === "devices") {
+    emitter.stdout = new EventEmitter();
+    emitter.stderr = new EventEmitter();
+    queueMicrotask(() => {
+      emitter.stdout!.emit("data", Buffer.from("List of devices attached\nemulator-5554\tdevice\n"));
+      emitter.emit("exit", 0);
+    });
+    return emitter;
+  }
   queueMicrotask(() => emitter.emit("exit", 0));
   return emitter;
 });
@@ -175,7 +184,7 @@ describe("run() hook wiring", () => {
     await expect(run(projectDir, { watch: false, env: "development" })).rejects.toThrow(
       'Hook "wefter:run:before" exited with code 1',
     );
-    expect(spawnMock).not.toHaveBeenCalled();
+    expect(spawnMock).not.toHaveBeenCalledWith("adb", expect.arrayContaining(["install"]));
   });
 
   it("fires iOS run hooks with platform: ios and does not fire after on install failure", async () => {

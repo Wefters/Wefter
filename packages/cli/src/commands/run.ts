@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import chalk from "chalk";
 import { buildAndroid } from "../native/android-builder.js";
+import { resolveAdbDevice } from "../native/adb-device.js";
 import { buildIos } from "../native/ios-builder.js";
 import { startDevServer, type DevServer } from "../devserver/vite-launcher.js";
 import { resolveLanIp } from "../devserver/lan-ip.js";
@@ -30,6 +31,8 @@ export interface RunOptions {
 }
 
 export async function run(projectDir: string, options: RunOptions): Promise<DevServer | null> {
+  const device = await resolveAdbDevice();
+
   const config = loadWefterConfig(projectDir);
   const environment = config.environments[options.env];
   if (!environment) {
@@ -73,8 +76,8 @@ export async function run(projectDir: string, options: RunOptions): Promise<DevS
   logger.info(`Building the Android app (env: ${chalk.bold(options.env)})...`);
   const { apkPath } = await buildAndroid(projectDir, config, options.env, false);
 
-  logger.info(`Installing ${chalk.cyan(apkPath)} on the device...`);
-  await installAndLaunch(apkPath, environment.appId, androidNamespace(config));
+  logger.info(`Installing ${chalk.cyan(apkPath)} on ${chalk.bold(device.serial)}...`);
+  await installAndLaunch(apkPath, environment.appId, androidNamespace(config), device.serial);
 
   await runHook(projectDir, "run", "after", { platform: "android", environment: options.env });
 
@@ -92,10 +95,15 @@ function runAdb(args: string[]): Promise<void> {
   });
 }
 
-async function installAndLaunch(apkPath: string, applicationId: string, namespace: string): Promise<void> {
-  await runAdb(["install", "-r", apkPath]);
+async function installAndLaunch(
+  apkPath: string,
+  applicationId: string,
+  namespace: string,
+  serial: string,
+): Promise<void> {
+  await runAdb(["-s", serial, "install", "-r", apkPath]);
   logger.info(`Launching ${chalk.bold(applicationId)}...`);
-  await runAdb(["shell", "am", "start", "-n", `${applicationId}/${namespace}.MainActivity`]);
+  await runAdb(["-s", serial, "shell", "am", "start", "-n", `${applicationId}/${namespace}.MainActivity`]);
 }
 
 export interface IosRunOptions extends RunOptions {

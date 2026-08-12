@@ -11,28 +11,31 @@ afterEach(() => {
 });
 
 describe("splashGenerate", () => {
-  it("scaffolds a working example splash.html at the default path", () => {
+  it("scaffolds a working example splash folder at the default path", () => {
     projectDir = mkdtempSync(join(tmpdir(), "wefter-splash-cmd-"));
 
     const dest = splashGenerate(projectDir);
 
-    expect(dest).toBe(join(projectDir, "splash.html"));
-    expect(existsSync(dest)).toBe(true);
-    const html = readFileSync(dest, "utf-8");
+    expect(dest).toBe(join(projectDir, "splash"));
+    expect(existsSync(join(dest, "index.html"))).toBe(true);
+    expect(existsSync(join(dest, "styles.css"))).toBe(true);
+    const html = readFileSync(join(dest, "index.html"), "utf-8");
     expect(html).toContain("<html>");
-    expect(html).toContain("@keyframes pulse");
+    expect(html).toContain('href="./styles.css"');
+    const css = readFileSync(join(dest, "styles.css"), "utf-8");
+    expect(css).toContain("@keyframes pulse");
   });
 
   it("scaffolds at a custom target path", () => {
     projectDir = mkdtempSync(join(tmpdir(), "wefter-splash-cmd-"));
 
-    const dest = splashGenerate(projectDir, "resources/splash.html");
+    const dest = splashGenerate(projectDir, "resources/splash");
 
-    expect(dest).toBe(join(projectDir, "resources/splash.html"));
-    expect(existsSync(dest)).toBe(true);
+    expect(dest).toBe(join(projectDir, "resources/splash"));
+    expect(existsSync(join(dest, "index.html"))).toBe(true);
   });
 
-  it("refuses to overwrite an existing file", () => {
+  it("refuses to overwrite an existing folder", () => {
     projectDir = mkdtempSync(join(tmpdir(), "wefter-splash-cmd-"));
     splashGenerate(projectDir);
 

@@ -5,8 +5,10 @@ const END = "// WEFTER-SPLASH-CONFIG-END";
 
 export interface SplashConfigValues {
   enabled: boolean;
-  minDurationMs: number;
-  fadeOutDurationMs: number;
+  minDuration: number;
+  maxDuration: number;
+  dismissOn: "ready" | "timer";
+  transition: "fade" | "none";
 }
 
 export function injectSplashConfig(buildGradlePath: string, values: SplashConfigValues): void {
@@ -19,8 +21,10 @@ export function injectSplashConfig(buildGradlePath: string, values: SplashConfig
 
   const lines = [
     `        buildConfigField("boolean", "SPLASH_ENABLED", "${values.enabled}")`,
-    `        buildConfigField("long", "SPLASH_MIN_DURATION_MS", "${values.minDurationMs}L")`,
-    `        buildConfigField("long", "SPLASH_FADE_OUT_MS", "${values.fadeOutDurationMs}L")`,
+    `        buildConfigField("long", "SPLASH_MIN_DURATION_MS", "${values.minDuration}L")`,
+    `        buildConfigField("long", "SPLASH_MAX_DURATION_MS", "${values.maxDuration}L")`,
+    `        buildConfigField("boolean", "SPLASH_WAIT_FOR_READY", "${values.dismissOn === "ready"}")`,
+    `        buildConfigField("boolean", "SPLASH_FADE_TRANSITION", "${values.transition === "fade"}")`,
   ].join("\n");
 
   const updated = current.replace(pattern, `$1\n${lines}\n        $2`);
