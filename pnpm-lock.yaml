@@ -10,9 +10,6 @@ importers:
 
   packages/cli:
     dependencies:
-      '@wefterjs/registry-codegen':
-        specifier: workspace:*
-        version: link:../registry-codegen
       chalk:
         specifier: ^6.0.0
         version: 6.0.0
@@ -32,6 +29,12 @@ importers:
       '@types/node':
         specifier: ^22.7.4
         version: 22.20.1
+      '@wefterjs/registry-codegen':
+        specifier: workspace:*
+        version: link:../registry-codegen
+      esbuild:
+        specifier: ^0.23.1
+        version: 0.23.1
       tsx:
         specifier: ^4.23.7
         version: 4.23.7

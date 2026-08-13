@@ -8,6 +8,12 @@
   "bin": {
     "wefter": "dist/cli.js"
   },
+  "files": [
+    "dist"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
@@ -15,12 +21,11 @@
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node scripts/bundle.mjs",
     "test": "vitest run",
     "dev": "tsx src/cli.ts"
   },
   "dependencies": {
-    "@wefterjs/registry-codegen": "workspace:*",
     "chalk": "^6.0.0",
     "commander": "^15.0.0",
     "dotenv": "^17.4.2",
@@ -29,6 +34,8 @@
   },
   "devDependencies": {
     "@types/node": "^22.7.4",
+    "@wefterjs/registry-codegen": "workspace:*",
+    "esbuild": "^0.23.1",
     "tsx": "^4.23.7",
     "typescript": "^7.0.2",
     "vitest": "^2.1.9"
