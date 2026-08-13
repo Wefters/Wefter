@@ -67,3 +67,13 @@ export function findMalformedWefterHooks(source: string): number[] {
   }
   return malformed;
 }
+
+const CLASS_DECLARATION_PATTERN = /\b(?:class|object)\s+(\w+)/g;
+
+export function extractDeclaredClassNames(source: string): string[] {
+  const names = new Set<string>();
+  for (const match of source.matchAll(CLASS_DECLARATION_PATTERN)) {
+    names.add(match[1]);
+  }
+  return [...names];
+}

@@ -92,6 +92,22 @@ describe("generateRegistryKotlin — @WefterMethod dispatch", () => {
     expect(kt).toContain('dispatcher.register("device-info", DeviceInfoPluginDispatch(deviceInfoPlugin))');
   });
 
+  it("registers the constructed plugin instance with WefterBridge alongside the dispatcher", () => {
+    const extraction = new Map<string, PluginExtraction>([
+      ["device-info", { methods: [{ name: "getInfo", lineNumber: 5 }], hooks: [] }],
+    ]);
+
+    const kt = generateRegistryKotlin([deviceMock], "dev.wefter.bridge", extraction);
+
+    expect(kt).toContain('WefterBridge.register("device-info", deviceInfoPlugin)');
+  });
+
+  it("does NOT register with WefterBridge on the legacy zero-methods branch", () => {
+    const kt = generateRegistryKotlin([deviceMock], "dev.wefter.bridge", new Map());
+
+    expect(kt).not.toContain("WefterBridge.register");
+  });
+
   it("with multiple methods, every method gets its own when-branch, all on the same instance", () => {
     const extraction = new Map<string, PluginExtraction>([
       [

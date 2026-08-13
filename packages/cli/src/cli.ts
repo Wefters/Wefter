@@ -69,6 +69,17 @@ program
     try {
       const result = await sync(resolve(projectDir), { updateLock: opts.updateLock });
       logger.success(`Synced ${result.plugins.length} plugin(s): ${result.plugins.join(", ")}`);
+
+      const exported = result.manifestEntriesAdded.filter((e) => e.exported);
+      if (exported.length > 0) {
+        logger.warn("Exported components woven into AndroidManifest.xml (reachable from outside the app):");
+        for (const e of exported) logger.warn(`  - ${e.pluginName}: ${e.type} ${e.name}`);
+      }
+      if (result.gradleConflicts.length > 0) {
+        logger.warn("Gradle dependency version conflicts:");
+        for (const c of result.gradleConflicts) logger.warn(`  - ${c}`);
+      }
+
       process.exitCode = 0;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -189,11 +200,26 @@ program
       logger.bold(`Plugins (${result.plugins.length}):`);
       for (const plugin of result.plugins) {
         const permissions = plugin.permissions.length > 0 ? plugin.permissions.join(", ") : "none";
-        logger.info(`  ${plugin.name} — permissions: ${permissions}${plugin.gradleDependency ? `, gradle: ${plugin.gradleDependency}` : ""}`);
+        const gradle = plugin.gradleDependencies.length > 0 ? `, gradle: ${plugin.gradleDependencies.join(", ")}` : "";
+        logger.info(`  ${plugin.name} — permissions: ${permissions}${gradle}`);
+        for (const component of plugin.components) {
+          logger.info(`    component: ${component.type} ${component.name}${component.exported ? " (exported)" : ""}`);
+        }
       }
 
       if (result.unresolvedRegisteredPlugins.length > 0) {
         logger.warn(`Declared but not installed: ${result.unresolvedRegisteredPlugins.join(", ")}`);
+      }
+      if (result.exportedComponentWarnings.length > 0) {
+        logger.warn("Exported components (reachable from outside the app):");
+        for (const warning of result.exportedComponentWarnings) logger.warn(`  - ${warning}`);
+      }
+      if (result.gradleConflicts.length > 0) {
+        logger.warn("Gradle dependency version conflicts:");
+        for (const conflict of result.gradleConflicts) logger.warn(`  - ${conflict}`);
+      }
+      if (result.requiredConfigKeys.length > 0) {
+        logger.warn(`Required "pluginConfig" keys not yet set: ${result.requiredConfigKeys.join(", ")}`);
       }
       if (result.permissionViolations.length > 0) {
         logger.error("Permission audit violations:");
@@ -233,6 +259,18 @@ program
         return;
       }
       logger.success(`Validated and added ${plugin} to wefter.config.json.`);
+      if (result.exportedComponents.length > 0) {
+        logger.warn(`Declares exported component(s), reachable from outside the app: ${result.exportedComponents.join(", ")}`);
+      }
+      if (result.requiredConfigKeys.length > 0) {
+        logger.warn(
+          `Requires "pluginConfig" key(s) not yet set in wefter.config.json: ${result.requiredConfigKeys.join(", ")}`,
+        );
+      }
+      if (result.gradleConflicts.length > 0) {
+        logger.warn("Gradle dependency version conflicts with already-installed plugins:");
+        for (const conflict of result.gradleConflicts) logger.warn(`  - ${conflict}`);
+      }
       logger.info("Run `wefter sync` to weave it into the native project.");
       process.exitCode = 0;
     } catch (err) {

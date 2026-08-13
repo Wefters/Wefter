@@ -59,7 +59,14 @@ describe("add", () => {
       fakeInstall({ name: "scanner", methods: ["open"] }, WELL_FORMED_KOTLIN)
     );
 
-    expect(result).toEqual({ added: true, alreadyDeclared: false, issues: [] });
+    expect(result).toEqual({
+      added: true,
+      alreadyDeclared: false,
+      issues: [],
+      exportedComponents: [],
+      requiredConfigKeys: [],
+      gradleConflicts: [],
+    });
     const config = JSON.parse(readFileSync(join(projectDir, "wefter.config.json"), "utf-8"));
     expect(config.plugins).toEqual(["scanner"]);
   });
@@ -126,9 +133,139 @@ describe("add", () => {
     await add(projectDir, "scanner", install);
     const result = await add(projectDir, "scanner", install);
 
-    expect(result).toEqual({ added: false, alreadyDeclared: true, issues: [] });
+    expect(result).toEqual({
+      added: false,
+      alreadyDeclared: true,
+      issues: [],
+      exportedComponents: [],
+      requiredConfigKeys: [],
+      gradleConflicts: [],
+    });
     const config = JSON.parse(readFileSync(join(projectDir, "wefter.config.json"), "utf-8"));
     expect(config.plugins).toEqual(["scanner"]);
+  });
+
+  it("surfaces an exported component declared by the newly added plugin", async () => {
+    setup();
+
+    const result = await add(
+      projectDir,
+      "browser",
+      fakeInstall(
+        {
+          name: "browser",
+          methods: ["open"],
+          android: {
+            manifestEntries: [
+              { type: "activity", name: ".BrowserAuthActivity", exported: true, intentFilters: [] },
+            ],
+          },
+        },
+        "\npackage dev.wefter.bridge\n\nimport org.json.JSONObject\n\nclass BrowserPlugin(context: android.content.Context, dispatcher: BridgeDispatcher) : WefterPlugin(context, dispatcher) {\n    @WefterMethod\n    fun open(payload: JSONObject, callback: (Result<Any>) -> Unit) {\n        resolve(callback)\n    }\n}\nclass BrowserAuthActivity\n",
+      ),
+    );
+
+    expect(result.added).toBe(true);
+    expect(result.exportedComponents).toEqual(["activity .BrowserAuthActivity"]);
+  });
+
+  it("surfaces a required pluginConfig key not yet declared in wefter.config.json", async () => {
+    setup();
+
+    const result = await add(
+      projectDir,
+      "browser",
+      fakeInstall(
+        {
+          name: "browser",
+          methods: ["open"],
+          android: {
+            manifestEntries: [
+              {
+                type: "activity",
+                name: ".BrowserAuthActivity",
+                exported: true,
+                intentFilters: [
+                  {
+                    action: "android.intent.action.VIEW",
+                    categories: [],
+                    data: { scheme: "${appScheme}" },
+                  },
+                ],
+              },
+            ],
+          },
+        },
+        "\npackage dev.wefter.bridge\n\nimport org.json.JSONObject\n\nclass BrowserPlugin(context: android.content.Context, dispatcher: BridgeDispatcher) : WefterPlugin(context, dispatcher) {\n    @WefterMethod\n    fun open(payload: JSONObject, callback: (Result<Any>) -> Unit) {\n        resolve(callback)\n    }\n}\nclass BrowserAuthActivity\n",
+      ),
+    );
+
+    expect(result.added).toBe(true);
+    expect(result.requiredConfigKeys).toEqual(["appScheme"]);
+  });
+
+  it("does not re-surface a required config key that's already set in wefter.config.json's pluginConfig", async () => {
+    projectDir = mkdtempSync(join(tmpdir(), "wefter-add-"));
+    writeFileSync(
+      join(projectDir, "wefter.config.json"),
+      JSON.stringify({ plugins: [], pluginConfig: { appScheme: "myapp" } }),
+    );
+
+    const result = await add(
+      projectDir,
+      "browser",
+      fakeInstall(
+        {
+          name: "browser",
+          methods: ["open"],
+          android: {
+            manifestEntries: [
+              {
+                type: "activity",
+                name: ".BrowserAuthActivity",
+                exported: true,
+                intentFilters: [
+                  { action: "android.intent.action.VIEW", categories: [], data: { scheme: "${appScheme}" } },
+                ],
+              },
+            ],
+          },
+        },
+        "\npackage dev.wefter.bridge\n\nimport org.json.JSONObject\n\nclass BrowserPlugin(context: android.content.Context, dispatcher: BridgeDispatcher) : WefterPlugin(context, dispatcher) {\n    @WefterMethod\n    fun open(payload: JSONObject, callback: (Result<Any>) -> Unit) {\n        resolve(callback)\n    }\n}\nclass BrowserAuthActivity\n",
+      ),
+    );
+
+    expect(result.requiredConfigKeys).toEqual([]);
+  });
+
+  it("surfaces a Gradle major-version conflict against an already-declared plugin", async () => {
+    projectDir = mkdtempSync(join(tmpdir(), "wefter-add-"));
+    writeFileSync(join(projectDir, "wefter.config.json"), JSON.stringify({ plugins: ["existing-plugin"] }));
+    mkdirSync(join(projectDir, "node_modules", "existing-plugin"), { recursive: true });
+    writeFileSync(
+      join(projectDir, "node_modules", "existing-plugin", "plugin.json"),
+      JSON.stringify({
+        name: "existing-plugin",
+        nativeDependencies: { android: { gradle: ["androidx.camera:camera-core:1.3.0"] } },
+      }),
+    );
+
+    const result = await add(
+      projectDir,
+      "camera",
+      fakeInstall(
+        {
+          name: "camera",
+          methods: ["open"],
+          nativeDependencies: { android: { gradle: ["androidx.camera:camera-core:2.0.0"] } },
+        },
+        WELL_FORMED_KOTLIN,
+      ),
+    );
+
+    expect(result.added).toBe(true);
+    expect(result.gradleConflicts).toHaveLength(1);
+    expect(result.gradleConflicts[0]).toContain("androidx.camera:camera-core");
   });
 
   it("accepts a scoped package name with a version specifier and installs under the bare name", async () => {

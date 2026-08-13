@@ -1,4 +1,10 @@
-export { PluginManifestSchema, type PluginManifest } from './schema/plugin-schema.js';
+export {
+  PluginManifestSchema,
+  type PluginManifest,
+  type ManifestEntry,
+  type IntentFilter,
+  type IntentFilterData,
+} from './schema/plugin-schema.js';
 export { scanPlugins, type DiscoveredPlugin } from './scan-plugins.js';
 export { auditPluginPermissions } from './audit-permissions.js';
 export { readPluginKotlinSource } from './read-kotlin-source.js';
@@ -7,6 +13,7 @@ export {
   findMalformedWefterMethods,
   extractWefterHooks,
   findMalformedWefterHooks,
+  extractDeclaredClassNames,
   type ExtractedMethod,
   type ExtractedHook,
 } from './extract-wefter-plugin.js';
@@ -14,8 +21,9 @@ export { auditPluginConsistency } from './audit-plugin-consistency.js';
 export { auditPermissionHandling } from './audit-permission-handling.js';
 export { generateRegistryKotlin, classNameFor, type PluginExtraction } from './codegen-android.js';
 export { copyAndroidNativeSource } from './copy-native-source.js';
-export { mergeGradleDeps } from './merge-gradle-deps.js';
+export { mergeGradleDeps, computeGradleMerge, type GradleMergeResult } from './merge-gradle-deps.js';
 export { mergePermissions } from './merge-permissions.js';
+export { mergeManifestEntries, extractRequiredPluginConfigKeys, type MergedManifestEntry } from './manifest-entries.js';
 export { copyWebAssets } from './copy-web-assets.js';
 export { mergeProguardRules } from './merge-proguard-rules.js';
 export { injectEnvironmentConfig, type EnvironmentValues } from './inject-environment.js';

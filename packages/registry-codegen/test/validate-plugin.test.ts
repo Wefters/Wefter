@@ -118,6 +118,109 @@ describe("validatePluginDirectory", () => {
     expect(result.iosExtraction).toBeUndefined();
   });
 
+  it("fails when a manifestEntries class reference doesn't resolve to any class shipped in android/ source", () => {
+    pluginDir = makePluginDir();
+    writeFileSync(
+      join(pluginDir, "plugin.json"),
+      JSON.stringify({
+        name: "scanner",
+        methods: ["open"],
+        android: {
+          manifestEntries: [{ type: "activity", name: ".MissingActivity", exported: true, intentFilters: [] }],
+        },
+      }),
+    );
+    mkdirSync(join(pluginDir, "android"));
+    writeFileSync(join(pluginDir, "android", "ScannerPlugin.kt"), WELL_FORMED_KOTLIN);
+
+    const result = validatePluginDirectory(pluginDir);
+
+    expect(result.valid).toBe(false);
+    expect(result.issues[0]).toContain("MissingActivity");
+  });
+
+  it("passes when a manifestEntries class reference resolves to a class actually declared in android/ source", () => {
+    pluginDir = makePluginDir();
+    writeFileSync(
+      join(pluginDir, "plugin.json"),
+      JSON.stringify({
+        name: "scanner",
+        methods: ["open"],
+        android: {
+          manifestEntries: [{ type: "activity", name: ".AuthActivity", exported: true, intentFilters: [] }],
+        },
+      }),
+    );
+    mkdirSync(join(pluginDir, "android"));
+    writeFileSync(
+      join(pluginDir, "android", "ScannerPlugin.kt"),
+      `${WELL_FORMED_KOTLIN}\nclass AuthActivity\n`,
+    );
+
+    const result = validatePluginDirectory(pluginDir);
+
+    expect(result.valid).toBe(true);
+  });
+
+  it("rejects a malformed Gradle coordinate in nativeDependencies.android.gradle", () => {
+    pluginDir = makePluginDir();
+    writeFileSync(
+      join(pluginDir, "plugin.json"),
+      JSON.stringify({
+        name: "scanner",
+        methods: ["open"],
+        nativeDependencies: { android: { gradle: ["not-a-valid-coordinate"] } },
+      }),
+    );
+    mkdirSync(join(pluginDir, "android"));
+    writeFileSync(join(pluginDir, "android", "ScannerPlugin.kt"), WELL_FORMED_KOTLIN);
+
+    const result = validatePluginDirectory(pluginDir);
+
+    expect(result.valid).toBe(false);
+    expect(result.issues[0]).toContain("not-a-valid-coordinate");
+  });
+
+  it("accepts multiple well-formed Gradle coordinates in nativeDependencies.android.gradle", () => {
+    pluginDir = makePluginDir();
+    writeFileSync(
+      join(pluginDir, "plugin.json"),
+      JSON.stringify({
+        name: "scanner",
+        methods: ["open"],
+        nativeDependencies: {
+          android: { gradle: ["androidx.camera:camera-core:1.3.0", "com.google.mlkit:barcode-scanning:17.3.0"] },
+        },
+      }),
+    );
+    mkdirSync(join(pluginDir, "android"));
+    writeFileSync(join(pluginDir, "android", "ScannerPlugin.kt"), WELL_FORMED_KOTLIN);
+
+    const result = validatePluginDirectory(pluginDir);
+
+    expect(result.valid).toBe(true);
+  });
+
+  it("fails when plugin.json declares android.manifestEntries but ships no android/ directory", () => {
+    pluginDir = makePluginDir();
+    writeFileSync(
+      join(pluginDir, "plugin.json"),
+      JSON.stringify({
+        name: "scanner",
+        android: {
+          manifestEntries: [{ type: "activity", name: ".AuthActivity", exported: true, intentFilters: [] }],
+        },
+      }),
+    );
+    mkdirSync(join(pluginDir, "ios"));
+    writeFileSync(join(pluginDir, "ios", "ScannerPlugin.swift"), WELL_FORMED_SWIFT);
+
+    const result = validatePluginDirectory(pluginDir);
+
+    expect(result.valid).toBe(false);
+    expect(result.issues[0]).toContain("manifestEntries");
+  });
+
   it("fails when plugin.json declares an Android permission but no method rejects with PERMISSION_DENIED", () => {
     pluginDir = makePluginDir();
     writeFileSync(

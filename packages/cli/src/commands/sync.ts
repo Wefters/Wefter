@@ -9,6 +9,7 @@ import {
 import { dirname, join } from "node:path";
 import {
   auditPluginPermissions,
+  computeGradleMerge,
   copyAndroidNativeSource,
   copyIosNativeSource,
   copyWebAssets,
@@ -19,9 +20,11 @@ import {
   injectSplashConfig,
   mergeGradleDeps,
   mergeInfoPlist,
+  mergeManifestEntries,
   mergePermissions,
   mergeProguardRules,
   validatePluginDirectory,
+  type MergedManifestEntry,
   type PluginExtraction,
   type PluginExtractionSwift,
 } from "@wefterjs/registry-codegen";
@@ -77,7 +80,9 @@ export interface SyncResult {
   outFile: string;
   pluginSourceDir: string;
   gradleDepsAdded: string[];
+  gradleConflicts: string[];
   permissionsAdded: string[];
+  manifestEntriesAdded: MergedManifestEntry[];
   proguardRulesAdded: string[];
   webAssetsDir: string;
   environments: string[];
@@ -227,10 +232,12 @@ export async function sync(
     const iosPluginsWithNativeSource = copyIosNativeSource(iosPlugins, iosPluginSourceDirPath);
 
     const gradleDepsAdded = mergeGradleDeps(androidPlugins, buildGradlePath);
+    const gradleConflicts = computeGradleMerge(androidPlugins).conflicts;
     const nativeDependenciesPackage = generateNativeDependenciesPackage(iosPlugins);
     writeFileSync(iosNativeDependenciesPackagePathVar, nativeDependenciesPackage + "\n", "utf-8");
 
     const permissionsAdded = mergePermissions(androidPlugins, manifestPath);
+    const manifestEntriesAdded = mergeManifestEntries(androidPlugins, manifestPath, config.pluginConfig);
     const proguardRulesAdded = mergeProguardRules(androidPlugins, proguardRulesPath);
     const iosPermissionsAdded = mergeInfoPlist(iosPlugins, iosInfoPlistPathVar);
 
@@ -285,7 +292,9 @@ export async function sync(
       outFile,
       pluginSourceDir,
       gradleDepsAdded,
+      gradleConflicts,
       permissionsAdded,
+      manifestEntriesAdded,
       proguardRulesAdded,
       webAssetsDir,
       environments: Object.keys(config.environments),

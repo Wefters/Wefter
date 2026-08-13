@@ -8,9 +8,7 @@ const EnvironmentSchema = z.object({
       "Invalid Android application ID",
     ),
   appName: z.string(),
-  
-  
-  
+
   iosBundleId: z.string().optional(),
 });
 
@@ -18,15 +16,17 @@ export const WefterConfigSchema = z.object({
   plugins: z.array(z.string()).default([]),
   pluginsDir: z.string().default("node_modules"),
   webDir: z.string().default("dist"),
-  environments: z
-    .record(z.string(), EnvironmentSchema)
-    .default({
-      development: { appId: "dev.wefter.bridge.dev", appName: "Wefter (Dev)" },
-    }),
+  pluginConfig: z.record(z.string(), z.string()).default({}),
+  environments: z.record(z.string(), EnvironmentSchema).default({
+    development: { appId: "dev.wefter.bridge.dev", appName: "Wefter (Dev)" },
+  }),
   icon: z.string().optional(),
   launchBackground: z
     .string()
-    .regex(/^#[0-9A-Fa-f]{6}$/, "launchBackground must be a 6-digit hex color, e.g. #14161C")
+    .regex(
+      /^#[0-9A-Fa-f]{6}$/,
+      "launchBackground must be a 6-digit hex color, e.g. #14161C",
+    )
     .optional(),
 
   splash: z
@@ -41,7 +41,8 @@ export const WefterConfigSchema = z.object({
           transition: z.enum(["fade", "none"]).default("fade"),
         })
         .refine((s) => s.minDuration <= s.maxDuration, {
-          message: "splash.minDuration must not be greater than splash.maxDuration",
+          message:
+            "splash.minDuration must not be greater than splash.maxDuration",
           path: ["minDuration"],
         }),
     ])
@@ -52,8 +53,7 @@ export const WefterConfigSchema = z.object({
       keyAlias: z.string(),
     })
     .optional(),
-  
-  
+
   iosSigning: z
     .object({
       teamId: z.string(),

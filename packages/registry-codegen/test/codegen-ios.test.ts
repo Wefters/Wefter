@@ -55,6 +55,16 @@ describe("generateRegistrySwift", () => {
     expect(swift).toContain('dispatcher.register("device-info", module: DeviceInfoPluginDispatch(plugin: deviceInfoPlugin))');
   });
 
+  it("registers the constructed plugin instance with WefterBridge alongside the dispatcher", () => {
+    const extraction = new Map<string, PluginExtractionSwift>([
+      ["device-info", { methods: [{ name: "getInfo", lineNumber: 5 }], hooks: [] }],
+    ]);
+
+    const swift = generateRegistrySwift([deviceMock], extraction);
+
+    expect(swift).toContain('WefterBridge.register("device-info", plugin: deviceInfoPlugin)');
+  });
+
   it("every method gets its own switch-case, all on the same instance", () => {
     const extraction = new Map<string, PluginExtractionSwift>([
       [

@@ -309,6 +309,64 @@ describe("sync — @WefterMethod extraction and consistency audit", () => {
   });
 });
 
+describe("sync — manifest entries", () => {
+  function declareAuthActivity(withScheme: boolean): void {
+    writeFileSync(
+      join(projectDir, "plugins/device-info/plugin.json"),
+      JSON.stringify({
+        name: "device-info",
+        permissions: { android: ["android.permission.INTERNET"] },
+        android: {
+          manifestEntries: [
+            {
+              type: "activity",
+              name: ".DeviceInfoAuthActivity",
+              exported: true,
+              intentFilters: withScheme
+                ? [
+                    {
+                      action: "android.intent.action.VIEW",
+                      categories: ["android.intent.category.DEFAULT", "android.intent.category.BROWSABLE"],
+                      data: { scheme: "${appScheme}" },
+                    },
+                  ]
+                : [],
+            },
+          ],
+        },
+      }),
+    );
+    writeFileSync(
+      join(projectDir, "plugins/device-info/android/DeviceInfoPlugin.kt"),
+      "package dev.wefter.bridge\n\nclass DeviceInfoPlugin\nclass DeviceInfoAuthActivity\n",
+    );
+  }
+
+  it("weaves a declared activity with a resolved intent-filter into AndroidManifest.xml", async () => {
+    declareAuthActivity(true);
+    const rawConfig = JSON.parse(readFileSync(join(projectDir, "wefter.config.json"), "utf-8"));
+    writeFileSync(
+      join(projectDir, "wefter.config.json"),
+      JSON.stringify({ ...rawConfig, pluginConfig: { appScheme: "myapp" } }),
+    );
+
+    const result = await sync(projectDir);
+
+    expect(result.manifestEntriesAdded).toEqual([
+      { pluginName: "device-info", type: "activity", name: ".DeviceInfoAuthActivity", exported: true },
+    ]);
+    const manifest = readFileSync(manifestPath, "utf-8");
+    expect(manifest).toContain('android:name=".DeviceInfoAuthActivity"');
+    expect(manifest).toContain('<data android:scheme="myapp" />');
+  });
+
+  it("fails sync with a clear error naming the missing pluginConfig key instead of silently omitting the entry", async () => {
+    declareAuthActivity(true);
+
+    await expect(sync(projectDir)).rejects.toThrow(/appScheme/);
+  });
+});
+
 describe("sync — lockfile", () => {
   it("writes wefter.lock.json with an entry per synced plugin", async () => {
     await sync(projectDir);

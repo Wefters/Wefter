@@ -51,6 +51,7 @@ export function generateRegistrySwift(
       `        let ${varName} = ${className}(dispatcher: dispatcher, viewController: viewController)`,
     );
     registrationLines.push(`        dispatcher.register("${name}", module: ${className}Dispatch(plugin: ${varName}))`);
+    registrationLines.push(`        WefterBridge.register("${name}", plugin: ${varName})`);
     for (const hook of ext.hooks) {
       registrationLines.push(`        dispatcher.subscribeHook("${hook.hookName}") { ${varName}.${hook.methodName}() }`);
     }

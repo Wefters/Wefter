@@ -5,7 +5,7 @@
   },
   "nativeDependencies": {
     "android": {
-      "gradle": "com.google.zxing:core:3.5.3"
+      "gradle": ["com.google.zxing:core:3.5.3"]
     }
   },
   "methods": ["scan", "cancel"],

@@ -57,6 +57,7 @@ export function generateRegistryKotlin(
     const varName = lowerFirst(className);
     registrationLines.push(`        val ${varName} = ${className}(context, dispatcher)`);
     registrationLines.push(`        dispatcher.register("${name}", ${className}Dispatch(${varName}))`);
+    registrationLines.push(`        WefterBridge.register("${name}", ${varName})`);
     for (const hook of ext.hooks) {
       registrationLines.push(`        dispatcher.subscribeHook("${hook.hookName}") { ${varName}.${hook.methodName}() }`);
     }
