@@ -1,5 +1,7 @@
 import { build } from "esbuild";
 import {
+  cpSync,
+  existsSync,
   mkdirSync,
   readdirSync,
   readFileSync,
@@ -36,7 +38,9 @@ function pruneCompiledJs(dir, isRoot) {
       (name === "cli.js" ||
         name === "cli.js.map" ||
         name === "index.js" ||
-        name === "index.js.map")
+        name === "index.js.map" ||
+        name === "shells" ||
+        name === "internal")
     ) {
       continue;
     }
@@ -61,6 +65,26 @@ function copyDtsTree(srcDir, destDir) {
   }
 }
 copyDtsTree(registryCodegenDistDir, vendoredTypesDir);
+
+function copyShellTemplates() {
+  const repoShellsDir = join(rootDir, "../../shells");
+  const distShellsDir = join(rootDir, "dist/shells");
+  if (existsSync(repoShellsDir)) {
+    mkdirSync(distShellsDir, { recursive: true });
+    for (const shell of ["android-template", "ios-template"]) {
+      const src = join(repoShellsDir, shell);
+      const dest = join(distShellsDir, shell);
+      if (existsSync(src)) {
+        rmSync(dest, { recursive: true, force: true });
+        cpSync(src, dest, {
+          recursive: true,
+          filter: (f) => !/[\\/](build|\.gradle|\.wefter|\.idea|\.DS_Store)([\\/]|$)/.test(f),
+        });
+      }
+    }
+  }
+}
+copyShellTemplates();
 
 function rewriteVendoredImports(dir) {
   for (const name of readdirSync(dir)) {
