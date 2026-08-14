@@ -2,6 +2,8 @@
 import { resolve } from "node:path";
 import { config as loadDotenv } from "dotenv";
 import { Command, type Help } from "commander";
+import { init } from "./commands/init.js";
+import { CLI_VERSION, CORE_VERSION } from "./internal/version.js";
 import { sync } from "./commands/sync.js";
 import { build, buildIosCommand } from "./commands/build.js";
 import { run, runIos } from "./commands/run.js";
@@ -16,17 +18,60 @@ import { runAllChecks } from "./doctor/checks.js";
 import { runReleaseReadinessChecks } from "./doctor/release-readiness.js";
 import { allPassed, buildReportLines } from "./doctor/report.js";
 import { renderHelp } from "./help/render-help.js";
+import { printInitSuccessSummary } from "./utils/banner.js";
 import logger from "./utils/logger.js";
 
-loadDotenv();
+loadDotenv({ quiet: true });
 
 function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+let activeCleanup: (() => void | Promise<void>) | null = null;
+
+export function registerCleanup(fn: (() => void | Promise<void>) | null): void {
+  activeCleanup = fn;
+}
+
+process.on("SIGINT", async () => {
+  console.log("");
+  if (activeCleanup) {
+    try {
+      await activeCleanup();
+    } catch {
+      // Ignore errors during emergency exit cleanup
+    }
+  }
+  logger.warn("Operation cancelled by user (Ctrl+C).");
+  process.exit(130);
+});
+
 const program = new Command();
 
-program.name("wefter").description("Wefter CLI");
+program.name("wefter").description("Wefter CLI").version(CLI_VERSION);
+
+program
+  .command("init")
+  .description("Wrap an existing JS/TS project with wefter.config.json, add @wefterjs/core + @wefterjs/cli to package.json, and write WEFTER_* env keys")
+  .argument("[projectDir]", "project root directory", process.cwd())
+  .action(async (projectDir: string) => {
+    try {
+      const result = await init(resolve(projectDir));
+      printInitSuccessSummary({
+        appId: result.appId,
+        webDir: result.webDir,
+        packageManager: result.packageManager,
+        gitignoreUpdated: result.gitignoreUpdated,
+        coreVersion: CORE_VERSION,
+        cliVersion: CLI_VERSION,
+      });
+      process.exitCode = 0;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      logger.error(`Init failed: ${message}`);
+      process.exitCode = 1;
+    }
+  });
 
 program
   .command("doctor")
@@ -160,11 +205,7 @@ program
       logger.success(`App installed and launched (env: ${opts.env}).`);
       if (devServer) {
         logger.info(`Watching ${devServer.url} — edits will hot-reload on-device. Press Ctrl+C to stop.`);
-        process.on("SIGINT", () => {
-          devServer.stop();
-          process.exitCode = 0;
-          process.exit();
-        });
+        registerCleanup(() => devServer.stop());
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

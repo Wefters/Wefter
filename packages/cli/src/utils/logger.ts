@@ -8,34 +8,27 @@ export interface ColoredSegment {
   underline?: boolean;
 }
 
-const timestamp = (): string => {
-  const now = new Date();
-  return chalk.gray(
-    `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:${String(now.getSeconds()).padStart(2, "0")}`
-  );
-};
-
 type LogArgs = unknown[];
 
 const logger = {
   info: (...args: LogArgs) => {
-    console.log(`${chalk.blue(chalk.bold("[INFO]"))} ${timestamp()} →`, chalk.cyan(...args));
+    console.log(`${chalk.blue(chalk.bold("[INFO]"))} →`, chalk.cyan(...args));
   },
 
   success: (...args: LogArgs) => {
-    console.log(`${chalk.green(chalk.bold("[SUCCESS]"))} ${timestamp()} →`, chalk.white(...args));
+    console.log(`${chalk.green(chalk.bold("[SUCCESS]"))} →`, chalk.white(...args));
   },
 
   warn: (...args: LogArgs) => {
-    console.warn(`${chalk.yellow(chalk.bold("[WARN]"))} ${timestamp()} →`, chalk.green(...args));
+    console.warn(`${chalk.yellow(chalk.bold("[WARN]"))} →`, chalk.green(...args));
   },
 
   error: (...args: LogArgs) => {
-    console.error(`${chalk.red(chalk.bold("[ERROR]"))} ${timestamp()} →`, chalk.redBright(...args));
+    console.error(`${chalk.red(chalk.bold("[ERROR]"))} →`, chalk.redBright(...args));
   },
 
   debug: (...args: LogArgs) => {
-    console.log(`${chalk.magenta(chalk.bold("[DEBUG]"))} ${timestamp()} →`, chalk.gray(...args));
+    console.log(`${chalk.magenta(chalk.bold("[DEBUG]"))} →`, chalk.gray(...args));
   },
 
   bold: (...args: LogArgs) => {

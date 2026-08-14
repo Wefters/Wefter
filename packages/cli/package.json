@@ -1,6 +1,6 @@
 {
   "name": "@wefterjs/cli",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "private": true,
   "type": "module",
   "main": "dist/index.js",
@@ -21,7 +21,9 @@
     }
   },
   "scripts": {
+    "prebuild": "node scripts/gen-version.mjs",
     "build": "tsc -p tsconfig.json && node scripts/bundle.mjs",
+    "pretest": "node scripts/gen-version.mjs",
     "test": "vitest run",
     "dev": "tsx src/cli.ts"
   },
