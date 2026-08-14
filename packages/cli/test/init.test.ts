@@ -50,11 +50,7 @@ describe("init", () => {
   it("sets different versions for @wefterjs/core and @wefterjs/cli when specified", async () => {
     setup();
 
-    await init(
-      projectDir,
-      { coreVersion: "0.0.1", cliVersion: "0.0.2" },
-      defaultsPrompt
-    );
+    await init(projectDir, { coreVersion: "0.0.1", cliVersion: "0.0.2" }, defaultsPrompt);
 
     const pkg = JSON.parse(readFileSync(join(projectDir, "package.json"), "utf-8"));
     expect(pkg.dependencies["@wefterjs/core"]).toBe("0.0.1");
@@ -138,7 +134,8 @@ describe("init", () => {
 
   it("rejects an invalid appId before writing anything", async () => {
     setup();
-    const badPrompt = async (question: string, defaultValue: string) => (question.startsWith("App ID") ? "Not An Id!" : defaultValue);
+    const badPrompt = async (question: string, defaultValue: string) =>
+      question.startsWith("App ID") ? "Not An Id!" : defaultValue;
 
     await expect(init(projectDir, "1.0.0", badPrompt)).rejects.toThrow(/Invalid config/);
     expect(existsSync(join(projectDir, "wefter.config.json"))).toBe(false);

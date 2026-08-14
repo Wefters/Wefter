@@ -36,8 +36,6 @@ export function weaveJavaNamespace(javaSrcRoot: string, namespace: string): void
   rmSync(stagingDir, { recursive: true, force: true });
   renameSync(templateDir, stagingDir);
 
-  
-  
   rmSync(join(javaSrcRoot, "dev"), { recursive: true, force: true });
 
   const targetDir = join(javaSrcRoot, ...namespace.split("."));

@@ -1,6 +1,10 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { computeGradleMerge, extractRequiredPluginConfigKeys, validatePluginDirectory } from "@wefterjs/registry-codegen";
+import {
+  computeGradleMerge,
+  extractRequiredPluginConfigKeys,
+  validatePluginDirectory,
+} from "@wefterjs/registry-codegen";
 import { loadWefterConfig, pluginsDirPath } from "../config/project-paths.js";
 import { runNpmInstall } from "../plugins/npm-install.js";
 import { resolveRegisteredPlugins } from "../plugins/registry.js";
@@ -32,10 +36,9 @@ function readRawConfig(projectDir: string): Record<string, unknown> {
 export async function add(
   projectDir: string,
   packageSpec: string,
-  install: (projectDir: string, spec: string) => Promise<void> = runNpmInstall
+  install: (projectDir: string, spec: string) => Promise<void> = runNpmInstall,
 ): Promise<AddResult> {
   const { name } = parsePackageSpec(packageSpec);
-
 
   const config = loadWefterConfig(projectDir);
 
@@ -44,7 +47,14 @@ export async function add(
   const packageDir = join(pluginsDirPath(projectDir, config), name);
   const validation = validatePluginDirectory(packageDir);
   if (!validation.valid) {
-    return { added: false, alreadyDeclared: false, issues: validation.issues, exportedComponents: [], requiredConfigKeys: [], gradleConflicts: [] };
+    return {
+      added: false,
+      alreadyDeclared: false,
+      issues: validation.issues,
+      exportedComponents: [],
+      requiredConfigKeys: [],
+      gradleConflicts: [],
+    };
   }
   const manifest = validation.manifest!;
 
@@ -54,11 +64,20 @@ export async function add(
 
   const rawConfig = readRawConfig(projectDir);
   const declaredPluginConfig = (rawConfig.pluginConfig as Record<string, string> | undefined) ?? {};
-  const requiredConfigKeys = extractRequiredPluginConfigKeys(manifest).filter((key) => declaredPluginConfig[key] === undefined);
+  const requiredConfigKeys = extractRequiredPluginConfigKeys(manifest).filter(
+    (key) => declaredPluginConfig[key] === undefined,
+  );
 
   const existingPlugins = Array.isArray(rawConfig.plugins) ? (rawConfig.plugins as string[]) : [];
   if (existingPlugins.includes(name)) {
-    return { added: false, alreadyDeclared: true, issues: [], exportedComponents, requiredConfigKeys, gradleConflicts: [] };
+    return {
+      added: false,
+      alreadyDeclared: true,
+      issues: [],
+      exportedComponents,
+      requiredConfigKeys,
+      gradleConflicts: [],
+    };
   }
 
   const alreadyResolvedPlugins = resolveRegisteredPlugins(pluginsDirPath(projectDir, config), existingPlugins);

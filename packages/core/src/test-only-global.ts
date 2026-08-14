@@ -1,4 +1,4 @@
-import { invokeNative, registerHook } from './index.js';
+import { invokeNative, registerHook } from "./index.js";
 
 declare global {
   interface Window {

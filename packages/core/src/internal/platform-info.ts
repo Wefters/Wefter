@@ -27,8 +27,7 @@ function detectPlatform(): PlatformInfo["platform"] {
 function getEnvironment(): string {
   if (typeof window === "undefined") return "unknown";
   if (window.AndroidBridge?.getEnvironment) return window.AndroidBridge.getEnvironment();
-  
-  
+
   if (window.__WEFTER_IOS_ENV__) return window.__WEFTER_IOS_ENV__;
   return "unknown";
 }

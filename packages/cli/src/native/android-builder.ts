@@ -18,7 +18,7 @@ export function buildAndroid(
   projectDir: string,
   config: WefterConfig,
   env: string,
-  release: boolean
+  release: boolean,
 ): Promise<AndroidBuildResult> {
   const buildType = release ? "Release" : "Debug";
   const task = `assemble${capitalize(env)}${buildType}`;

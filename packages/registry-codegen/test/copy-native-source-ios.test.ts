@@ -24,8 +24,8 @@ function fixturePlugin(name: string): DiscoveredPlugin {
 
 const alphaIos = fixturePlugin("plugin-alpha-ios");
 const betaIos = fixturePlugin("plugin-beta-ios");
-const androidOnly = fixturePlugin("plugin-alpha"); 
-const neither = fixturePlugin("plugin-no-android"); 
+const androidOnly = fixturePlugin("plugin-alpha");
+const neither = fixturePlugin("plugin-no-android");
 
 let destDir: string;
 

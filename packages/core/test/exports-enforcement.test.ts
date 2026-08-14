@@ -13,6 +13,6 @@ describe("package.json exports field", () => {
 
   it("blocks importing an internal path that was never listed in exports", async () => {
     const internalSpecifier = "@wefterjs/core/internal/native-bridge.js";
-    await expect(import( internalSpecifier)).rejects.toThrow();
+    await expect(import(internalSpecifier)).rejects.toThrow();
   });
 });

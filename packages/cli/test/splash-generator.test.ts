@@ -16,7 +16,15 @@ function setup() {
   webAssetsDir = join(projectDir, "assets/www");
 }
 
-function resolved(overrides: Partial<{ source: string; minDuration: number; maxDuration: number; dismissOn: "ready" | "timer"; transition: "fade" | "none" }> = {}) {
+function resolved(
+  overrides: Partial<{
+    source: string;
+    minDuration: number;
+    maxDuration: number;
+    dismissOn: "ready" | "timer";
+    transition: "fade" | "none";
+  }> = {},
+) {
   return {
     enabled: true as const,
     source: "splash",

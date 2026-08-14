@@ -58,7 +58,9 @@ describe("injectDevServerUrlIos", () => {
     injectDevServerUrlIos(buildConfigPath, "http://192.168.1.42:5173");
 
     const updated = readFileSync(buildConfigPath, "utf-8");
-    expect(updated).toContain('static let devServerURL = "http://192.168.1.42:5173" // WEFTER overridden per-run by the CLI');
+    expect(updated).toContain(
+      'static let devServerURL = "http://192.168.1.42:5173" // WEFTER overridden per-run by the CLI',
+    );
     expect(updated).toContain('static let devServerURL = "" // WEFTER always empty in release — never shippable');
   });
 
@@ -75,10 +77,6 @@ describe("injectDevServerUrlIos", () => {
 });
 
 describe("injectDevServerUrlIos against the real shell template", () => {
-  
-  
-  
-  
   it("actually rewrites the DEBUG field in the real shells/ios-template/WefterBridge/BuildConfig.swift", () => {
     dir = mkdtempSync(join(tmpdir(), "wefter-ios-inject-real-"));
     const buildConfigPath = join(dir, "BuildConfig.swift");
@@ -87,7 +85,9 @@ describe("injectDevServerUrlIos against the real shell template", () => {
     injectDevServerUrlIos(buildConfigPath, "http://192.168.1.42:5173");
 
     const updated = readFileSync(buildConfigPath, "utf-8");
-    expect(updated).toContain('static let devServerURL = "http://192.168.1.42:5173" // WEFTER overridden per-run by the CLI');
+    expect(updated).toContain(
+      'static let devServerURL = "http://192.168.1.42:5173" // WEFTER overridden per-run by the CLI',
+    );
   });
 
   it("actually rewrites the ATS exception block in the real shells/ios-template/WefterBridge/Info.plist", () => {

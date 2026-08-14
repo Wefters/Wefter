@@ -12,18 +12,17 @@ export interface ExtractedHook {
 function lineNumberAt(source: string, index: number): number {
   let line = 1;
   for (let i = 0; i < index; i++) {
-    if (source[i] === '\n') line++;
+    if (source[i] === "\n") line++;
   }
   return line;
 }
 
-const METHOD_PATTERN_SOURCE =
-  String.raw`@WefterMethod\s*\n\s*fun\s+(\w+)\s*\(\s*payload:\s*JSONObject\s*,\s*callback:\s*\(Result<Any>\)\s*->\s*Unit\s*\)`;
+const METHOD_PATTERN_SOURCE = String.raw`@WefterMethod\s*\n\s*fun\s+(\w+)\s*\(\s*payload:\s*JSONObject\s*,\s*callback:\s*\(Result<Any>\)\s*->\s*Unit\s*\)`;
 
 const METHOD_ANNOTATION_PATTERN = /@WefterMethod\s*\n\s*fun\s+\w+\s*\(/g;
 
 export function extractWefterMethods(source: string): ExtractedMethod[] {
-  const pattern = new RegExp(METHOD_PATTERN_SOURCE, 'g');
+  const pattern = new RegExp(METHOD_PATTERN_SOURCE, "g");
   const results: ExtractedMethod[] = [];
   for (const match of source.matchAll(pattern)) {
     results.push({ name: match[1], lineNumber: lineNumberAt(source, match.index!) });
@@ -48,7 +47,7 @@ const HOOK_PATTERN_SOURCE = String.raw`@WefterHook\("(\w+)"\)\s*\n\s*fun\s+(\w+)
 const HOOK_ANNOTATION_PATTERN = /@WefterHook\([^)]*\)\s*\n\s*fun\s+\w+\s*\([^)]*\)/g;
 
 export function extractWefterHooks(source: string): ExtractedHook[] {
-  const pattern = new RegExp(HOOK_PATTERN_SOURCE, 'g');
+  const pattern = new RegExp(HOOK_PATTERN_SOURCE, "g");
   const results: ExtractedHook[] = [];
   for (const match of source.matchAll(pattern)) {
     results.push({ hookName: match[1], methodName: match[2], lineNumber: lineNumberAt(source, match.index!) });

@@ -46,12 +46,7 @@ underneath. You'll reach for it directly for built-in system calls, or to
 check on the bridge itself:
 
 ```ts
-import {
-  invokeNative,
-  isNativeBridgeAvailable,
-  getDeviceInfo,
-  hideSplash,
-} from "@wefterjs/core";
+import { invokeNative, isNativeBridgeAvailable, getDeviceInfo, hideSplash } from "@wefterjs/core";
 
 if (isNativeBridgeAvailable()) {
   const { platform, osVersion } = await getDeviceInfo();
@@ -88,8 +83,7 @@ import { getDeviceInfo } from "@wefterjs/core";
 
 installMockBridge({
   __system: async (method) => {
-    if (method === "getDeviceInfo")
-      return { platform: "android", osVersion: "14" };
+    if (method === "getDeviceInfo") return { platform: "android", osVersion: "14" };
     throw new Error(`unhandled method ${method}`);
   },
 });

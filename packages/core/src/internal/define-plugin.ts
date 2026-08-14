@@ -10,7 +10,7 @@ type DefinedPlugin<Methods extends AnyMethods> = {
 
 export function definePlugin<Methods extends AnyMethods>(
   pluginName: string,
-  methodSignatures: { [K in keyof Methods]: true }
+  methodSignatures: { [K in keyof Methods]: true },
 ): DefinedPlugin<Methods> {
   const result = {} as DefinedPlugin<Methods>;
   for (const methodName of Object.keys(methodSignatures) as (keyof Methods)[]) {

@@ -37,7 +37,7 @@ export async function run(projectDir: string, options: RunOptions): Promise<DevS
   const environment = config.environments[options.env];
   if (!environment) {
     throw new Error(
-      `Unknown environment "${options.env}". Configured environments: ${Object.keys(config.environments).join(", ")}`
+      `Unknown environment "${options.env}". Configured environments: ${Object.keys(config.environments).join(", ")}`,
     );
   }
 
@@ -53,7 +53,7 @@ export async function run(projectDir: string, options: RunOptions): Promise<DevS
   if (unresolved.length > 0) {
     logger.warn(
       `Registered plugin(s) not found in node_modules: ${unresolved.join(", ")}. ` +
-        `Run \`wefter sync\` to refresh the registry.`
+        `Run \`wefter sync\` to refresh the registry.`,
     );
   }
 
@@ -107,7 +107,6 @@ async function installAndLaunch(
 }
 
 export interface IosRunOptions extends RunOptions {
-  
   simulator?: string;
 }
 
@@ -116,7 +115,7 @@ export async function runIos(projectDir: string, options: IosRunOptions): Promis
   const environment = config.environments[options.env];
   if (!environment) {
     throw new Error(
-      `Unknown environment "${options.env}". Configured environments: ${Object.keys(config.environments).join(", ")}`
+      `Unknown environment "${options.env}". Configured environments: ${Object.keys(config.environments).join(", ")}`,
     );
   }
 
@@ -133,7 +132,7 @@ export async function runIos(projectDir: string, options: IosRunOptions): Promis
   if (unresolved.length > 0) {
     logger.warn(
       `Registered plugin(s) not found in node_modules: ${unresolved.join(", ")}. ` +
-        `Run \`wefter sync\` to refresh the registry.`
+        `Run \`wefter sync\` to refresh the registry.`,
     );
   }
 

@@ -53,9 +53,7 @@ describe("reportUnhandledError", () => {
     __setDebugBuildForTest(true);
 
     expect(() => reportUnhandledError({ code: "NOT_AN_ERROR" })).not.toThrow();
-    expect(document.querySelector("[data-wefter-error-overlay]")!.textContent).toContain(
-      "NOT_AN_ERROR"
-    );
+    expect(document.querySelector("[data-wefter-error-overlay]")!.textContent).toContain("NOT_AN_ERROR");
   });
 });
 
@@ -64,11 +62,9 @@ describe("window error listeners", () => {
     __setDebugBuildForTest(true);
 
     window.dispatchEvent(
-      new ErrorEvent("error", { error: new Error("window-level crash"), message: "window-level crash" })
+      new ErrorEvent("error", { error: new Error("window-level crash"), message: "window-level crash" }),
     );
 
-    expect(document.querySelector("[data-wefter-error-overlay]")!.textContent).toContain(
-      "window-level crash"
-    );
+    expect(document.querySelector("[data-wefter-error-overlay]")!.textContent).toContain("window-level crash");
   });
 });

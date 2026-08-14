@@ -21,9 +21,7 @@ declare global {
         };
       };
     };
-    
-    
-    
+
     __WEFTER_IOS_ENV__?: string;
     __wefterNative: {
       resolve(callId: string, resultJson: string): void;
@@ -49,7 +47,7 @@ if (typeof window !== "undefined") {
                 : "UNKNOWN",
               "message" in parsed && typeof (parsed as { message?: unknown }).message === "string"
                 ? (parsed as { message: string }).message
-                : String(parsed)
+                : String(parsed),
             )
           : new WefterBridgeError("UNKNOWN", String(parsed));
       pending.get(callId)?.reject(error);
@@ -63,9 +61,7 @@ if (typeof window !== "undefined") {
 }
 
 export function isNativeBridgeAvailable(): boolean {
-  return (
-    typeof window !== "undefined" && (!!window.AndroidBridge || !!window.webkit?.messageHandlers?.WefterBridge)
-  );
+  return typeof window !== "undefined" && (!!window.AndroidBridge || !!window.webkit?.messageHandlers?.WefterBridge);
 }
 
 export function onBridgeReady(): Promise<void> {
@@ -83,7 +79,7 @@ export function invokeNative<T = unknown>(
   plugin: string,
   method: string,
   payload: unknown = {},
-  options?: { signal?: AbortSignal; timeoutMs?: number }
+  options?: { signal?: AbortSignal; timeoutMs?: number },
 ): Promise<T> {
   const callId = String(callCounter++);
   const signal = options?.signal;
@@ -127,8 +123,6 @@ export function invokeNative<T = unknown>(
     if (window.AndroidBridge) {
       window.AndroidBridge.invoke(callId, plugin, method, JSON.stringify(payload));
     } else if (window.webkit?.messageHandlers?.WefterBridge) {
-      
-      
       window.webkit.messageHandlers.WefterBridge.postMessage({ callId, plugin, method, payload });
     } else {
       pending.delete(callId);

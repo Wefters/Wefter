@@ -17,7 +17,7 @@ function makePlugin(name: string, kotlinSource: string, declaredPermissions: str
       nativeDependencies: {},
       hooks: [],
       events: [],
-      methods: []
+      methods: [],
     },
     packageDir,
   };

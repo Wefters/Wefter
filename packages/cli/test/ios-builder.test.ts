@@ -45,7 +45,14 @@ describe("buildIos", () => {
 
     expect(spawnMock).toHaveBeenCalledWith(
       "xcodebuild",
-      expect.arrayContaining(["-project", expect.stringContaining("WefterBridge.xcodeproj"), "-scheme", "WefterBridge", "-configuration", "Debug-Development"]),
+      expect.arrayContaining([
+        "-project",
+        expect.stringContaining("WefterBridge.xcodeproj"),
+        "-scheme",
+        "WefterBridge",
+        "-configuration",
+        "Debug-Development",
+      ]),
       expect.any(Object),
     );
   });
@@ -116,7 +123,7 @@ describe("buildIos", () => {
     const { buildIos } = await import("../src/native/ios-builder.js");
     dir = mkdtempSync(join(tmpdir(), "wefter-ios-build-"));
     const productsDir = join(dir, ".wefter/native/ios/build/Build/Products/Debug-Development-iphonesimulator");
-    mkdirSync(productsDir, { recursive: true }); 
+    mkdirSync(productsDir, { recursive: true });
 
     fakeSpawn(0);
 

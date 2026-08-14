@@ -190,9 +190,6 @@ describe("runAllChecks", () => {
 });
 
 describe("iOS checks — on this (non-macOS) test machine", () => {
-  
-  
-  
   it("checkMacOS fails with a clear fix message off Darwin", async () => {
     const { checkMacOS } = await import("../src/doctor/checks.js");
     const result = await checkMacOS();
@@ -207,7 +204,7 @@ describe("iOS checks — on this (non-macOS) test machine", () => {
 
   it("checkXcodeInstalled short-circuits to 'requires macOS' without touching exec, off Darwin", async () => {
     if (process.platform === "darwin") return;
-    execFails(); 
+    execFails();
     const { checkXcodeInstalled } = await import("../src/doctor/checks.js");
 
     const result = await checkXcodeInstalled();

@@ -2,7 +2,11 @@ import { afterEach, describe, expect, it } from "vitest";
 import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { injectDevServerUrl, injectNetworkSecurityException, resetDevServerUrl } from "../src/native/inject-dev-server.js";
+import {
+  injectDevServerUrl,
+  injectNetworkSecurityException,
+  resetDevServerUrl,
+} from "../src/native/inject-dev-server.js";
 import { shellTemplatePath } from "../src/native/shell-template.js";
 
 const GRADLE_FIXTURE = `dependencies {
@@ -48,10 +52,6 @@ describe("injectDevServerUrl", () => {
 });
 
 describe("injectDevServerUrl against the real shell template", () => {
-  
-  
-  
-  
   it("actually rewrites the debug field, not just a hand-rolled fixture", () => {
     dir = mkdtempSync(join(tmpdir(), "wefter-inject-real-"));
     const gradlePath = join(dir, "build.gradle.kts");

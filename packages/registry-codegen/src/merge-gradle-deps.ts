@@ -73,7 +73,9 @@ export function computeGradleMerge(plugins: DiscoveredPlugin[]): GradleMergeResu
     const distinctVersions = [...new Set(declarations.map((d) => d.version))];
     if (distinctVersions.length > 1 && new Set(distinctVersions.map(majorVersion)).size > 1) {
       const bySource = declarations.map((d) => `${d.pluginName}@${d.version}`).join(", ");
-      conflicts.push(`${key}: declared at different major versions across plugins (${bySource}) — highest version wins.`);
+      conflicts.push(
+        `${key}: declared at different major versions across plugins (${bySource}) — highest version wins.`,
+      );
     }
     const winner = declarations.reduce((best, d) => (compareVersions(d.version, best.version) > 0 ? d : best));
     deps.push(winner.raw);

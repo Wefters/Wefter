@@ -11,7 +11,6 @@ export interface IosBuildResult {
 }
 
 export interface IosBuildOptions {
-  
   simulator?: string;
 }
 

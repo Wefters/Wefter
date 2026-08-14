@@ -27,7 +27,7 @@ describe("sync() hooks — real npm scripts, real subprocess", () => {
   it("runs wefter:sync:before, and aborts sync's real work when it fails", async () => {
     writeFileSync(
       join(projectDir, "package.json"),
-      JSON.stringify({ name: "fixture", scripts: { "wefter:sync:before": "node -e \"process.exit(1)\"" } }),
+      JSON.stringify({ name: "fixture", scripts: { "wefter:sync:before": 'node -e "process.exit(1)"' } }),
     );
 
     await expect(sync(projectDir)).rejects.toThrow('Hook "wefter:sync:before" exited with code 1');

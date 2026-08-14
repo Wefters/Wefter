@@ -126,7 +126,7 @@ describe("generateRegistryKotlin — @WefterMethod dispatch", () => {
 
     expect(kt).toContain('"ping" -> plugin.ping(payload, callback)');
     expect(kt).toContain('"reset" -> plugin.reset(payload, callback)');
-    expect((kt.match(/PingTestPluginDispatch/g) ?? []).length).toBe(2); 
+    expect((kt.match(/PingTestPluginDispatch/g) ?? []).length).toBe(2);
   });
 
   it("wires @WefterHook subscriptions onto the same constructed plugin instance used for dispatch", () => {

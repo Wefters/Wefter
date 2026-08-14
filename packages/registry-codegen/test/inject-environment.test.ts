@@ -68,7 +68,7 @@ describe("injectEnvironmentConfig", () => {
     injectEnvironmentConfig(gradlePath, "development", { appId: "com.example.app.dev2", appName: "Example (Dev 2)" });
 
     const result = readFileSync(gradlePath, "utf-8");
-    expect(result).not.toContain("com.example.app.dev\"");
+    expect(result).not.toContain('com.example.app.dev"');
     expect(result).toContain('applicationId = "com.example.app.dev2"');
     const markerCount = result.split("// WEFTER-ENV-CONFIG-START").length - 1;
     expect(markerCount).toBe(2);
@@ -79,8 +79,8 @@ describe("injectEnvironmentConfig", () => {
     gradlePath = join(tmpDir, "build.gradle.kts");
     writeFileSync(gradlePath, BUILD_GRADLE_FIXTURE);
 
-    expect(() => injectEnvironmentConfig(gradlePath, "staging", { appId: "com.example.app.staging", appName: "Staging" })).toThrow(
-      /staging/
-    );
+    expect(() =>
+      injectEnvironmentConfig(gradlePath, "staging", { appId: "com.example.app.staging", appName: "Staging" }),
+    ).toThrow(/staging/);
   });
 });

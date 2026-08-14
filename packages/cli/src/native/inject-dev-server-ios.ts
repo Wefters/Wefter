@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 
-const DEV_SERVER_FIELD_PATTERN = /static let devServerURL = "(?:[^"\\]|\\.)*" \/\/ WEFTER overridden per-run by the CLI/;
+const DEV_SERVER_FIELD_PATTERN =
+  /static let devServerURL = "(?:[^"\\]|\\.)*" \/\/ WEFTER overridden per-run by the CLI/;
 
 export function injectDevServerUrlIos(buildConfigPath: string, devServerUrl: string): void {
   const current = readFileSync(buildConfigPath, "utf-8");

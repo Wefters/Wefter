@@ -50,9 +50,15 @@ describe("generateRegistrySwift", () => {
     expect(swift).toContain("final class DeviceInfoPluginDispatch: NativeModule {");
     expect(swift).toContain('case "getInfo":');
     expect(swift).toContain("try plugin.getInfo(payload: payload, callback: callback)");
-    expect(swift).toContain('callback(.failure(WefterError(code: "UNKNOWN_METHOD", message: "No such method: \\(method)")))');
-    expect(swift).toContain("let deviceInfoPlugin = DeviceInfoPlugin(dispatcher: dispatcher, viewController: viewController)");
-    expect(swift).toContain('dispatcher.register("device-info", module: DeviceInfoPluginDispatch(plugin: deviceInfoPlugin))');
+    expect(swift).toContain(
+      'callback(.failure(WefterError(code: "UNKNOWN_METHOD", message: "No such method: \\(method)")))',
+    );
+    expect(swift).toContain(
+      "let deviceInfoPlugin = DeviceInfoPlugin(dispatcher: dispatcher, viewController: viewController)",
+    );
+    expect(swift).toContain(
+      'dispatcher.register("device-info", module: DeviceInfoPluginDispatch(plugin: deviceInfoPlugin))',
+    );
   });
 
   it("registers the constructed plugin instance with WefterBridge alongside the dispatcher", () => {
@@ -83,7 +89,7 @@ describe("generateRegistrySwift", () => {
 
     expect(swift).toContain('case "ping":');
     expect(swift).toContain('case "reset":');
-    expect((swift.match(/PingTestPluginDispatch/g) ?? []).length).toBe(2); 
+    expect((swift.match(/PingTestPluginDispatch/g) ?? []).length).toBe(2);
   });
 
   it("wires @WefterHook subscriptions onto the same constructed plugin instance used for dispatch", () => {

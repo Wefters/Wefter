@@ -111,9 +111,7 @@ describe("resolveAdbDevice", () => {
 
   it("delegates to the injected prompt when multiple ready devices are found", async () => {
     nextOutput =
-      "List of devices attached\n" +
-      "emulator-5554\tdevice model:Pixel_6\n" +
-      "R58N90ABCDE\tdevice model:Galaxy_S21\n";
+      "List of devices attached\n" + "emulator-5554\tdevice model:Pixel_6\n" + "R58N90ABCDE\tdevice model:Galaxy_S21\n";
     const prompt = vi.fn().mockResolvedValue({ serial: "R58N90ABCDE", state: "device", model: "Galaxy_S21" });
 
     await expect(resolveAdbDevice({ isInteractive: true, prompt })).resolves.toEqual({

@@ -42,7 +42,7 @@ describe("definePlugin", () => {
       expect.any(String),
       "ping-test",
       "ping",
-      JSON.stringify({ message: "hi" })
+      JSON.stringify({ message: "hi" }),
     );
   });
 

@@ -24,7 +24,9 @@ describe("buildIosSigningEnv", () => {
   });
 
   it("includes the provisioning profile only when one is declared", () => {
-    const withProfile = { iosSigning: { teamId: "ABCDE12345", provisioningProfile: "MyApp Distribution" } } as WefterConfig;
+    const withProfile = {
+      iosSigning: { teamId: "ABCDE12345", provisioningProfile: "MyApp Distribution" },
+    } as WefterConfig;
     const withoutProfile = { iosSigning: { teamId: "ABCDE12345" } } as WefterConfig;
 
     expect(buildIosSigningEnv(withProfile).WEFTER_IOS_PROVISIONING_PROFILE).toBe("MyApp Distribution");

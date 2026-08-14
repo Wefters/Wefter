@@ -57,7 +57,10 @@ function validateGradleCoordinates(manifest: PluginManifest): string[] {
   const coordinates = manifest.nativeDependencies?.android?.gradle ?? [];
   return coordinates
     .filter((c) => !GRADLE_COORDINATE_PATTERN.test(c))
-    .map((c) => `Malformed Gradle coordinate "${c}" in nativeDependencies.android.gradle — expected "group:artifact:version".`);
+    .map(
+      (c) =>
+        `Malformed Gradle coordinate "${c}" in nativeDependencies.android.gradle — expected "group:artifact:version".`,
+    );
 }
 
 export function validatePluginDirectory(pluginDir: string): PluginValidationResult {
@@ -73,9 +76,6 @@ export function validatePluginDirectory(pluginDir: string): PluginValidationResu
   }
   const manifest = parsed.data;
 
-  
-  
-  
   const hasAndroid = existsSync(join(pluginDir, "android"));
   const hasIos = existsSync(join(pluginDir, "ios"));
   if (!hasAndroid && !hasIos) {
@@ -92,13 +92,19 @@ export function validatePluginDirectory(pluginDir: string): PluginValidationResu
 
   const malformedIssues = [
     ...(hasAndroid
-      ? findMalformedWefterMethods(androidSource).map((line) => `Malformed @WefterMethod signature at line ${line} (android/)`)
+      ? findMalformedWefterMethods(androidSource).map(
+          (line) => `Malformed @WefterMethod signature at line ${line} (android/)`,
+        )
       : []),
     ...(hasAndroid
-      ? findMalformedWefterHooks(androidSource).map((line) => `Malformed @WefterHook signature at line ${line} (android/)`)
+      ? findMalformedWefterHooks(androidSource).map(
+          (line) => `Malformed @WefterHook signature at line ${line} (android/)`,
+        )
       : []),
     ...(hasIos
-      ? findMalformedWefterMethodsSwift(iosSource).map((line) => `Malformed @WefterMethod signature at line ${line} (ios/)`)
+      ? findMalformedWefterMethodsSwift(iosSource).map(
+          (line) => `Malformed @WefterMethod signature at line ${line} (ios/)`,
+        )
       : []),
     ...(hasIos
       ? findMalformedWefterHooksSwift(iosSource).map((line) => `Malformed @WefterHook signature at line ${line} (ios/)`)
@@ -117,10 +123,6 @@ export function validatePluginDirectory(pluginDir: string): PluginValidationResu
   const iosMethods = hasIos ? extractWefterMethodsSwift(iosSource) : [];
   const iosHooks = hasIos ? extractWefterHooksSwift(iosSource) : [];
 
-  
-  
-  
-  
   try {
     if (hasAndroid) auditPluginConsistency({ manifest, packageDir: pluginDir }, androidMethods, androidHooks);
     if (hasIos) auditPluginConsistency({ manifest, packageDir: pluginDir }, iosMethods, iosHooks);

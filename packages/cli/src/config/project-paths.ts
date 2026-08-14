@@ -12,7 +12,7 @@ export function androidNamespace(config: WefterConfig): string {
   const canonical = envs.production ?? envs.development ?? Object.values(envs)[0];
   if (!canonical) {
     throw new Error(
-      "wefter.config.json needs at least one environment with an appId — the Android package is derived from it."
+      "wefter.config.json needs at least one environment with an appId — the Android package is derived from it.",
     );
   }
   return canonical.appId;
@@ -157,4 +157,3 @@ export function iosBundleId(config: WefterConfig, env: string): string {
   }
   return environment.iosBundleId ?? environment.appId;
 }
-

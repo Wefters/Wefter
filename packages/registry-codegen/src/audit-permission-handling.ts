@@ -39,10 +39,7 @@ const DANGEROUS_ANDROID_PERMISSIONS = new Set([
   "android.permission.NEARBY_WIFI_DEVICES",
 ]);
 
-export function auditPermissionHandling(
-  manifest: PluginManifest,
-  androidSource: string,
-): string[] {
+export function auditPermissionHandling(manifest: PluginManifest, androidSource: string): string[] {
   const declared = (manifest.permissions?.android ?? []).filter((permission) =>
     DANGEROUS_ANDROID_PERMISSIONS.has(permission),
   );

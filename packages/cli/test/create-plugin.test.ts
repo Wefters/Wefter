@@ -27,13 +27,17 @@ describe("createPlugin", () => {
 
     const kotlin = readFileSync(join(dir, "android/SecureStoragePlugin.kt"), "utf-8");
     expect(kotlin).toContain("package dev.wefter.bridge");
-    expect(kotlin).toContain("class SecureStoragePlugin(context: Context, dispatcher: BridgeDispatcher) : WefterPlugin(context, dispatcher)");
+    expect(kotlin).toContain(
+      "class SecureStoragePlugin(context: Context, dispatcher: BridgeDispatcher) : WefterPlugin(context, dispatcher)",
+    );
     expect(kotlin).toContain("@WefterMethod");
 
     const swift = readFileSync(join(dir, "ios/SecureStoragePlugin.swift"), "utf-8");
     expect(swift).toContain("final class SecureStoragePlugin: WefterPlugin");
     expect(swift).toContain("// @WefterMethod");
-    expect(swift).toContain("func example(payload: [String: Any], callback: @escaping (Result<Any, Error>) -> Void) throws");
+    expect(swift).toContain(
+      "func example(payload: [String: Any], callback: @escaping (Result<Any, Error>) -> Void) throws",
+    );
 
     const packageJson = JSON.parse(readFileSync(join(dir, "package.json"), "utf-8"));
     expect(packageJson.name).toBe("@yourorg/secure-storage");

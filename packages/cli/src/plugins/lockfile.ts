@@ -40,18 +40,19 @@ export function computeIntegrityHash(packageDir: string): string {
 
   const androidDir = join(packageDir, "android");
   if (existsSync(androidDir)) {
-    for (const file of readdirSync(androidDir).filter((f) => f.endsWith(".kt")).sort()) {
+    for (const file of readdirSync(androidDir)
+      .filter((f) => f.endsWith(".kt"))
+      .sort()) {
       hash.update(file);
       hash.update(readFileSync(join(androidDir, file)));
     }
   }
 
-  
-  
-  
   const iosDir = join(packageDir, "ios");
   if (existsSync(iosDir)) {
-    for (const file of readdirSync(iosDir).filter((f) => f.endsWith(".swift")).sort()) {
+    for (const file of readdirSync(iosDir)
+      .filter((f) => f.endsWith(".swift"))
+      .sort()) {
       hash.update(file);
       hash.update(readFileSync(join(iosDir, file)));
     }

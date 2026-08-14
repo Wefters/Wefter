@@ -8,8 +8,7 @@ export interface LanIpCandidate {
   address: string;
 }
 
-const VIRTUAL_INTERFACE_PATTERN =
-  /^(docker|br-|veth|virbr|vmnet|vboxnet|tun|tap|ppp|utun|zt|tailscale|wg)/i;
+const VIRTUAL_INTERFACE_PATTERN = /^(docker|br-|veth|virbr|vmnet|vboxnet|tun|tap|ppp|utun|zt|tailscale|wg)/i;
 const WIFI_INTERFACE_PATTERN = /^(wlan|wlp|wl[0-9]|wifi|airport|en0)/i;
 
 export function getLanIpCandidates(): LanIpCandidate[] {
@@ -29,9 +28,7 @@ export function getLanIpCandidates(): LanIpCandidate[] {
 }
 
 function pickRecommended(candidates: LanIpCandidate[]): LanIpCandidate {
-  return (
-    candidates.find((c) => WIFI_INTERFACE_PATTERN.test(c.name)) ?? candidates[0]
-  );
+  return candidates.find((c) => WIFI_INTERFACE_PATTERN.test(c.name)) ?? candidates[0];
 }
 
 export function getLanIp(): string {
@@ -50,25 +47,19 @@ async function promptForLanIp(candidates: LanIpCandidate[]): Promise<string> {
   const recommended = pickRecommended(candidates);
   const recommendedIndex = candidates.indexOf(recommended) + 1;
 
-  logger.warn(
-    "Multiple network interfaces found — pick the one your phone can reach:",
-  );
+  logger.warn("Multiple network interfaces found — pick the one your phone can reach:");
   for (const [i, candidate] of candidates.entries()) {
     logger.segmentColor([
       { text: `  ${i + 1}) `, bold: true },
       { text: candidate.name, color: "cyan", bold: true },
       { text: `  ${candidate.address}`, color: "gray" },
-      ...(candidate === recommended
-        ? [{ text: " (recommended)", color: "green" as const }]
-        : []),
+      ...(candidate === recommended ? [{ text: " (recommended)", color: "green" as const }] : []),
     ]);
   }
 
   const rl = createInterface({ input: process.stdin, output: process.stdout });
   try {
-    const answer = (
-      await rl.question(chalk.bold(`Interface to use [${recommendedIndex}]: `))
-    ).trim();
+    const answer = (await rl.question(chalk.bold(`Interface to use [${recommendedIndex}]: `))).trim();
     if (answer === "") return recommended.address;
 
     const index = Number.parseInt(answer, 10);
@@ -76,14 +67,10 @@ async function promptForLanIp(candidates: LanIpCandidate[]): Promise<string> {
       return candidates[index - 1].address;
     }
 
-    const byNameOrAddress = candidates.find(
-      (c) => c.address === answer || c.name === answer,
-    );
+    const byNameOrAddress = candidates.find((c) => c.address === answer || c.name === answer);
     if (byNameOrAddress) return byNameOrAddress.address;
 
-    logger.warn(
-      `Unrecognized choice "${answer}" — using the recommended interface (${recommended.name}).`,
-    );
+    logger.warn(`Unrecognized choice "${answer}" — using the recommended interface (${recommended.name}).`);
     return recommended.address;
   } finally {
     rl.close();
@@ -95,9 +82,7 @@ export interface ResolveLanIpOptions {
   prompt?: (candidates: LanIpCandidate[]) => Promise<string>;
 }
 
-export async function resolveLanIp(
-  options: ResolveLanIpOptions = {},
-): Promise<string> {
+export async function resolveLanIp(options: ResolveLanIpOptions = {}): Promise<string> {
   const override = process.env.WEFTER_LAN_IP;
   if (override) {
     logger.info(`Using WEFTER_LAN_IP override → ${chalk.cyan(override)}`);
@@ -111,15 +96,11 @@ export async function resolveLanIp(
 
   if (candidates.length === 1) {
     const [only] = candidates;
-    logger.info(
-      `Using network interface ${chalk.bold(only.name)} → ${chalk.cyan(only.address)}`,
-    );
+    logger.info(`Using network interface ${chalk.bold(only.name)} → ${chalk.cyan(only.address)}`);
     return only.address;
   }
 
-  const isInteractive =
-    options.isInteractive ??
-    (process.stdin.isTTY === true && process.stdout.isTTY === true);
+  const isInteractive = options.isInteractive ?? (process.stdin.isTTY === true && process.stdout.isTTY === true);
   if (!isInteractive) {
     const fallback = pickRecommended(candidates);
     const list = candidates.map((c) => `${c.name}=${c.address}`).join(", ");

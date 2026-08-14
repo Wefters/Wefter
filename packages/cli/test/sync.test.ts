@@ -24,8 +24,7 @@ beforeEach(() => {
   cpSync(join(fixtureTestProjectDir, "web"), join(projectDir, "web"), { recursive: true });
 
   const appDir = join(projectDir, ".wefter/native/android/app");
-  
-  
+
   generatedFile = join(appDir, "src/main/java/com/example/app/GeneratedRegistry.kt");
   pluginSourceDir = join(appDir, "src/main/java/com/example/app/plugins");
   buildGradlePath = join(appDir, "build.gradle.kts");
@@ -169,7 +168,7 @@ describe("sync", () => {
 
     writeFileSync(
       join(projectDir, "plugins/device-info/plugin.json"),
-      JSON.stringify({ name: "device-info", permissions: { android: ["android.permission.INTERNET"] } })
+      JSON.stringify({ name: "device-info", permissions: { android: ["android.permission.INTERNET"] } }),
     );
     const result = await sync(projectDir);
 
@@ -182,7 +181,7 @@ describe("sync — plugin registry", () => {
     const rawConfig = JSON.parse(readFileSync(join(projectDir, "wefter.config.json"), "utf-8"));
     writeFileSync(
       join(projectDir, "wefter.config.json"),
-      JSON.stringify({ ...rawConfig, plugins: ["device-info"] }, null, 2)
+      JSON.stringify({ ...rawConfig, plugins: ["device-info"] }, null, 2),
     );
 
     const result = await sync(projectDir);
@@ -195,12 +194,11 @@ describe("sync — plugin registry", () => {
     const rawConfig = JSON.parse(readFileSync(join(projectDir, "wefter.config.json"), "utf-8"));
     writeFileSync(
       join(projectDir, "wefter.config.json"),
-      JSON.stringify({ ...rawConfig, plugins: ["device-info"] }, null, 2)
+      JSON.stringify({ ...rawConfig, plugins: ["device-info"] }, null, 2),
     );
 
     const result = await sync(projectDir);
 
-    
     expect(result.plugins).toEqual(["device-info"]);
   });
 
@@ -208,7 +206,7 @@ describe("sync — plugin registry", () => {
     const rawConfig = JSON.parse(readFileSync(join(projectDir, "wefter.config.json"), "utf-8"));
     writeFileSync(
       join(projectDir, "wefter.config.json"),
-      JSON.stringify({ ...rawConfig, plugins: ["device-info", "removed-plugin"] }, null, 2)
+      JSON.stringify({ ...rawConfig, plugins: ["device-info", "removed-plugin"] }, null, 2),
     );
 
     const result = await sync(projectDir);
@@ -231,7 +229,7 @@ describe("sync — permission audit", () => {
   it("throws when a plugin's Kotlin source uses a sensitive API without declaring the matching permission", async () => {
     writeFileSync(
       join(projectDir, "plugins/device-info/android/Extra.kt"),
-      "package dev.wefter.bridge\n\nimport androidx.camera.core.CameraX\n\nclass Extra\n"
+      "package dev.wefter.bridge\n\nimport androidx.camera.core.CameraX\n\nclass Extra\n",
     );
 
     await expect(sync(projectDir)).rejects.toThrow(/CameraX.*android\.permission\.CAMERA/s);
@@ -380,7 +378,7 @@ describe("sync — lockfile", () => {
     await sync(projectDir);
     writeFileSync(
       join(projectDir, "plugins/device-info/package.json"),
-      JSON.stringify({ name: "device-info", version: "9.9.9" })
+      JSON.stringify({ name: "device-info", version: "9.9.9" }),
     );
 
     await expect(sync(projectDir)).rejects.toThrow(/drift/i);
@@ -390,7 +388,7 @@ describe("sync — lockfile", () => {
     await sync(projectDir);
     writeFileSync(
       join(projectDir, "plugins/device-info/package.json"),
-      JSON.stringify({ name: "device-info", version: "9.9.9" })
+      JSON.stringify({ name: "device-info", version: "9.9.9" }),
     );
 
     const result = await sync(projectDir, { updateLock: true });
@@ -433,8 +431,14 @@ describe("sync — iOS", () => {
   it("injects PRODUCT_BUNDLE_IDENTIFIER for every configured environment", async () => {
     await sync(projectDir);
 
-    const devXcconfig = readFileSync(join(projectDir, ".wefter/native/ios/Config/Environment-development.xcconfig"), "utf-8");
-    const prodXcconfig = readFileSync(join(projectDir, ".wefter/native/ios/Config/Environment-production.xcconfig"), "utf-8");
+    const devXcconfig = readFileSync(
+      join(projectDir, ".wefter/native/ios/Config/Environment-development.xcconfig"),
+      "utf-8",
+    );
+    const prodXcconfig = readFileSync(
+      join(projectDir, ".wefter/native/ios/Config/Environment-production.xcconfig"),
+      "utf-8",
+    );
     expect(devXcconfig).toContain("PRODUCT_BUNDLE_IDENTIFIER = com.example.app.dev");
     expect(prodXcconfig).toContain("PRODUCT_BUNDLE_IDENTIFIER = com.example.app");
   });
@@ -472,7 +476,9 @@ describe("sync — iOS", () => {
     const registry = readFileSync(join(iosAppDir, "GeneratedRegistry.swift"), "utf-8");
     expect(registry).toContain("final class DeviceInfoPluginDispatch: NativeModule");
     expect(registry).toContain('case "getInfo":');
-    expect(registry).toContain("let deviceInfoPlugin = DeviceInfoPlugin(dispatcher: dispatcher, viewController: viewController)");
+    expect(registry).toContain(
+      "let deviceInfoPlugin = DeviceInfoPlugin(dispatcher: dispatcher, viewController: viewController)",
+    );
   });
 
   it("removes a plugin's woven iOS source when it's no longer installed, same as the Android side", async () => {
@@ -514,8 +520,6 @@ describe("sync — iOS", () => {
   });
 
   it("an Android-only plugin doesn't break iOS registry generation (the legacy-fallback bug this wiring had to avoid)", async () => {
-    
-    
     const result = await sync(projectDir);
 
     expect(result.plugins).toEqual(["device-info", "ping-test"]);
@@ -523,4 +527,3 @@ describe("sync — iOS", () => {
     expect(registry).toContain("enum GeneratedRegistry");
   });
 });
-

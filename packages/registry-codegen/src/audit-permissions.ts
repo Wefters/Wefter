@@ -1,9 +1,9 @@
-import type { DiscoveredPlugin } from './scan-plugins.js';
-import { readPluginKotlinSource } from './read-kotlin-source.js';
+import type { DiscoveredPlugin } from "./scan-plugins.js";
+import { readPluginKotlinSource } from "./read-kotlin-source.js";
 
 const SENSITIVE_API_PATTERNS: Record<string, string> = {
-  CameraX: 'android.permission.CAMERA',
-  LocationManager: 'android.permission.ACCESS_FINE_LOCATION',
+  CameraX: "android.permission.CAMERA",
+  LocationManager: "android.permission.ACCESS_FINE_LOCATION",
 };
 
 export function auditPluginPermissions(plugins: DiscoveredPlugin[]): string[] {
@@ -15,9 +15,7 @@ export function auditPluginPermissions(plugins: DiscoveredPlugin[]): string[] {
 
     for (const [pattern, permission] of Object.entries(SENSITIVE_API_PATTERNS)) {
       if (source.includes(pattern) && !declared.includes(permission)) {
-        violations.push(
-          `${plugin.manifest.name}: uses ${pattern} but does not declare ${permission} in plugin.json`,
-        );
+        violations.push(`${plugin.manifest.name}: uses ${pattern} but does not declare ${permission} in plugin.json`);
       }
     }
   }

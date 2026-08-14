@@ -50,7 +50,10 @@ describe("mergeProguardRules", () => {
     writeFileSync(proguardPath, INITIAL_PROGUARD);
 
     mergeProguardRules([pluginWithRules("scanner", "-keep class com.scanner.** { *; }")], proguardPath);
-    mergeProguardRules([pluginWithRules("scanner", "-keep class com.scanner.** { *; }"), pluginWithRules("device-info")], proguardPath);
+    mergeProguardRules(
+      [pluginWithRules("scanner", "-keep class com.scanner.** { *; }"), pluginWithRules("device-info")],
+      proguardPath,
+    );
 
     const result = readFileSync(proguardPath, "utf-8");
     const markerCount = result.split("# WEFTER-PROGUARD-RULES-START").length - 1;

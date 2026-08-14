@@ -19,8 +19,6 @@ export function generateNativeDependenciesPackage(plugins: DiscoveredPlugin[]): 
     }
   }
 
-  
-  
   const uniqueByUrl = new Map<string, SpmDependency>();
   for (const dep of deps) uniqueByUrl.set(dep.url, dep);
 
@@ -28,8 +26,6 @@ export function generateNativeDependenciesPackage(plugins: DiscoveredPlugin[]): 
     .map((d) => `        .package(url: "${d.url}", from: "${d.from}"),`)
     .join("\n");
 
-  
-  
   const productKeys = new Set<string>();
   const productLines: string[] = [];
   for (const dep of deps) {

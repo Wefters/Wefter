@@ -1,14 +1,5 @@
 import { build } from "esbuild";
-import {
-  cpSync,
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  readFileSync,
-  rmSync,
-  statSync,
-  writeFileSync,
-} from "node:fs";
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join, relative } from "node:path";
 
@@ -96,15 +87,9 @@ function rewriteVendoredImports(dir) {
     if (!name.endsWith(".d.ts")) continue;
     const contents = readFileSync(path, "utf-8");
     if (!contents.includes("@wefterjs/registry-codegen")) continue;
-    let vendoredEntry = relative(
-      dirname(path),
-      join(vendoredTypesDir, "index.js"),
-    );
+    let vendoredEntry = relative(dirname(path), join(vendoredTypesDir, "index.js"));
     if (!vendoredEntry.startsWith(".")) vendoredEntry = `./${vendoredEntry}`;
-    writeFileSync(
-      path,
-      contents.replaceAll("@wefterjs/registry-codegen", vendoredEntry),
-    );
+    writeFileSync(path, contents.replaceAll("@wefterjs/registry-codegen", vendoredEntry));
   }
 }
 rewriteVendoredImports(join(rootDir, "dist"));

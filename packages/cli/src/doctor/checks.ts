@@ -153,7 +153,11 @@ export async function checkXcodeInstalled(): Promise<CheckResult> {
     const { stdout } = await execAsync("xcodebuild -version");
     return { name: "Xcode installed", passed: true, detail: stdout.split("\n")[0] };
   } catch {
-    return { name: "Xcode installed", passed: false, fix: "install Xcode from the App Store, then run `xcodebuild -version` to verify" };
+    return {
+      name: "Xcode installed",
+      passed: false,
+      fix: "install Xcode from the App Store, then run `xcodebuild -version` to verify",
+    };
   }
 }
 

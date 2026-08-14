@@ -4,9 +4,7 @@ import type { WefterConfig } from "../config/wefter-config-schema.js";
 export function getSigningPassword(): string {
   const pw = process.env.WEFTER_KEYSTORE_PASSWORD;
   if (!pw) {
-    throw new Error(
-      "WEFTER_KEYSTORE_PASSWORD not set. Add it to .env (gitignored) before running a release build."
-    );
+    throw new Error("WEFTER_KEYSTORE_PASSWORD not set. Add it to .env (gitignored) before running a release build.");
   }
   return pw;
 }

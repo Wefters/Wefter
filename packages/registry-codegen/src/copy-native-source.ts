@@ -21,9 +21,7 @@ export function copyAndroidNativeSource(plugins: DiscoveredPlugin[], destDir: st
   for (const plugin of plugins) {
     const sourceDir = join(plugin.packageDir, "android");
     if (!existsSync(sourceDir)) {
-      throw new Error(
-        `Plugin "${plugin.manifest.name}" is missing its android/ folder — cannot weave native source.`
-      );
+      throw new Error(`Plugin "${plugin.manifest.name}" is missing its android/ folder — cannot weave native source.`);
     }
     cpSync(sourceDir, destDir, { recursive: true });
   }

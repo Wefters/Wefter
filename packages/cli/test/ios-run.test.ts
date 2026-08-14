@@ -107,9 +107,9 @@ describe("installAndLaunchIos", () => {
   it("boots the simulator first when it isn't already Booted, then installs and launches", async () => {
     const { installAndLaunchIos } = await import("../src/native/ios-run.js");
 
-    fakeSpawn(0); 
-    fakeSpawn(0); 
-    fakeSpawn(0); 
+    fakeSpawn(0);
+    fakeSpawn(0);
+    fakeSpawn(0);
 
     await installAndLaunchIos("/fake/WefterBridge.app", "com.example.app", "iPhone SE (3rd generation)");
 
@@ -131,19 +131,24 @@ describe("installAndLaunchIos", () => {
   it("does not attempt to boot a simulator that's already Booted", async () => {
     const { installAndLaunchIos } = await import("../src/native/ios-run.js");
 
-    fakeSpawn(0); 
-    fakeSpawn(0); 
+    fakeSpawn(0);
+    fakeSpawn(0);
 
     await installAndLaunchIos("/fake/WefterBridge.app", "com.example.app", "iPhone 15");
 
     expect(spawnMock).toHaveBeenCalledTimes(2);
-    expect(spawnMock).toHaveBeenNthCalledWith(1, "xcrun", ["simctl", "install", "iPhone 15", "/fake/WefterBridge.app"], expect.any(Object));
+    expect(spawnMock).toHaveBeenNthCalledWith(
+      1,
+      "xcrun",
+      ["simctl", "install", "iPhone 15", "/fake/WefterBridge.app"],
+      expect.any(Object),
+    );
   });
 
   it("rejects clearly when simctl install fails", async () => {
     const { installAndLaunchIos } = await import("../src/native/ios-run.js");
 
-    fakeSpawn(1); 
+    fakeSpawn(1);
 
     await expect(installAndLaunchIos("/fake/WefterBridge.app", "com.example.app", "iPhone 15")).rejects.toThrow(
       /simctl install.*exit code 1/,

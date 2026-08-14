@@ -56,7 +56,9 @@ export async function resolveSimulator(requested?: string): Promise<string> {
   if (requested) {
     const device = findSimulator(json, requested);
     if (!device) {
-      throw new Error(`No simulator found matching "${requested}". Run \`xcrun simctl list devices\` to see available simulators.`);
+      throw new Error(
+        `No simulator found matching "${requested}". Run \`xcrun simctl list devices\` to see available simulators.`,
+      );
     }
     return device.name;
   }

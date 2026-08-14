@@ -1,4 +1,3 @@
-
 import "./internal/native-bridge.js";
 
 type MockHandler = (method: string, payload: unknown) => unknown | Promise<unknown>;
@@ -10,7 +9,7 @@ export function installMockBridge(handlers: Record<string, MockHandler>): void {
       if (!handler) {
         window.__wefterNative.reject(
           callId,
-          JSON.stringify({ code: "NO_MOCK_HANDLER", message: `No mock handler for plugin "${plugin}"` })
+          JSON.stringify({ code: "NO_MOCK_HANDLER", message: `No mock handler for plugin "${plugin}"` }),
         );
         return;
       }
@@ -20,7 +19,7 @@ export function installMockBridge(handlers: Record<string, MockHandler>): void {
       } catch (err) {
         window.__wefterNative.reject(
           callId,
-          JSON.stringify({ code: "MOCK_ERROR", message: err instanceof Error ? err.message : String(err) })
+          JSON.stringify({ code: "MOCK_ERROR", message: err instanceof Error ? err.message : String(err) }),
         );
       }
     },

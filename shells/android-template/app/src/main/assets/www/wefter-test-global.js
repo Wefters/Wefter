@@ -15,7 +15,7 @@
     emit(hookName, dataJson) {
       const data = JSON.parse(dataJson);
       hooks.get(hookName)?.forEach((cb) => cb(data));
-    }
+    },
   };
   function invokeNative(plugin, method, payload = {}) {
     const callId = String(callCounter++);

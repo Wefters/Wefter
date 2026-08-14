@@ -33,7 +33,9 @@ afterEach(() => {
   if (dir) rmSync(dir, { recursive: true, force: true });
 });
 
-function setUpProject(opts: { releaseDevServerUrl?: string; hardcodedDebugging?: boolean; withDebugNetworkConfig?: boolean } = {}): string {
+function setUpProject(
+  opts: { releaseDevServerUrl?: string; hardcodedDebugging?: boolean; withDebugNetworkConfig?: boolean } = {},
+): string {
   dir = mkdtempSync(join(tmpdir(), "wefter-release-check-"));
   const appDir = join(dir, ".wefter/native/android/app");
 

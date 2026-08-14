@@ -1,6 +1,5 @@
 "use strict";
 (() => {
-  
   var WefterBridgeError = class extends Error {
     constructor(code, message) {
       super(message);
@@ -9,9 +8,8 @@
     }
   };
 
-  
-  var pending =  new Map();
-  var hooks =  new Map();
+  var pending = new Map();
+  var hooks = new Map();
   var callCounter = 0;
   var DEFAULT_TIMEOUT_MS = 1e4;
   if (typeof window !== "undefined") {
@@ -22,17 +20,20 @@
       },
       reject(callId, errorJson) {
         const parsed = JSON.parse(errorJson);
-        const error = parsed !== null && typeof parsed === "object" ? new WefterBridgeError(
-          "code" in parsed && typeof parsed.code === "string" ? parsed.code : "UNKNOWN",
-          "message" in parsed && typeof parsed.message === "string" ? parsed.message : String(parsed)
-        ) : new WefterBridgeError("UNKNOWN", String(parsed));
+        const error =
+          parsed !== null && typeof parsed === "object"
+            ? new WefterBridgeError(
+                "code" in parsed && typeof parsed.code === "string" ? parsed.code : "UNKNOWN",
+                "message" in parsed && typeof parsed.message === "string" ? parsed.message : String(parsed),
+              )
+            : new WefterBridgeError("UNKNOWN", String(parsed));
         pending.get(callId)?.reject(error);
         pending.delete(callId);
       },
       emit(hookName, dataJson) {
         const data = JSON.parse(dataJson);
         hooks.get(hookName)?.forEach((cb) => cb(data));
-      }
+      },
     };
   }
   function invokeNative(plugin, method, payload = {}, options) {
@@ -67,7 +68,7 @@
         reject: (r) => {
           cleanup();
           reject(r);
-        }
+        },
       });
       if (window.AndroidBridge) {
         window.AndroidBridge.invoke(callId, plugin, method, JSON.stringify(payload));
@@ -81,25 +82,26 @@
     });
   }
   function registerHook(hookName, callback) {
-    if (!hooks.has(hookName)) hooks.set(hookName,  new Set());
+    if (!hooks.has(hookName)) hooks.set(hookName, new Set());
     hooks.get(hookName).add(callback);
     return { remove: () => hooks.get(hookName)?.delete(callback) };
   }
 
-  
   var isDebugBuild = true;
   if (typeof window !== "undefined") {
-    invokeNative("__system", "isDebug").then((result) => {
-      isDebugBuild = Boolean(result?.debug);
-    }).catch(() => {
-    });
+    invokeNative("__system", "isDebug")
+      .then((result) => {
+        isDebugBuild = Boolean(result?.debug);
+      })
+      .catch(() => {});
   }
   var overlay = null;
   function ensureOverlay() {
     if (overlay) return overlay;
     overlay = document.createElement("div");
     overlay.setAttribute("data-wefter-error-overlay", "");
-    overlay.style.cssText = "position:fixed;left:0;right:0;top:0;max-height:60%;overflow:auto;background:#3b0d0d;color:#ffdada;font:12px/1.4 monospace;padding:12px;white-space:pre-wrap;z-index:2147483647;";
+    overlay.style.cssText =
+      "position:fixed;left:0;right:0;top:0;max-height:60%;overflow:auto;background:#3b0d0d;color:#ffdada;font:12px/1.4 monospace;padding:12px;white-space:pre-wrap;z-index:2147483647;";
     (document.body ?? document.documentElement).appendChild(overlay);
     return overlay;
   }
@@ -127,6 +129,5 @@
     window.addEventListener("unhandledrejection", (event) => reportUnhandledError(event.reason));
   }
 
-  
   window.Wefter = { invokeNative, registerHook };
 })();

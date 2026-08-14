@@ -16,11 +16,6 @@ export function injectEnvironmentConfigIos(xcconfigPath: string, values: IosEnvi
     throw new Error(`No ${START} marker found in ${xcconfigPath}`);
   }
 
-  
-  
-  
-  
-  
   const lines = [`PRODUCT_BUNDLE_IDENTIFIER = ${values.bundleId}`, `PRODUCT_NAME = ${values.appName}`].join("\n");
 
   const block = `${START}\n${lines}\n${END}`;

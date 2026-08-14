@@ -21,7 +21,7 @@ export async function runReleaseReadinessChecks(projectDir: string): Promise<Che
     results.push({
       name: "Signing config",
       passed: false,
-      fix: "add a \"signing\" block to wefter.config.json (keystorePath, keyAlias)",
+      fix: 'add a "signing" block to wefter.config.json (keystorePath, keyAlias)',
     });
   } else {
     const keystorePath = resolve(projectDir, config.signing.keystorePath);
@@ -54,13 +54,9 @@ export async function runReleaseReadinessChecks(projectDir: string): Promise<Che
     results.push({
       name: "iOS signing config",
       passed: false,
-      fix: "add an \"iosSigning\" block to wefter.config.json (teamId)",
+      fix: 'add an "iosSigning" block to wefter.config.json (teamId)',
     });
   } else {
-    
-    
-    
-    
     results.push({
       name: "WEFTER_IOS_SIGNING_IDENTITY set",
       passed: !!process.env.WEFTER_IOS_SIGNING_IDENTITY,

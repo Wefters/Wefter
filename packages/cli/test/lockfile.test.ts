@@ -3,12 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import type { DiscoveredPlugin } from "@wefterjs/registry-codegen";
-import {
-  checkLockDrift,
-  computeIntegrityHash,
-  readInstalledVersion,
-  writeLockfile,
-} from "../src/plugins/lockfile.js";
+import { checkLockDrift, computeIntegrityHash, readInstalledVersion, writeLockfile } from "../src/plugins/lockfile.js";
 
 let dir: string;
 
@@ -22,7 +17,17 @@ function writePlugin(pluginsDir: string, name: string, version: string): Discove
   writeFileSync(join(packageDir, "plugin.json"), JSON.stringify({ name }));
   writeFileSync(join(packageDir, "package.json"), JSON.stringify({ name, version }));
   writeFileSync(join(packageDir, "android", "Plugin.kt"), "package dev.wefter.bridge\n\nclass Plugin\n");
-  return { manifest: { name, permissions: { android: [], ios: {} }, nativeDependencies: {}, hooks: [], events: [], methods: [] }, packageDir };
+  return {
+    manifest: {
+      name,
+      permissions: { android: [], ios: {} },
+      nativeDependencies: {},
+      hooks: [],
+      events: [],
+      methods: [],
+    },
+    packageDir,
+  };
 }
 
 describe("readInstalledVersion", () => {
@@ -62,7 +67,10 @@ describe("computeIntegrityHash", () => {
     const first = computeIntegrityHash(plugin.packageDir);
     expect(computeIntegrityHash(plugin.packageDir)).toBe(first);
 
-    writeFileSync(join(plugin.packageDir, "ios", "Plugin.swift"), "final class Plugin: WefterPlugin { /* changed */ }\n");
+    writeFileSync(
+      join(plugin.packageDir, "ios", "Plugin.swift"),
+      "final class Plugin: WefterPlugin { /* changed */ }\n",
+    );
     expect(computeIntegrityHash(plugin.packageDir)).not.toBe(first);
   });
 
@@ -70,9 +78,6 @@ describe("computeIntegrityHash", () => {
     dir = mkdtempSync(join(tmpdir(), "wefter-lockfile-"));
     const plugin = writePlugin(dir, "device-info", "1.0.0");
 
-    
-    
-    
     expect(() => computeIntegrityHash(plugin.packageDir)).not.toThrow();
   });
 });

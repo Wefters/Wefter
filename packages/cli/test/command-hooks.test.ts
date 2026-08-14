@@ -94,18 +94,14 @@ describe("build() hook wiring", () => {
     await build(projectDir, { release: false, env: "production" });
 
     expect(order).toEqual(["build:before", "buildAndroid", "build:after"]);
-    expect(runHookMock).toHaveBeenCalledWith(
-      projectDir,
-      "build",
-      "before",
-      { platform: "android", environment: "production" },
-    );
-    expect(runHookMock).toHaveBeenCalledWith(
-      projectDir,
-      "build",
-      "after",
-      { platform: "android", environment: "production" },
-    );
+    expect(runHookMock).toHaveBeenCalledWith(projectDir, "build", "before", {
+      platform: "android",
+      environment: "production",
+    });
+    expect(runHookMock).toHaveBeenCalledWith(projectDir, "build", "after", {
+      platform: "android",
+      environment: "production",
+    });
   });
 
   it("aborts before the real build starts if wefter:build:before fails", async () => {
@@ -124,9 +120,7 @@ describe("build() hook wiring", () => {
     buildAndroidMock.mockRejectedValueOnce(new Error("Gradle build failed with exit code 1"));
     const { build } = await import("../src/commands/build.js");
 
-    await expect(build(projectDir, { release: false, env: "development" })).rejects.toThrow(
-      "Gradle build failed",
-    );
+    await expect(build(projectDir, { release: false, env: "development" })).rejects.toThrow("Gradle build failed");
     expect(runHookMock).toHaveBeenCalledWith(projectDir, "build", "before", expect.anything());
     expect(runHookMock).not.toHaveBeenCalledWith(projectDir, "build", "after", expect.anything());
   });
@@ -136,18 +130,14 @@ describe("build() hook wiring", () => {
 
     await buildIosCommand(projectDir, { release: false, env: "development" });
 
-    expect(runHookMock).toHaveBeenCalledWith(
-      projectDir,
-      "build",
-      "before",
-      { platform: "ios", environment: "development" },
-    );
-    expect(runHookMock).toHaveBeenCalledWith(
-      projectDir,
-      "build",
-      "after",
-      { platform: "ios", environment: "development" },
-    );
+    expect(runHookMock).toHaveBeenCalledWith(projectDir, "build", "before", {
+      platform: "ios",
+      environment: "development",
+    });
+    expect(runHookMock).toHaveBeenCalledWith(projectDir, "build", "after", {
+      platform: "ios",
+      environment: "development",
+    });
   });
 
   it("does not fire the iOS wefter:build:after if buildIos fails", async () => {
@@ -193,12 +183,10 @@ describe("run() hook wiring", () => {
 
     await expect(runIos(projectDir, { watch: false, env: "development" })).rejects.toThrow("install failed");
 
-    expect(runHookMock).toHaveBeenCalledWith(
-      projectDir,
-      "run",
-      "before",
-      { platform: "ios", environment: "development" },
-    );
+    expect(runHookMock).toHaveBeenCalledWith(projectDir, "run", "before", {
+      platform: "ios",
+      environment: "development",
+    });
     expect(runHookMock).not.toHaveBeenCalledWith(projectDir, "run", "after", expect.anything());
   });
 });

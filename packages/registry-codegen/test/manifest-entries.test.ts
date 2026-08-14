@@ -64,7 +64,7 @@ describe("mergeManifestEntries", () => {
     mergeManifestEntries([pluginWithEntries("browser", [AUTH_ACTIVITY])], manifestPath, { appScheme: "myapp" });
 
     const result = readFileSync(manifestPath, "utf-8");
-    expect(result).toContain('<activity');
+    expect(result).toContain("<activity");
     expect(result).toContain('android:name=".BrowserAuthActivity"');
     expect(result).toContain('android:exported="true"');
     expect(result).toContain('<action android:name="android.intent.action.VIEW" />');
@@ -106,9 +106,7 @@ describe("mergeManifestEntries", () => {
       appScheme: "myapp",
     });
 
-    expect(added).toEqual([
-      { pluginName: "browser", type: "activity", name: ".BrowserAuthActivity", exported: true },
-    ]);
+    expect(added).toEqual([{ pluginName: "browser", type: "activity", name: ".BrowserAuthActivity", exported: true }]);
   });
 
   it("writes an empty marker block when no plugin declares any manifest entries", () => {

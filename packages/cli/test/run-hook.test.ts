@@ -58,7 +58,9 @@ describe("runHook", () => {
     fakeSpawn(0);
     const { runHook } = await import("../src/hooks/run-hook.js");
 
-    await expect(runHook(dir, "build", "before", { platform: "android", environment: "production" })).resolves.toBeUndefined();
+    await expect(
+      runHook(dir, "build", "before", { platform: "android", environment: "production" }),
+    ).resolves.toBeUndefined();
     expect(spawnMock).toHaveBeenCalledTimes(1);
   });
 

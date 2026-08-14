@@ -1,12 +1,7 @@
 import { z } from "zod";
 
 const EnvironmentSchema = z.object({
-  appId: z
-    .string()
-    .regex(
-      /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/,
-      "Invalid Android application ID",
-    ),
+  appId: z.string().regex(/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/, "Invalid Android application ID"),
   appName: z.string(),
 
   iosBundleId: z.string().optional(),
@@ -23,10 +18,7 @@ export const WefterConfigSchema = z.object({
   icon: z.string().optional(),
   launchBackground: z
     .string()
-    .regex(
-      /^#[0-9A-Fa-f]{6}$/,
-      "launchBackground must be a 6-digit hex color, e.g. #14161C",
-    )
+    .regex(/^#[0-9A-Fa-f]{6}$/, "launchBackground must be a 6-digit hex color, e.g. #14161C")
     .optional(),
 
   splash: z
@@ -41,8 +33,7 @@ export const WefterConfigSchema = z.object({
           transition: z.enum(["fade", "none"]).default("fade"),
         })
         .refine((s) => s.minDuration <= s.maxDuration, {
-          message:
-            "splash.minDuration must not be greater than splash.maxDuration",
+          message: "splash.minDuration must not be greater than splash.maxDuration",
           path: ["minDuration"],
         }),
     ])

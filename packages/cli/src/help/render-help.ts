@@ -74,7 +74,9 @@ export function renderHelp(cmd: Command, helper: Help): ColoredSegment[][] {
   );
 
   if (subcommands.length > 0) {
-    lines.push([{ text: `Run ${qualifiedName(cmd)} <command> --help for details on a specific command.`, color: "gray" }]);
+    lines.push([
+      { text: `Run ${qualifiedName(cmd)} <command> --help for details on a specific command.`, color: "gray" },
+    ]);
     lines.push([]);
   }
 

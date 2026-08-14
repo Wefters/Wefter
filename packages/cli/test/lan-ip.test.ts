@@ -48,7 +48,7 @@ describe("getLanIp", () => {
   it("ignores docker/veth/tunnel interfaces — they're never reachable from a phone", () => {
     vi.mocked(networkInterfaces).mockReturnValue({
       docker0: [{ address: "172.17.0.1", family: "IPv4", internal: false } as any],
-      "veth1234": [{ address: "172.17.0.5", family: "IPv4", internal: false } as any],
+      veth1234: [{ address: "172.17.0.5", family: "IPv4", internal: false } as any],
       tun0: [{ address: "10.8.0.2", family: "IPv4", internal: false } as any],
       wlan0: [{ address: "192.168.1.42", family: "IPv4", internal: false } as any],
     });

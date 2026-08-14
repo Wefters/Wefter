@@ -21,13 +21,16 @@ const APP_ICON_CONTENTS_JSON = `{
 }
 `;
 
-export async function generateIosIcons(projectDir: string, iconSourcePath: string, appIconSetDir: string): Promise<void> {
+export async function generateIosIcons(
+  projectDir: string,
+  iconSourcePath: string,
+  appIconSetDir: string,
+): Promise<void> {
   const source = resolve(projectDir, iconSourcePath);
   await assertIconSourceSize(source);
 
   mkdirSync(appIconSetDir, { recursive: true });
-  
-  
+
   await sharp(source)
     .resize(APP_ICON_SIZE, APP_ICON_SIZE)
     .flatten({ background: "#ffffff" })

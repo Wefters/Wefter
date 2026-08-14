@@ -15,11 +15,15 @@ describe("iconGenerate", () => {
   it("generates icons into the project's woven android res dir", async () => {
     projectDir = mkdtempSync(join(tmpdir(), "wefter-icon-cmd-"));
     const sourcePath = join(projectDir, "icon.png");
-    await sharp({ create: { width: 1024, height: 1024, channels: 4, background: "#00ff00" } }).png().toFile(sourcePath);
+    await sharp({ create: { width: 1024, height: 1024, channels: 4, background: "#00ff00" } })
+      .png()
+      .toFile(sourcePath);
 
     await iconGenerate(projectDir, "icon.png");
 
-    expect(existsSync(join(projectDir, ".wefter/native/android/app/src/main/res/mipmap-mdpi/ic_launcher.png"))).toBe(true);
+    expect(existsSync(join(projectDir, ".wefter/native/android/app/src/main/res/mipmap-mdpi/ic_launcher.png"))).toBe(
+      true,
+    );
   });
 
   it("throws a clear error when the source image doesn't exist", async () => {

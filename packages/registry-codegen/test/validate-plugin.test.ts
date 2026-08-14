@@ -82,7 +82,7 @@ describe("validatePluginDirectory", () => {
     mkdirSync(join(pluginDir, "android"));
     writeFileSync(
       join(pluginDir, "android", "ScannerPlugin.kt"),
-      "\n@WefterMethod\nfun open(wrongParam: String) {\n}\n"
+      "\n@WefterMethod\nfun open(wrongParam: String) {\n}\n",
     );
 
     const result = validatePluginDirectory(pluginDir);
@@ -152,10 +152,7 @@ describe("validatePluginDirectory", () => {
       }),
     );
     mkdirSync(join(pluginDir, "android"));
-    writeFileSync(
-      join(pluginDir, "android", "ScannerPlugin.kt"),
-      `${WELL_FORMED_KOTLIN}\nclass AuthActivity\n`,
-    );
+    writeFileSync(join(pluginDir, "android", "ScannerPlugin.kt"), `${WELL_FORMED_KOTLIN}\nclass AuthActivity\n`);
 
     const result = validatePluginDirectory(pluginDir);
 
@@ -327,7 +324,7 @@ describe("validatePluginDirectory — iOS", () => {
     mkdirSync(join(pluginDir, "ios"));
     writeFileSync(
       join(pluginDir, "ios", "ScannerPlugin.swift"),
-      "import Foundation\nfinal class ScannerPlugin: WefterPlugin {}\n", 
+      "import Foundation\nfinal class ScannerPlugin: WefterPlugin {}\n",
     );
 
     const result = validatePluginDirectory(pluginDir);

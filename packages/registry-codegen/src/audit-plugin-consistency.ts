@@ -1,12 +1,7 @@
-import type { DiscoveredPlugin } from './scan-plugins.js';
-import type { ExtractedHook, ExtractedMethod } from './extract-wefter-plugin.js';
+import type { DiscoveredPlugin } from "./scan-plugins.js";
+import type { ExtractedHook, ExtractedMethod } from "./extract-wefter-plugin.js";
 
-function checkField(
-  pluginName: string,
-  fieldLabel: string,
-  declared: string[],
-  extracted: string[],
-): string[] {
+function checkField(pluginName: string, fieldLabel: string, declared: string[], extracted: string[]): string[] {
   if (declared.length === 0) return [];
 
   const missing = declared.filter((d) => !extracted.includes(d));
@@ -25,11 +20,21 @@ export function auditPluginConsistency(
   hooks: ExtractedHook[],
 ): void {
   const errors = [
-    ...checkField(plugin.manifest.name, 'methods', plugin.manifest.methods ?? [], methods.map((m) => m.name)),
-    ...checkField(plugin.manifest.name, 'hooks', plugin.manifest.hooks ?? [], hooks.map((h) => h.hookName)),
+    ...checkField(
+      plugin.manifest.name,
+      "methods",
+      plugin.manifest.methods ?? [],
+      methods.map((m) => m.name),
+    ),
+    ...checkField(
+      plugin.manifest.name,
+      "hooks",
+      plugin.manifest.hooks ?? [],
+      hooks.map((h) => h.hookName),
+    ),
   ];
 
   if (errors.length > 0) {
-    throw new Error(errors.join('\n'));
+    throw new Error(errors.join("\n"));
   }
 }

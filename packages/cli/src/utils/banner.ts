@@ -25,8 +25,12 @@ export function printInitSuccessSummary(info: InitSuccessInfo): void {
   console.log(chalk.green.bold("  🚀 Project successfully initialized with Wefter!\n"));
 
   console.log(chalk.bold("  Config & Files:"));
-  console.log(`    ${chalk.green("✓")} Wrote ${chalk.cyan("wefter.config.json")} (appId: ${chalk.bold(info.appId)}, webDir: ${chalk.bold(info.webDir)})`);
-  console.log(`    ${chalk.green("✓")} Added ${chalk.cyan(`@wefterjs/core@${info.coreVersion}`)} and ${chalk.cyan(`@wefterjs/cli@${info.cliVersion}`)} to package.json`);
+  console.log(
+    `    ${chalk.green("✓")} Wrote ${chalk.cyan("wefter.config.json")} (appId: ${chalk.bold(info.appId)}, webDir: ${chalk.bold(info.webDir)})`,
+  );
+  console.log(
+    `    ${chalk.green("✓")} Added ${chalk.cyan(`@wefterjs/core@${info.coreVersion}`)} and ${chalk.cyan(`@wefterjs/cli@${info.cliVersion}`)} to package.json`,
+  );
   console.log(`    ${chalk.green("✓")} Wrote ${chalk.cyan("WEFTER_*")} variables to ${chalk.cyan(".env")}`);
   if (info.gitignoreUpdated) {
     console.log(`    ${chalk.green("✓")} Added ${chalk.cyan(".wefter/")} to ${chalk.cyan(".gitignore")}`);
@@ -41,5 +45,7 @@ export function printInitSuccessSummary(info: InitSuccessInfo): void {
   console.log(chalk.bold("  Community & Resources:"));
   console.log(`    📖 ${chalk.bold("Docs:")}    ${chalk.underline.cyan("https://wefter.dev")}`);
   console.log(`    💬 ${chalk.bold("Discord:")} ${chalk.underline.cyan("https://discord.gg/wefter")}`);
-  console.log(`    ⭐ ${chalk.bold("GitHub:")}  ${chalk.underline.cyan("https://github.com/Wefters/Wefter")} ${chalk.yellow("(Star us on GitHub!)")}\n`);
+  console.log(
+    `    ⭐ ${chalk.bold("GitHub:")}  ${chalk.underline.cyan("https://github.com/Wefters/Wefter")} ${chalk.yellow("(Star us on GitHub!)")}\n`,
+  );
 }

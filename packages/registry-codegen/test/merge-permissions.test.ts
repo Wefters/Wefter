@@ -61,7 +61,7 @@ describe("mergePermissions", () => {
         pluginWithPermissions("scanner", ["android.permission.CAMERA"]),
         pluginWithPermissions("photo-capture", ["android.permission.CAMERA"]),
       ],
-      manifestPath
+      manifestPath,
     );
 
     const result = readFileSync(manifestPath, "utf-8");

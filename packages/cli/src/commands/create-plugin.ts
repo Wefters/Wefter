@@ -30,8 +30,8 @@ export function createPlugin(targetDir: string, name: string): string {
         },
       },
       null,
-      2
-    ) + "\n"
+      2,
+    ) + "\n",
   );
 
   writeFileSync(
@@ -45,8 +45,8 @@ export function createPlugin(targetDir: string, name: string): string {
         events: [],
       },
       null,
-      2
-    ) + "\n"
+      2,
+    ) + "\n",
   );
 
   writeFileSync(
@@ -58,7 +58,7 @@ export const ${pascalName} = {
   //   return invokeNative("${name}", "example", payload);
   // },
 };
-`
+`,
   );
 
   writeFileSync(
@@ -74,7 +74,7 @@ class ${pascalName}Plugin(context: Context, dispatcher: BridgeDispatcher) : Weft
         resolve(callback, JSONObject().put("ok", true))
     }
 }
-`
+`,
   );
 
   writeFileSync(
@@ -90,7 +90,7 @@ final class ${pascalName}Plugin: WefterPlugin {
         resolve(callback, data: ["ok": true])
     }
 }
-`
+`,
   );
 
   writeFileSync(
@@ -100,7 +100,7 @@ final class ${pascalName}Plugin: WefterPlugin {
 A Wefter plugin.
 
 See: https://wefter.dev/plugins/writing-a-plugin
-`
+`,
   );
 
   return dir;

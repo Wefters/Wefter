@@ -78,7 +78,10 @@ function setUpProject(): string {
 describe("runReleaseReadinessChecks", () => {
   it("fails clearly on a project with no signing config at all", async () => {
     const projectDir = setUpProject();
-    writeFileSync(join(projectDir, "wefter.config.json"), JSON.stringify({ environments: { production: { appId: "com.example.app", appName: "Example" } } }));
+    writeFileSync(
+      join(projectDir, "wefter.config.json"),
+      JSON.stringify({ environments: { production: { appId: "com.example.app", appName: "Example" } } }),
+    );
 
     const results = await runReleaseReadinessChecks(projectDir);
 

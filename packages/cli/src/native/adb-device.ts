@@ -122,8 +122,7 @@ export async function resolveAdbDevice(options: ResolveAdbDeviceOptions = {}): P
     return only;
   }
 
-  const isInteractive =
-    options.isInteractive ?? (process.stdin.isTTY === true && process.stdout.isTTY === true);
+  const isInteractive = options.isInteractive ?? (process.stdin.isTTY === true && process.stdout.isTTY === true);
   if (!isInteractive) {
     const list = ready.map((d) => d.serial).join(", ");
     throw new Error(

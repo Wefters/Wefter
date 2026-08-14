@@ -5,9 +5,7 @@ export function buildReportLines(results: CheckResult[]): ColoredSegment[][] {
   const lines: ColoredSegment[][] = [];
 
   for (const result of results) {
-    const icon: ColoredSegment = result.passed
-      ? { text: "✔ ", color: "green" }
-      : { text: "✘ ", color: "red" };
+    const icon: ColoredSegment = result.passed ? { text: "✔ ", color: "green" } : { text: "✘ ", color: "red" };
 
     const label = result.detail
       ? result.passed

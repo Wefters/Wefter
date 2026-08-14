@@ -31,9 +31,7 @@ export async function build(projectDir: string, options: BuildOptions): Promise<
   if (options.release) {
     const releaseCheck = checkReleaseSecurity(projectDir, config);
     if (!releaseCheck.passed) {
-      throw new Error(
-        `Release security check failed:\n${releaseCheck.issues.map((i) => `  - ${i}`).join("\n")}`,
-      );
+      throw new Error(`Release security check failed:\n${releaseCheck.issues.map((i) => `  - ${i}`).join("\n")}`);
     }
   }
 
@@ -62,7 +60,10 @@ export interface IosBuildCommandOptions extends BuildOptions {
   simulator?: string;
 }
 
-export async function buildIosCommand(projectDir: string, options: IosBuildCommandOptions): Promise<IosBuildCommandResult> {
+export async function buildIosCommand(
+  projectDir: string,
+  options: IosBuildCommandOptions,
+): Promise<IosBuildCommandResult> {
   const freshness = checkSyncFreshness(projectDir);
   if (!freshness.fresh) {
     throw new Error(freshness.reason);
@@ -75,9 +76,7 @@ export async function buildIosCommand(projectDir: string, options: IosBuildComma
   if (options.release) {
     const releaseCheck = checkReleaseSecurityIos(projectDir, config);
     if (!releaseCheck.passed) {
-      throw new Error(
-        `Release security check failed:\n${releaseCheck.issues.map((i) => `  - ${i}`).join("\n")}`,
-      );
+      throw new Error(`Release security check failed:\n${releaseCheck.issues.map((i) => `  - ${i}`).join("\n")}`);
     }
   }
 

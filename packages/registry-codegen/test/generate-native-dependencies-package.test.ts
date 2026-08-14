@@ -2,10 +2,7 @@ import { describe, expect, it } from "vitest";
 import { generateNativeDependenciesPackage } from "../src/generate-native-dependencies-package.js";
 import type { DiscoveredPlugin } from "../src/scan-plugins.js";
 
-function pluginWithSpm(
-  name: string,
-  spm?: { url: string; from: string; product: string }[],
-): DiscoveredPlugin {
+function pluginWithSpm(name: string, spm?: { url: string; from: string; product: string }[]): DiscoveredPlugin {
   return {
     packageDir: `/fake/${name}`,
     manifest: {
@@ -31,7 +28,9 @@ describe("generateNativeDependenciesPackage", () => {
 
   it("adds a .package(url:from:) line for a declared SPM dependency", () => {
     const swift = generateNativeDependenciesPackage([
-      pluginWithSpm("scanner", [{ url: "https://github.com/example/CodeScanner", from: "2.1.0", product: "CodeScanner" }]),
+      pluginWithSpm("scanner", [
+        { url: "https://github.com/example/CodeScanner", from: "2.1.0", product: "CodeScanner" },
+      ]),
     ]);
 
     expect(swift).toContain('.package(url: "https://github.com/example/CodeScanner", from: "2.1.0"),');
@@ -40,12 +39,13 @@ describe("generateNativeDependenciesPackage", () => {
 
   it("derives package identity from the URL, stripping a trailing .git", () => {
     const swift = generateNativeDependenciesPackage([
-      pluginWithSpm("scanner", [{ url: "https://github.com/example/CodeScanner.git", from: "2.1.0", product: "CodeScanner" }]),
+      pluginWithSpm("scanner", [
+        { url: "https://github.com/example/CodeScanner.git", from: "2.1.0", product: "CodeScanner" },
+      ]),
     ]);
 
     expect(swift).toContain('.product(name: "CodeScanner", package: "CodeScanner"),');
-    
-    
+
     expect(swift).not.toContain('package: "CodeScanner.git"');
   });
 
@@ -61,7 +61,9 @@ describe("generateNativeDependenciesPackage", () => {
 
   it("removing a plugin's dependency on regeneration removes its lines — full regen, not additive", () => {
     const withDep = generateNativeDependenciesPackage([
-      pluginWithSpm("scanner", [{ url: "https://github.com/example/CodeScanner", from: "2.1.0", product: "CodeScanner" }]),
+      pluginWithSpm("scanner", [
+        { url: "https://github.com/example/CodeScanner", from: "2.1.0", product: "CodeScanner" },
+      ]),
     ]);
     const withoutDep = generateNativeDependenciesPackage([pluginWithSpm("scanner")]);
 
@@ -71,7 +73,9 @@ describe("generateNativeDependenciesPackage", () => {
 
   it("running twice with identical input produces byte-identical output", () => {
     const plugins = [
-      pluginWithSpm("scanner", [{ url: "https://github.com/example/CodeScanner", from: "2.1.0", product: "CodeScanner" }]),
+      pluginWithSpm("scanner", [
+        { url: "https://github.com/example/CodeScanner", from: "2.1.0", product: "CodeScanner" },
+      ]),
     ];
 
     expect(generateNativeDependenciesPackage(plugins)).toBe(generateNativeDependenciesPackage(plugins));

@@ -61,7 +61,7 @@ function detectPackageManager(projectDir: string): PackageManager {
   const found = LOCKFILES.filter(({ file }) => existsSync(join(projectDir, file)));
   if (found.length > 1) {
     throw new Error(
-      `Multiple lockfiles found (${found.map((f) => f.file).join(", ")}) — remove all but one so wefter knows which package manager to use.`
+      `Multiple lockfiles found (${found.map((f) => f.file).join(", ")}) — remove all but one so wefter knows which package manager to use.`,
     );
   }
   return found.length === 1 ? found[0].packageManager : "npm";
@@ -78,7 +78,12 @@ async function withRealPrompt<T>(run: (ask: PromptFn) => Promise<T>): Promise<T>
   process.on("SIGINT", onSigint);
 
   stdout.write("\n" + chalk.bold.cyan("🚀 Welcome to Wefter!") + "\n");
-  stdout.write(chalk.gray("   Let's set up your project. Press ") + chalk.bold("Ctrl+C") + chalk.gray(" at any prompt to cancel.") + "\n\n");
+  stdout.write(
+    chalk.gray("   Let's set up your project. Press ") +
+      chalk.bold("Ctrl+C") +
+      chalk.gray(" at any prompt to cancel.") +
+      "\n\n",
+  );
 
   const lines = rl[Symbol.asyncIterator]();
   const ask: PromptFn = async (question, defaultValue) => {
@@ -120,14 +125,17 @@ function findEnvKeyConflicts(projectDir: string): string[] {
   return ENV_KEYS.filter((key) => new RegExp(`^${key}=`, "m").test(content));
 }
 
-function updatePackageJson(
-  projectDir: string,
-  versions: { coreVersion: string; cliVersion: string }
-): void {
+function updatePackageJson(projectDir: string, versions: { coreVersion: string; cliVersion: string }): void {
   const pkgPath = join(projectDir, "package.json");
   const pkg = readPackageJson(projectDir);
-  pkg.dependencies = { ...((pkg.dependencies as Record<string, string> | undefined) ?? {}), "@wefterjs/core": versions.coreVersion };
-  pkg.devDependencies = { ...((pkg.devDependencies as Record<string, string> | undefined) ?? {}), "@wefterjs/cli": versions.cliVersion };
+  pkg.dependencies = {
+    ...((pkg.dependencies as Record<string, string> | undefined) ?? {}),
+    "@wefterjs/core": versions.coreVersion,
+  };
+  pkg.devDependencies = {
+    ...((pkg.devDependencies as Record<string, string> | undefined) ?? {}),
+    "@wefterjs/cli": versions.cliVersion,
+  };
   writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
 }
 
@@ -164,7 +172,7 @@ function appendGitignore(projectDir: string): boolean {
 export async function init(
   projectDir: string,
   versions: InitVersions | string = { coreVersion: CORE_VERSION, cliVersion: CLI_VERSION },
-  promptFn?: PromptFn
+  promptFn?: PromptFn,
 ): Promise<InitResult> {
   const resolvedVersions: { coreVersion: string; cliVersion: string } =
     typeof versions === "string"
@@ -176,27 +184,33 @@ export async function init(
 
   const configPath = join(projectDir, "wefter.config.json");
   if (existsSync(configPath)) {
-    throw new Error("wefter.config.json already exists — wefter init only sets up a project once. Edit it by hand from here.");
+    throw new Error(
+      "wefter.config.json already exists — wefter init only sets up a project once. Edit it by hand from here.",
+    );
   }
 
   const packageJsonPath = join(projectDir, "package.json");
   if (!existsSync(packageJsonPath)) {
     throw new Error(
-      `No package.json found in ${projectDir} — wefter wraps an existing JS/TS project, it doesn't scaffold one. Run your package manager's init first.`
+      `No package.json found in ${projectDir} — wefter wraps an existing JS/TS project, it doesn't scaffold one. Run your package manager's init first.`,
     );
   }
 
   const pkg = readPackageJson(projectDir);
   const existingDeps = findExistingWefterDeps(pkg);
   if (existingDeps.length > 0) {
-    throw new Error(`${existingDeps.join(", ")} already declared in package.json — update the version manually instead of running init again.`);
+    throw new Error(
+      `${existingDeps.join(", ")} already declared in package.json — update the version manually instead of running init again.`,
+    );
   }
 
   const packageManager = detectPackageManager(projectDir);
 
   const envConflicts = findEnvKeyConflicts(projectDir);
   if (envConflicts.length > 0) {
-    throw new Error(`.env already declares ${envConflicts.join(", ")} — remove or rename them before running init, so init doesn't overwrite a value you may have customized.`);
+    throw new Error(
+      `.env already declares ${envConflicts.join(", ")} — remove or rename them before running init, so init doesn't overwrite a value you may have customized.`,
+    );
   }
 
   const pkgName = typeof pkg.name === "string" ? pkg.name : "app";
@@ -217,14 +231,17 @@ export async function init(
     throw new Error(`Invalid config: ${validation.error.message}`);
   }
 
-  return runTransactionalSync([configPath, packageJsonPath, join(projectDir, ".env"), join(projectDir, ".gitignore")], async () => {
-    writeFileSync(configPath, JSON.stringify(validation.data, null, 2) + "\n");
+  return runTransactionalSync(
+    [configPath, packageJsonPath, join(projectDir, ".env"), join(projectDir, ".gitignore")],
+    async () => {
+      writeFileSync(configPath, JSON.stringify(validation.data, null, 2) + "\n");
 
-    updatePackageJson(projectDir, resolvedVersions);
+      updatePackageJson(projectDir, resolvedVersions);
 
-    writeEnvBlock(projectDir, { appId, appName, webDir });
-    const gitignoreUpdated = appendGitignore(projectDir);
+      writeEnvBlock(projectDir, { appId, appName, webDir });
+      const gitignoreUpdated = appendGitignore(projectDir);
 
-    return { configPath, packageManager, envWritten: true, gitignoreUpdated, appId, appName, webDir };
-  });
+      return { configPath, packageManager, envWritten: true, gitignoreUpdated, appId, appName, webDir };
+    },
+  );
 }

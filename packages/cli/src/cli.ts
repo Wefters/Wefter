@@ -52,7 +52,9 @@ program.name("wefter").description("Wefter CLI").version(CLI_VERSION);
 
 program
   .command("init")
-  .description("Wrap an existing JS/TS project with wefter.config.json, add @wefterjs/core + @wefterjs/cli to package.json, and write WEFTER_* env keys")
+  .description(
+    "Wrap an existing JS/TS project with wefter.config.json, add @wefterjs/core + @wefterjs/cli to package.json, and write WEFTER_* env keys",
+  )
   .argument("[projectDir]", "project root directory", process.cwd())
   .action(async (projectDir: string) => {
     try {
@@ -107,7 +109,9 @@ program
 
 program
   .command("sync")
-  .description("Resolve plugins declared in wefter.config.json, verify lockfile integrity, and regenerate the native project")
+  .description(
+    "Resolve plugins declared in wefter.config.json, verify lockfile integrity, and regenerate the native project",
+  )
   .argument("[projectDir]", "project root directory", process.cwd())
   .option("--update-lock", "accept plugin versions that drifted from wefter.lock.json and re-lock them", false)
   .action(async (projectDir: string, opts: { updateLock: boolean }) => {
@@ -137,7 +141,7 @@ program
 program
   .command("build")
   .description("Sync and build the native app")
-  .argument("<platform>", "target platform: \"android\" or \"ios\"")
+  .argument("<platform>", 'target platform: "android" or "ios"')
   .argument("[projectDir]", "project root directory", process.cwd())
   .option("--release", "build a release artifact instead of debug", false)
   .option("--env <environment>", "environment to build (from wefter.config.json)", "development")
@@ -157,7 +161,7 @@ program
         if (result.unresolvedRegisteredPlugins.length > 0) {
           logger.warn(
             `Registered plugin(s) not found in node_modules: ${result.unresolvedRegisteredPlugins.join(", ")}. ` +
-              `Run \`wefter sync\` to refresh the registry.`
+              `Run \`wefter sync\` to refresh the registry.`,
           );
         }
       } else {
@@ -171,7 +175,7 @@ program
         if (result.unresolvedRegisteredPlugins.length > 0) {
           logger.warn(
             `Registered plugin(s) not found in node_modules: ${result.unresolvedRegisteredPlugins.join(", ")}. ` +
-              `Run \`wefter sync\` to refresh the registry.`
+              `Run \`wefter sync\` to refresh the registry.`,
           );
         }
       }
@@ -186,7 +190,7 @@ program
 program
   .command("run")
   .description("Sync, build, install and launch the app — optionally with hot reload")
-  .argument("<platform>", "target platform: \"android\" or \"ios\"")
+  .argument("<platform>", 'target platform: "android" or "ios"')
   .argument("[projectDir]", "project root directory", process.cwd())
   .option("--watch", "enable hot reload via a local dev server", false)
   .option("--env <environment>", "environment to run (from wefter.config.json)", "development")
@@ -216,12 +220,16 @@ program
 
 program
   .command("eject")
-  .description("Copy the generated native project(s) to android/ and ios/ for hand-editing — wefter stops regenerating them")
+  .description(
+    "Copy the generated native project(s) to android/ and ios/ for hand-editing — wefter stops regenerating them",
+  )
   .argument("[projectDir]", "project root directory", process.cwd())
   .action(async (projectDir: string) => {
     try {
       const dests = await eject(resolve(projectDir));
-      logger.success(`Ejected. ${dests.join(", ")} ${dests.length === 1 ? "is" : "are"} now yours — wefter will no longer regenerate them automatically.`);
+      logger.success(
+        `Ejected. ${dests.join(", ")} ${dests.length === 1 ? "is" : "are"} now yours — wefter will no longer regenerate them automatically.`,
+      );
       process.exitCode = 0;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -301,7 +309,9 @@ program
       }
       logger.success(`Validated and added ${plugin} to wefter.config.json.`);
       if (result.exportedComponents.length > 0) {
-        logger.warn(`Declares exported component(s), reachable from outside the app: ${result.exportedComponents.join(", ")}`);
+        logger.warn(
+          `Declares exported component(s), reachable from outside the app: ${result.exportedComponents.join(", ")}`,
+        );
       }
       if (result.requiredConfigKeys.length > 0) {
         logger.warn(
@@ -343,7 +353,7 @@ const iconCommand = program.command("icon").description("Generate app icons");
 iconCommand
   .command("generate")
   .description(
-    "Preview Android launcher icons from a source image — LOST on the next `wefter sync` unless \"icon\" is also set in wefter.config.json"
+    'Preview Android launcher icons from a source image — LOST on the next `wefter sync` unless "icon" is also set in wefter.config.json',
   )
   .argument("<source>", "path to a source image, relative to projectDir")
   .argument("[projectDir]", "project root directory", process.cwd())
@@ -351,7 +361,9 @@ iconCommand
     try {
       await iconGenerate(resolve(projectDir), source);
       logger.success("Icons generated.");
-      logger.warn('This output will be LOST on the next `wefter sync` unless "icon" is also set in wefter.config.json.');
+      logger.warn(
+        'This output will be LOST on the next `wefter sync` unless "icon" is also set in wefter.config.json.',
+      );
       process.exitCode = 0;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

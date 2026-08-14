@@ -1,10 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import {
-  invokeNative,
-  isNativeBridgeAvailable,
-  onBridgeReady,
-  registerHook,
-} from "../src/internal/native-bridge.js";
+import { invokeNative, isNativeBridgeAvailable, onBridgeReady, registerHook } from "../src/internal/native-bridge.js";
 import { WefterBridgeError } from "../src/internal/errors.js";
 
 beforeEach(() => {
@@ -19,22 +14,15 @@ function installMockWebkitBridge(postMessage: (message: unknown) => void) {
 
 describe("invokeNative", () => {
   it("resolves when the native side calls __wefterNative.resolve() with the matching call id", async () => {
-    const nativeInvoke = vi.fn(
-      (callId: string, _plugin: string, _method: string, _payloadJson: string) => {
-        window.__wefterNative.resolve(callId, JSON.stringify({ ok: true }));
-      }
-    );
+    const nativeInvoke = vi.fn((callId: string, _plugin: string, _method: string, _payloadJson: string) => {
+      window.__wefterNative.resolve(callId, JSON.stringify({ ok: true }));
+    });
     window.AndroidBridge = { invoke: nativeInvoke };
 
     const result = await invokeNative("device", "getInfo", {});
 
     expect(result).toEqual({ ok: true });
-    expect(nativeInvoke).toHaveBeenCalledWith(
-      expect.any(String),
-      "device",
-      "getInfo",
-      JSON.stringify({})
-    );
+    expect(nativeInvoke).toHaveBeenCalledWith(expect.any(String), "device", "getInfo", JSON.stringify({}));
   });
 
   it("rejects with a WefterBridgeError built from the native side's {code, message} payload", async () => {

@@ -57,7 +57,9 @@ describe("iOS path helpers — not ejected", () => {
   it("points NativeDependencies/Package.swift at the project root, not under WefterBridge/", () => {
     dir = makeProjectDir();
 
-    expect(iosNativeDependenciesPackagePath(dir)).toBe(join(iosProjectRootDir(dir), "NativeDependencies/Package.swift"));
+    expect(iosNativeDependenciesPackagePath(dir)).toBe(
+      join(iosProjectRootDir(dir), "NativeDependencies/Package.swift"),
+    );
   });
 });
 

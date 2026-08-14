@@ -7,7 +7,7 @@ export function injectDevServerUrl(buildGradlePath: string, devServerUrl: string
   const current = readFileSync(buildGradlePath, "utf-8");
   const updated = current.replace(
     DEV_SERVER_FIELD_PATTERN,
-    `buildConfigField("String", "DEV_SERVER_URL", "\\"${devServerUrl}\\"") // overridden per-run by the CLI`
+    `buildConfigField("String", "DEV_SERVER_URL", "\\"${devServerUrl}\\"") // overridden per-run by the CLI`,
   );
   writeFileSync(buildGradlePath, updated);
 }
@@ -21,7 +21,7 @@ export function injectNetworkSecurityException(networkSecurityConfigPath: string
   if (current.includes(`>${lanIp}<`)) return;
   const updated = current.replace(
     "</domain-config>",
-    `        <domain includeSubdomains="true">${lanIp}</domain>\n    </domain-config>`
+    `        <domain includeSubdomains="true">${lanIp}</domain>\n    </domain-config>`,
   );
   writeFileSync(networkSecurityConfigPath, updated);
 }

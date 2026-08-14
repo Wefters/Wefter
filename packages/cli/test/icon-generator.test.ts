@@ -17,7 +17,9 @@ describe("generateAndroidIcons", () => {
     projectDir = mkdtempSync(join(tmpdir(), "wefter-icon-"));
     resDir = join(projectDir, "res");
     const sourcePath = join(projectDir, "icon.png");
-    await sharp({ create: { width: 1024, height: 1024, channels: 4, background: "#ff0000" } }).png().toFile(sourcePath);
+    await sharp({ create: { width: 1024, height: 1024, channels: 4, background: "#ff0000" } })
+      .png()
+      .toFile(sourcePath);
 
     await generateAndroidIcons(projectDir, "icon.png", resDir);
 
@@ -34,7 +36,9 @@ describe("generateAndroidIcons", () => {
     projectDir = mkdtempSync(join(tmpdir(), "wefter-icon-"));
     resDir = join(projectDir, "res");
     const sourcePath = join(projectDir, "icon.png");
-    await sharp({ create: { width: 1024, height: 1024, channels: 4, background: "#ff0000" } }).png().toFile(sourcePath);
+    await sharp({ create: { width: 1024, height: 1024, channels: 4, background: "#ff0000" } })
+      .png()
+      .toFile(sourcePath);
 
     await generateAndroidIcons(projectDir, "icon.png", resDir);
 
@@ -75,7 +79,9 @@ describe("generateAndroidIcons", () => {
     projectDir = mkdtempSync(join(tmpdir(), "wefter-icon-"));
     resDir = join(projectDir, "res");
     const sourcePath = join(projectDir, "icon.png");
-    await sharp({ create: { width: 512, height: 512, channels: 4, background: "#ff0000" } }).png().toFile(sourcePath);
+    await sharp({ create: { width: 512, height: 512, channels: 4, background: "#ff0000" } })
+      .png()
+      .toFile(sourcePath);
 
     await expect(generateAndroidIcons(projectDir, "icon.png", resDir)).rejects.toThrow(/1024x1024/);
   });

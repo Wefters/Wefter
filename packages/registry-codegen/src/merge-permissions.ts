@@ -12,9 +12,7 @@ export function mergePermissions(plugins: DiscoveredPlugin[], manifestPath: stri
     }
   }
 
-  const tags = [...permissions]
-    .map((p) => `    <uses-permission android:name="${p}" />`)
-    .join("\n");
+  const tags = [...permissions].map((p) => `    <uses-permission android:name="${p}" />`).join("\n");
 
   const block = `${START}\n${tags}\n    ${END}`;
   const current = readFileSync(manifestPath, "utf-8");

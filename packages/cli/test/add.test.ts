@@ -56,7 +56,7 @@ describe("add", () => {
     const result = await add(
       projectDir,
       "scanner",
-      fakeInstall({ name: "scanner", methods: ["open"] }, WELL_FORMED_KOTLIN)
+      fakeInstall({ name: "scanner", methods: ["open"] }, WELL_FORMED_KOTLIN),
     );
 
     expect(result).toEqual({
@@ -88,7 +88,11 @@ describe("add", () => {
   it("refuses a package with a malformed manifest, surfacing the schema error", async () => {
     setup();
 
-    const result = await add(projectDir, "scanner", fakeInstall({ permissions: { android: "not-an-array" } }, WELL_FORMED_KOTLIN));
+    const result = await add(
+      projectDir,
+      "scanner",
+      fakeInstall({ permissions: { android: "not-an-array" } }, WELL_FORMED_KOTLIN),
+    );
 
     expect(result.added).toBe(false);
     expect(result.issues[0]).toContain("Invalid plugin.json");
@@ -102,7 +106,7 @@ describe("add", () => {
     const result = await add(
       projectDir,
       "scanner",
-      fakeInstall({ name: "scanner" }, "\n@WefterMethod\nfun open(wrongParam: String) {\n}\n")
+      fakeInstall({ name: "scanner" }, "\n@WefterMethod\nfun open(wrongParam: String) {\n}\n"),
     );
 
     expect(result.added).toBe(false);
@@ -117,7 +121,7 @@ describe("add", () => {
     const result = await add(
       projectDir,
       "scanner",
-      fakeInstall({ name: "scanner", methods: ["open", "close"] }, WELL_FORMED_KOTLIN)
+      fakeInstall({ name: "scanner", methods: ["open", "close"] }, WELL_FORMED_KOTLIN),
     );
 
     expect(result.added).toBe(false);
@@ -156,9 +160,7 @@ describe("add", () => {
           name: "browser",
           methods: ["open"],
           android: {
-            manifestEntries: [
-              { type: "activity", name: ".BrowserAuthActivity", exported: true, intentFilters: [] },
-            ],
+            manifestEntries: [{ type: "activity", name: ".BrowserAuthActivity", exported: true, intentFilters: [] }],
           },
         },
         "\npackage dev.wefter.bridge\n\nimport org.json.JSONObject\n\nclass BrowserPlugin(context: android.content.Context, dispatcher: BridgeDispatcher) : WefterPlugin(context, dispatcher) {\n    @WefterMethod\n    fun open(payload: JSONObject, callback: (Result<Any>) -> Unit) {\n        resolve(callback)\n    }\n}\nclass BrowserAuthActivity\n",
@@ -274,11 +276,9 @@ describe("add", () => {
     const result = await add(
       projectDir,
       "@wefterjs/plugin-scanner@1.2.3",
-      fakeInstall({ name: "scanner", methods: ["open"] }, WELL_FORMED_KOTLIN)
+      fakeInstall({ name: "scanner", methods: ["open"] }, WELL_FORMED_KOTLIN),
     );
 
-    
-    
     expect(result.issues).toEqual([]);
   });
 });

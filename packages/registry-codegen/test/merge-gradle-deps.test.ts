@@ -59,7 +59,10 @@ describe("mergeGradleDeps", () => {
     writeFileSync(buildGradlePath, INITIAL_BUILD_GRADLE);
 
     mergeGradleDeps([pluginWithDep("scanner", "com.google.mlkit:barcode-scanning:17.2.0")], buildGradlePath);
-    mergeGradleDeps([pluginWithDep("scanner", "com.google.mlkit:barcode-scanning:17.2.0"), pluginWithDep("device-info")], buildGradlePath);
+    mergeGradleDeps(
+      [pluginWithDep("scanner", "com.google.mlkit:barcode-scanning:17.2.0"), pluginWithDep("device-info")],
+      buildGradlePath,
+    );
 
     const result = readFileSync(buildGradlePath, "utf-8");
     const markerCount = result.split("// WEFTER-PLUGIN-DEPS-START").length - 1;

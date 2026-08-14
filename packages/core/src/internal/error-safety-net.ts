@@ -7,8 +7,7 @@ if (typeof window !== "undefined") {
     .then((result) => {
       isDebugBuild = Boolean((result as { debug?: boolean } | null)?.debug);
     })
-    .catch(() => {
-    });
+    .catch(() => {});
 }
 
 export function __setDebugBuildForTest(value: boolean): void {

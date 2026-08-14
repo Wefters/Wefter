@@ -4,15 +4,10 @@ import type { CheckResult } from "../src/doctor/checks.js";
 
 describe("buildReportLines", () => {
   it("shows a passed check with its detail in parens, green icon", () => {
-    const lines = buildReportLines([
-      { name: "Node.js version", passed: true, detail: "v20.11.0" },
-    ]);
+    const lines = buildReportLines([{ name: "Node.js version", passed: true, detail: "v20.11.0" }]);
 
     expect(lines).toHaveLength(1);
-    expect(lines[0]).toEqual([
-      { text: "✔ ", color: "green" },
-      { text: "Node.js version (v20.11.0)" },
-    ]);
+    expect(lines[0]).toEqual([{ text: "✔ ", color: "green" }, { text: "Node.js version (v20.11.0)" }]);
   });
 
   it("shows a failed check with an em-dash detail, red icon, and an indented Fix line", () => {
@@ -26,10 +21,7 @@ describe("buildReportLines", () => {
     ]);
 
     expect(lines).toHaveLength(2);
-    expect(lines[0]).toEqual([
-      { text: "✘ ", color: "red" },
-      { text: "JDK version — found 11, need 17" },
-    ]);
+    expect(lines[0]).toEqual([{ text: "✘ ", color: "red" }, { text: "JDK version — found 11, need 17" }]);
     expect(lines[1]).toEqual([
       { text: "    " },
       { text: "Fix: ", color: "gray" },

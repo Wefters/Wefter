@@ -46,7 +46,7 @@ export function checkReleaseSecurityIos(projectDir: string, config: WefterConfig
   }
 
   if (!config.iosSigning) {
-    issues.push("No iOS release signing config found in wefter.config.json (missing \"iosSigning\")");
+    issues.push('No iOS release signing config found in wefter.config.json (missing "iosSigning")');
   }
 
   return { passed: issues.length === 0, issues };

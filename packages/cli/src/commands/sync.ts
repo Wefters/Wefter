@@ -1,11 +1,4 @@
-import {
-  cpSync,
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
+import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
   auditPluginPermissions,
@@ -86,7 +79,7 @@ export interface SyncResult {
   proguardRulesAdded: string[];
   webAssetsDir: string;
   environments: string[];
-  
+
   iosOutFile: string;
   iosPluginSourceDir: string;
   iosPluginsWithNativeSource: string[];
@@ -135,10 +128,7 @@ export interface SyncOptions {
   updateLock?: boolean;
 }
 
-export async function sync(
-  projectDir: string,
-  options: SyncOptions = {},
-): Promise<SyncResult> {
+export async function sync(projectDir: string, options: SyncOptions = {}): Promise<SyncResult> {
   await runHook(projectDir, "sync", "before");
 
   const requireWebAssets = options.requireWebAssets ?? true;
@@ -170,9 +160,7 @@ export async function sync(
 
     const permissionViolations = auditPluginPermissions(plugins);
     if (permissionViolations.length > 0) {
-      throw new Error(
-        `Plugin permission audit failed:\n${permissionViolations.map((v) => `  - ${v}`).join("\n")}`,
-      );
+      throw new Error(`Plugin permission audit failed:\n${permissionViolations.map((v) => `  - ${v}`).join("\n")}`);
     }
 
     const drift = checkLockDrift(projectDir, plugins);
@@ -194,14 +182,6 @@ export async function sync(
       if (validation.iosExtraction) iosExtraction.set(plugin.manifest.name, validation.iosExtraction);
     }
 
-    
-    
-    
-    
-    
-    
-    
-    
     const androidPlugins = plugins.filter((p) => existsSync(join(p.packageDir, "android")));
     const iosPlugins = plugins.filter((p) => existsSync(join(p.packageDir, "ios")));
 
@@ -211,8 +191,6 @@ export async function sync(
       weaveAndroidNamespace(androidAppModuleDir(projectDir), namespace);
 
       recreateIosNativeShell(projectDir);
-      
-      
     }
 
     if (requireWebAssets || existsSync(join(projectDir, config.webDir))) {
@@ -244,9 +222,6 @@ export async function sync(
     for (const [env, values] of Object.entries(config.environments)) {
       injectEnvironmentConfig(buildGradlePath, env, values);
 
-      
-      
-      
       injectEnvironmentConfigIos(iosXcconfigPath(projectDir, `Environment-${env}`), {
         bundleId: iosBundleId(config, env),
         appName: values.appName,

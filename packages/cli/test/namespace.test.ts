@@ -34,10 +34,7 @@ function writeTemplateJavaTree(javaSrcRoot: string): void {
   const pkgDir = join(javaSrcRoot, "dev/wefter/bridge");
   mkdirSync(join(pkgDir, "plugins"), { recursive: true });
   writeFileSync(join(pkgDir, "MainActivity.kt"), "package dev.wefter.bridge\n\nclass MainActivity\n");
-  writeFileSync(
-    join(pkgDir, "plugins/DeviceInfoPlugin.kt"),
-    "package dev.wefter.bridge\n\nclass DeviceInfoPlugin\n"
-  );
+  writeFileSync(join(pkgDir, "plugins/DeviceInfoPlugin.kt"), "package dev.wefter.bridge\n\nclass DeviceInfoPlugin\n");
 }
 
 describe("weaveJavaNamespace", () => {
@@ -48,7 +45,7 @@ describe("weaveJavaNamespace", () => {
     weaveJavaNamespace(dir, "dev.wefter.bridge");
 
     expect(readFileSync(join(dir, "dev/wefter/bridge/MainActivity.kt"), "utf-8")).toContain(
-      "package dev.wefter.bridge"
+      "package dev.wefter.bridge",
     );
   });
 
@@ -59,11 +56,9 @@ describe("weaveJavaNamespace", () => {
     weaveJavaNamespace(dir, "com.example.app");
 
     expect(existsSync(join(dir, "dev"))).toBe(false);
-    expect(readFileSync(join(dir, "com/example/app/MainActivity.kt"), "utf-8")).toContain(
-      "package com.example.app"
-    );
+    expect(readFileSync(join(dir, "com/example/app/MainActivity.kt"), "utf-8")).toContain("package com.example.app");
     expect(readFileSync(join(dir, "com/example/app/plugins/DeviceInfoPlugin.kt"), "utf-8")).toContain(
-      "package com.example.app"
+      "package com.example.app",
     );
   });
 
@@ -75,10 +70,10 @@ describe("weaveJavaNamespace", () => {
 
     expect(existsSync(join(dir, "dev/wefter/bridge/demo/MainActivity.kt"))).toBe(true);
     expect(readFileSync(join(dir, "dev/wefter/bridge/demo/MainActivity.kt"), "utf-8")).toContain(
-      "package dev.wefter.bridge.demo"
+      "package dev.wefter.bridge.demo",
     );
     expect(readFileSync(join(dir, "dev/wefter/bridge/demo/plugins/DeviceInfoPlugin.kt"), "utf-8")).toContain(
-      "package dev.wefter.bridge.demo"
+      "package dev.wefter.bridge.demo",
     );
   });
 

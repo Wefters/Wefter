@@ -47,7 +47,8 @@ describe("auditPermissionHandling", () => {
   });
 
   it("does not flag a 'normal' protection-level permission like INTERNET, which is granted at install time and never denied at runtime", () => {
-    const source = "class DeviceInfoPlugin(context: Context, dispatcher: BridgeDispatcher) : WefterPlugin(context, dispatcher)\n";
+    const source =
+      "class DeviceInfoPlugin(context: Context, dispatcher: BridgeDispatcher) : WefterPlugin(context, dispatcher)\n";
 
     expect(auditPermissionHandling(manifest(["android.permission.INTERNET"]), source)).toEqual([]);
   });
