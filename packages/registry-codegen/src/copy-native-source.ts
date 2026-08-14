@@ -2,8 +2,6 @@ import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, write
 import { join } from "node:path";
 import type { DiscoveredPlugin } from "./scan-plugins.js";
 
-const TEMPLATE_PACKAGE = "dev.wefter.bridge";
-
 function rewritePackageDeclarations(dir: string, packageName: string): void {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const entryPath = join(dir, entry.name);
@@ -11,7 +9,7 @@ function rewritePackageDeclarations(dir: string, packageName: string): void {
       rewritePackageDeclarations(entryPath, packageName);
     } else if (entry.name.endsWith(".kt")) {
       const content = readFileSync(entryPath, "utf-8");
-      writeFileSync(entryPath, content.replace(`package ${TEMPLATE_PACKAGE}`, `package ${packageName}`));
+      writeFileSync(entryPath, content.replace(/^package\s+[\w.]+/m, `package ${packageName}`));
     }
   }
 }
