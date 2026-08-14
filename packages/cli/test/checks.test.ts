@@ -16,15 +16,21 @@ vi.mock("node:child_process", () => ({
 const mockExec = vi.mocked(exec);
 
 function execSucceedsWith(stdout: string, stderr = "") {
-  mockExec.mockImplementation(((command: string, callback: any) => {
-    callback(null, stdout, stderr);
-  }) as any);
+  mockExec.mockImplementation(((
+    _command: string,
+    callback?: (err: Error | null, stdout: string, stderr: string) => void,
+  ) => {
+    if (callback) callback(null, stdout, stderr);
+  }) as unknown as typeof exec);
 }
 
 function execFails() {
-  mockExec.mockImplementation(((command: string, callback: any) => {
-    callback(new Error("command not found"), "", "");
-  }) as any);
+  mockExec.mockImplementation(((
+    _command: string,
+    callback?: (err: Error | null, stdout: string, stderr: string) => void,
+  ) => {
+    if (callback) callback(new Error("command not found"), "", "");
+  }) as unknown as typeof exec);
 }
 
 beforeEach(() => {

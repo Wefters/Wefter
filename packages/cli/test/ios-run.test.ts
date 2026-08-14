@@ -20,7 +20,7 @@ const execFileMock = vi.fn((_cmd: string, _args: string[], cb: (err: Error | nul
 const spawnMock = vi.fn();
 
 vi.mock("node:child_process", () => ({
-  execFile: (...args: unknown[]) => (execFileMock as any)(...args),
+  execFile: (...args: [string, string[], (err: Error | null, stdout: string) => void]) => execFileMock(...args),
   spawn: (...args: unknown[]) => spawnMock(...args),
 }));
 

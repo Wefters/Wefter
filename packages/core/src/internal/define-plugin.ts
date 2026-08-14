@@ -1,6 +1,6 @@
 import { invokeNative } from "./native-bridge.js";
 
-type AnyMethods = Record<string, (payload: any) => Promise<any>>;
+type AnyMethods = Record<string, (payload: never) => Promise<unknown>>;
 
 type DefinedPlugin<Methods extends AnyMethods> = {
   [K in keyof Methods]: undefined extends Parameters<Methods[K]>[0]

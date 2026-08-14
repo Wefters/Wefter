@@ -1,4 +1,3 @@
-import { isNativeBridgeAvailable } from "./native-bridge.js";
 import { CORE_VERSION } from "./version.js";
 
 export const CORE_PROTOCOL_VERSION = 1;
