@@ -93,6 +93,8 @@ final class ViewController: UIViewController {
         }
         #endif
 
+        webView.allowsBackForwardNavigationGestures = true
+
         return webView
     }
 
