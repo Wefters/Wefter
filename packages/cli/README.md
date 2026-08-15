@@ -33,7 +33,7 @@ pnpm add -D @wefterjs/cli
 ```
 
 Dev dependency only, the CLI never ships inside the built app. Your app's
-runtime dependency is [`@wefterjs/core`](../core).
+runtime dependency is [`@wefterjs/core`](../@wefterjs/cli).
 
 ## Requirements
 
