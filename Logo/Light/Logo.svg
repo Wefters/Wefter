@@ -8,12 +8,12 @@
   preserveAspectRatio="xMidYMid meet"
 >
   <defs>
-    <linearGradient id="wefterBannerGradDark" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#5C86C4" />
-      <stop offset="100%" stop-color="#A8C5EA" />
+    <linearGradient id="wefterBannerGradLight" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2B3A67" />
+      <stop offset="100%" stop-color="#4A6FA5" />
     </linearGradient>
   </defs>
-  <g fill="url(#wefterBannerGradDark)">
+  <g fill="url(#wefterBannerGradLight)">
 
     <!-- W MARK -->
     <g transform="translate(-270 -97)">
