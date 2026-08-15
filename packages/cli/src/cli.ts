@@ -289,8 +289,8 @@ program
 
 program
   .command("add")
-  .description("Install a plugin, validate it, and declare it in wefter.config.json")
-  .argument("<plugin>", "npm package name, optionally with a version (e.g. name@1.0.0)")
+  .description("Declare a plugin in wefter.config.json and add it to package.json dependencies (install is left to you)")
+  .argument("<plugin>", "npm package name, optionally with a version or dist-tag (e.g. name@1.0.0)")
   .argument("[projectDir]", "project root directory", process.cwd())
   .action(async (plugin: string, projectDir: string) => {
     try {
@@ -301,28 +301,15 @@ program
         return;
       }
       if (!result.added) {
-        logger.error(`${plugin} failed validation and will NOT be added:`);
+        logger.error(`Could not add ${plugin}:`);
         for (const issue of result.issues) logger.error(`  - ${issue}`);
-        logger.info("The package was installed but NOT declared in wefter.config.json.");
         process.exitCode = 1;
         return;
       }
-      logger.success(`Validated and added ${plugin} to wefter.config.json.`);
-      if (result.exportedComponents.length > 0) {
-        logger.warn(
-          `Declares exported component(s), reachable from outside the app: ${result.exportedComponents.join(", ")}`,
-        );
-      }
-      if (result.requiredConfigKeys.length > 0) {
-        logger.warn(
-          `Requires "pluginConfig" key(s) not yet set in wefter.config.json: ${result.requiredConfigKeys.join(", ")}`,
-        );
-      }
-      if (result.gradleConflicts.length > 0) {
-        logger.warn("Gradle dependency version conflicts with already-installed plugins:");
-        for (const conflict of result.gradleConflicts) logger.warn(`  - ${conflict}`);
-      }
-      logger.info("Run `wefter sync` to weave it into the native project.");
+      logger.success(`Added ${plugin}@${result.resolvedVersion} to wefter.config.json.`);
+      logger.info(`Now install it with your package manager:`);
+      logger.info(`  ${result.installHint}`);
+      logger.info("Then run `wefter sync` to weave it into the native project.");
       process.exitCode = 0;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
