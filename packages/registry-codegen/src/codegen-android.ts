@@ -65,6 +65,9 @@ export function generateRegistryKotlin(
     }
   }
 
+  const suppressAnnotation = registrationLines.length === 0
+    ? `    @Suppress("UNUSED_PARAMETER")\n`
+    : "";
   const dispatchSection = dispatchClasses.length > 0 ? `${dispatchClasses.join("\n\n")}\n\n` : "";
 
   return `
@@ -75,7 +78,7 @@ import android.content.Context
 import org.json.JSONObject
 
 ${dispatchSection}object GeneratedRegistry {
-    fun registerAll(context: Context, dispatcher: BridgeDispatcher) {
+${suppressAnnotation}    fun registerAll(context: Context, dispatcher: BridgeDispatcher) {
 ${registrationLines.join("\n")}
     }
 }
