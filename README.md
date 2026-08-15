@@ -31,8 +31,9 @@ rendering engine to learn. Vue, React, Angular, Svelte, or plain JS, the
 bridge doesn't care which one you bring.
 
 ```bash
-npx wefter add @yourorg/scanner-plugin
-npx wefter run android --watch
+npx wefter add @yourorg/scanner-plugin   # look up on registry + declare in config
+pnpm add @yourorg/scanner-plugin         # install with your package manager
+npx wefter run android --watch           # build, install, launch, hot-reload
 ```
 
 That's the whole workflow: write JS, declare the native capability you need,
@@ -47,8 +48,10 @@ Four moving parts, in order:
    same code you'd already write for the web, running inside a native
    WebView, on Android or iOS.
 2. **You declare what native capability you need.**
-   `wefter add @yourorg/scanner-plugin` installs a plugin package, validates
-   it, and only if it passes, declares it in `wefter.config.json`.
+   `wefter add @yourorg/scanner-plugin` looks up the package on the npm
+   registry, adds it to your `package.json` dependencies, and declares it
+   in `wefter.config.json`. You then install it with your own package
+   manager (pnpm, npm, yarn, or bun).
 3. **`wefter sync` weaves it into a real native project.** Native source
    gets copied in, dependencies and permissions get merged, and a typed
    registry gets generated, all inside a disposable, fully regenerated

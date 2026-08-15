@@ -48,7 +48,8 @@ Full setup walkthrough: [wefter.dev/docs/environment-setup](https://wefter.dev/d
 ## Quick start
 
 ```bash
-wefter add @yourorg/scanner-plugin   # install + validate + declare a plugin
+wefter add @yourorg/scanner-plugin   # look up on registry, declare in config
+pnpm add @yourorg/scanner-plugin     # install with your package manager
 wefter sync                          # weave declared plugins into the native project
 wefter run android --watch           # build, install, launch, hot-reload
 ```
@@ -63,7 +64,7 @@ wefter run android --watch           # build, install, launch, hot-reload
 | `wefter run <android\|ios> [projectDir] [--watch] [--env <name>] [--simulator <name>]`     | Syncs, builds, installs, and launches the app. `--watch` starts a local dev server for hot reload.                                                    |
 | `wefter eject [projectDir]`                                                                | Copies the generated native project(s) to `android/` and `ios/` for hand-editing. Wefter stops regenerating them after this.                          |
 | `wefter audit [projectDir]`                                                                | Read-only: prints the plugins, permissions, and dependencies this project would sync, plus lockfile drift and permission violations.                  |
-| `wefter add <plugin> [projectDir]`                                                         | Installs an npm package, validates it as a Wefter plugin, and declares it in `wefter.config.json` only if it passes.                                  |
+| `wefter add <plugin> [projectDir]`                                                         | Looks up the plugin on the npm registry, adds it to `package.json` deps, and declares it in `wefter.config.json`. Prints the install command for your package manager. |
 | `wefter create-plugin <name> [targetDir]`                                                  | Scaffolds a new Wefter plugin package from working boilerplate.                                                                                       |
 | `wefter icon generate <source> [projectDir]`                                               | Previews Android launcher icons from a source image. Lost on the next `sync` unless `"icon"` is also set in `wefter.config.json`.                     |
 | `wefter splash generate [targetPath] [projectDir]`                                         | Scaffolds an example splash folder to edit and point `wefter.config.json` at.                                                                         |
