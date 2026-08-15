@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 function resolveTemplateDir(templateName: "android-template" | "ios-template"): string {
   const currentDir = dirname(fileURLToPath(import.meta.url));
   const candidates = [
+    join(currentDir, `shells/${templateName}`),
     join(currentDir, `../../../shells/${templateName}`),
     join(currentDir, `../../../../shells/${templateName}`),
     join(currentDir, `../../shells/${templateName}`),
@@ -17,7 +18,7 @@ function resolveTemplateDir(templateName: "android-template" | "ios-template"): 
     }
   }
 
-  return join(currentDir, `../../../shells/${templateName}`);
+  return join(currentDir, `shells/${templateName}`);
 }
 
 export function shellTemplatePath(): string {
