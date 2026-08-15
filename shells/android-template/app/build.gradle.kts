@@ -10,7 +10,7 @@ android {
     defaultConfig {
         applicationId = "dev.wefter.bridge"
         minSdk = 24
-        targetSdk = 34
+        targetSdk = 36
         versionCode = 1
         versionName = "0.0.1"
 
