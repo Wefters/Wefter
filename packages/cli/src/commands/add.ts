@@ -1,5 +1,5 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, lstatSync, readFileSync, realpathSync, statSync, writeFileSync } from "node:fs";
+import { isAbsolute, join, relative, resolve } from "node:path";
 import { loadWefterConfig, pluginsDirPath } from "../config/project-paths.js";
 import { fetchNpmPackageInfo } from "../plugins/npm-registry.js";
 
@@ -13,12 +13,120 @@ export interface AddResult {
   installHint: string;
 }
 
-function parsePackageSpec(spec: string): { name: string; versionSpec?: string } {
-  const match = PACKAGE_SPEC_PATTERN.exec(spec);
-  if (!match) {
-    throw new Error(`"${spec}" doesn't look like a valid npm package name.`);
+export interface ResolvedPackageInfo {
+  name: string;
+  version: string;
+  depSpec: string;
+  installSpec: string;
+}
+
+export async function resolvePackageInfo(
+  projectDir: string,
+  packageSpec: string,
+): Promise<ResolvedPackageInfo> {
+  let scheme: "file:" | "link:" | null = null;
+  let rawPath = packageSpec;
+  let isExplicitPath = false;
+
+  if (packageSpec.startsWith("file:")) {
+    scheme = "file:";
+    rawPath = packageSpec.slice(5);
+    isExplicitPath = true;
+  } else if (packageSpec.startsWith("link:")) {
+    scheme = "link:";
+    rawPath = packageSpec.slice(5);
+    isExplicitPath = true;
+  } else if (
+    packageSpec.startsWith("./") ||
+    packageSpec.startsWith("../") ||
+    packageSpec.startsWith("/") ||
+    packageSpec.startsWith("~")
+  ) {
+    isExplicitPath = true;
   }
-  return { name: match[1], versionSpec: match[2] };
+
+  const absPath = isAbsolute(rawPath) ? rawPath : resolve(projectDir, rawPath);
+  const pathExists = existsSync(absPath);
+  const isDirectory = pathExists && statSync(absPath).isDirectory();
+
+  if (isExplicitPath || isDirectory) {
+    if (!pathExists || !isDirectory) {
+      throw new Error(`Local plugin directory "${absPath}" does not exist.`);
+    }
+
+    const pkgJsonPath = join(absPath, "package.json");
+    const pluginJsonPath = join(absPath, "plugin.json");
+
+    let name = "";
+    let version = "0.0.0";
+
+    if (existsSync(pkgJsonPath)) {
+      const pkg = JSON.parse(readFileSync(pkgJsonPath, "utf-8")) as Record<string, unknown>;
+      name = (pkg.name as string) || "";
+      version = (pkg.version as string) || "0.0.0";
+    } else if (existsSync(pluginJsonPath)) {
+      const pluginJson = JSON.parse(readFileSync(pluginJsonPath, "utf-8")) as Record<string, unknown>;
+      name = (pluginJson.name as string) || "";
+      version = (pluginJson.version as string) || "0.0.0";
+    } else {
+      throw new Error(`No package.json or plugin.json found in local repository at "${absPath}".`);
+    }
+
+    if (!name) {
+      throw new Error(`Plugin at "${absPath}" is missing a "name" field in package.json or plugin.json.`);
+    }
+
+    let relPath = relative(projectDir, absPath);
+    if (!relPath.startsWith(".") && !isAbsolute(relPath)) {
+      relPath = "./" + relPath;
+    }
+
+    const prefix = scheme ?? "file:";
+    const depSpec = `${prefix}${relPath}`;
+
+    return {
+      name,
+      version,
+      depSpec,
+      installSpec: depSpec,
+    };
+  }
+
+  if (PACKAGE_SPEC_PATTERN.test(packageSpec)) {
+    try {
+      const pkgInfo = await fetchNpmPackageInfo(packageSpec);
+      return {
+        name: pkgInfo.name,
+        version: pkgInfo.version,
+        depSpec: `^${pkgInfo.version}`,
+        installSpec: `${pkgInfo.name}@${pkgInfo.version}`,
+      };
+    } catch (err) {
+      const nodeModulesPkgPath = join(projectDir, "node_modules", packageSpec, "package.json");
+      if (existsSync(nodeModulesPkgPath)) {
+        const pkg = JSON.parse(readFileSync(nodeModulesPkgPath, "utf-8")) as Record<string, unknown>;
+        const name = (pkg.name as string) || packageSpec;
+        const version = (pkg.version as string) || "0.0.0";
+
+        const pkgDir = join(projectDir, "node_modules", packageSpec);
+        let depSpec = `^${version}`;
+        let installSpec = `${name}@${version}`;
+
+        if (lstatSync(pkgDir).isSymbolicLink()) {
+          const realDir = realpathSync(pkgDir);
+          let relPath = relative(projectDir, realDir);
+          if (!relPath.startsWith(".")) relPath = "./" + relPath;
+          depSpec = `file:${relPath}`;
+          installSpec = depSpec;
+        }
+
+        return { name, version, depSpec, installSpec };
+      }
+      throw err;
+    }
+  }
+
+  throw new Error(`"${packageSpec}" doesn't look like a valid npm package name or local repo path.`);
 }
 
 function readRawConfig(projectDir: string): Record<string, unknown> {
@@ -26,7 +134,7 @@ function readRawConfig(projectDir: string): Record<string, unknown> {
   return existsSync(path) ? JSON.parse(readFileSync(path, "utf-8")) : {};
 }
 
-function addToPackageJsonDeps(projectDir: string, name: string, version: string): boolean {
+function addToPackageJsonDeps(projectDir: string, name: string, depSpec: string): boolean {
   const pkgPath = join(projectDir, "package.json");
   if (!existsSync(pkgPath)) return false;
 
@@ -35,57 +143,56 @@ function addToPackageJsonDeps(projectDir: string, name: string, version: string)
 
   if (deps[name]) return false;
 
-  deps[name] = `^${version}`;
+  deps[name] = depSpec;
   pkg.dependencies = deps;
   writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n", "utf-8");
   return true;
 }
 
 export async function add(projectDir: string, packageSpec: string): Promise<AddResult> {
-  const { name } = parsePackageSpec(packageSpec);
+  const resolvedInfo = await resolvePackageInfo(projectDir, packageSpec);
 
   const config = loadWefterConfig(projectDir);
   void pluginsDirPath(projectDir, config);
 
   const rawConfig = readRawConfig(projectDir);
   const existingPlugins = Array.isArray(rawConfig.plugins) ? (rawConfig.plugins as string[]) : [];
-  if (existingPlugins.includes(name)) {
+  if (existingPlugins.includes(resolvedInfo.name)) {
     return {
       added: false,
       alreadyDeclared: true,
       issues: [],
-      resolvedVersion: "",
+      resolvedVersion: resolvedInfo.version,
       installHint: "",
     };
   }
 
-  const pkgInfo = await fetchNpmPackageInfo(packageSpec);
+  addToPackageJsonDeps(projectDir, resolvedInfo.name, resolvedInfo.depSpec);
 
-  addToPackageJsonDeps(projectDir, pkgInfo.name, pkgInfo.version);
-
-  const updatedConfig = { ...rawConfig, plugins: [...existingPlugins, name] };
+  const updatedConfig = { ...rawConfig, plugins: [...existingPlugins, resolvedInfo.name] };
   writeFileSync(join(projectDir, "wefter.config.json"), JSON.stringify(updatedConfig, null, 2) + "\n");
 
-  const installHint = buildInstallHint(projectDir, pkgInfo.name, pkgInfo.version);
+  const installHint = buildInstallHint(projectDir, resolvedInfo.installSpec);
 
   return {
     added: true,
     alreadyDeclared: false,
     issues: [],
-    resolvedVersion: pkgInfo.version,
+    resolvedVersion: resolvedInfo.version,
     installHint,
   };
 }
 
-function buildInstallHint(projectDir: string, name: string, version: string): string {
+function buildInstallHint(projectDir: string, installSpec: string): string {
   if (existsSync(join(projectDir, "pnpm-lock.yaml"))) {
-    return `pnpm add ${name}@${version}`;
+    return `pnpm add ${installSpec}`;
   }
   if (existsSync(join(projectDir, "yarn.lock"))) {
-    return `yarn add ${name}@${version}`;
+    return `yarn add ${installSpec}`;
   }
   if (existsSync(join(projectDir, "bun.lockb")) || existsSync(join(projectDir, "bun.lock"))) {
-    return `bun add ${name}@${version}`;
+    return `bun add ${installSpec}`;
   }
-  return `npm install ${name}@${version}`;
+  return `npm install ${installSpec}`;
 }
+

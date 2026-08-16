@@ -2,283 +2,188 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { add } from "../src/commands/add.js";
+import { add, resolvePackageInfo } from "../src/commands/add.js";
+import * as npmRegistry from "../src/plugins/npm-registry.js";
 
 let projectDir: string;
+let localRepoDir: string;
 
 afterEach(() => {
   if (projectDir) rmSync(projectDir, { recursive: true, force: true });
+  if (localRepoDir) rmSync(localRepoDir, { recursive: true, force: true });
+  vi.restoreAllMocks();
 });
 
 function setup(): void {
-  projectDir = mkdtempSync(join(tmpdir(), "wefter-add-"));
+  projectDir = mkdtempSync(join(tmpdir(), "wefter-add-proj-"));
+  localRepoDir = mkdtempSync(join(tmpdir(), "wefter-add-plugin-"));
+
   writeFileSync(join(projectDir, "wefter.config.json"), JSON.stringify({ plugins: [] }));
+  writeFileSync(join(projectDir, "package.json"), JSON.stringify({ name: "my-app", dependencies: {} }));
 }
 
-const WELL_FORMED_KOTLIN = `
-package dev.wefter.bridge
-
-import org.json.JSONObject
-
-class ScannerPlugin(context: android.content.Context, dispatcher: BridgeDispatcher) : WefterPlugin(context, dispatcher) {
-    @WefterMethod
-    fun open(payload: JSONObject, callback: (Result<Any>) -> Unit) {
-        resolve(callback)
-    }
-}
-`;
-
-function fakeInstall(pluginJson: Record<string, unknown>, kotlinSource: string | null) {
-  return async (dir: string, spec: string) => {
-    const name = spec.replace(/@[\w.\-^~]+$/, "");
-    const packageDir = join(dir, "node_modules", name);
-    mkdirSync(packageDir, { recursive: true });
-    writeFileSync(join(packageDir, "plugin.json"), JSON.stringify(pluginJson));
-    if (kotlinSource !== null) {
-      mkdirSync(join(packageDir, "android"), { recursive: true });
-      writeFileSync(join(packageDir, "android", "ScannerPlugin.kt"), kotlinSource);
-    }
-  };
-}
-
-describe("add", () => {
-  it("rejects an obviously invalid package name before attempting install", async () => {
+describe("add command", () => {
+  it("rejects an obviously invalid package name or non-existent path", async () => {
     setup();
-    const install = vi.fn();
 
-    await expect(add(projectDir, "not a package name!!", install)).rejects.toThrow(/doesn't look like/);
-    expect(install).not.toHaveBeenCalled();
+    await expect(add(projectDir, "not a package name!!")).rejects.toThrow(/doesn't look like/);
   });
 
-  it("installs, validates, and declares a genuinely valid plugin", async () => {
+  it("rejects a non-existent local path", async () => {
     setup();
 
-    const result = await add(
-      projectDir,
-      "scanner",
-      fakeInstall({ name: "scanner", methods: ["open"] }, WELL_FORMED_KOTLIN),
-    );
+    await expect(add(projectDir, "./non-existent-plugin-path")).rejects.toThrow(/does not exist/);
+  });
+
+  it("rejects a local repo directory that lacks package.json and plugin.json", async () => {
+    setup();
+
+    await expect(add(projectDir, localRepoDir)).rejects.toThrow(/No package.json or plugin.json found/);
+  });
+
+  it("adds an npm package by resolving metadata and updating files", async () => {
+    setup();
+
+    vi.spyOn(npmRegistry, "fetchNpmPackageInfo").mockResolvedValue({
+      name: "@wefterjs/camera",
+      version: "1.2.3",
+    });
+
+    const result = await add(projectDir, "@wefterjs/camera");
 
     expect(result).toEqual({
       added: true,
       alreadyDeclared: false,
       issues: [],
-      exportedComponents: [],
-      requiredConfigKeys: [],
-      gradleConflicts: [],
+      resolvedVersion: "1.2.3",
+      installHint: "npm install @wefterjs/camera@1.2.3",
     });
+
     const config = JSON.parse(readFileSync(join(projectDir, "wefter.config.json"), "utf-8"));
-    expect(config.plugins).toEqual(["scanner"]);
+    expect(config.plugins).toEqual(["@wefterjs/camera"]);
+
+    const pkg = JSON.parse(readFileSync(join(projectDir, "package.json"), "utf-8"));
+    expect(pkg.dependencies["@wefterjs/camera"]).toBe("^1.2.3");
   });
 
-  it("refuses a package with no plugin.json — installed but not declared", async () => {
-    setup();
-    const install = async (dir: string) => {
-      mkdirSync(join(dir, "node_modules", "scanner"), { recursive: true });
-    };
-
-    const result = await add(projectDir, "scanner", install);
-
-    expect(result.added).toBe(false);
-    expect(result.issues[0]).toContain("No plugin.json found");
-    const config = JSON.parse(readFileSync(join(projectDir, "wefter.config.json"), "utf-8"));
-    expect(config.plugins).toEqual([]);
-  });
-
-  it("refuses a package with a malformed manifest, surfacing the schema error", async () => {
+  it("adds a local repository via direct folder path", async () => {
     setup();
 
-    const result = await add(
-      projectDir,
-      "scanner",
-      fakeInstall({ permissions: { android: "not-an-array" } }, WELL_FORMED_KOTLIN),
+    writeFileSync(
+      join(localRepoDir, "package.json"),
+      JSON.stringify({ name: "@wefterjs/network", version: "0.0.1" }),
     );
 
-    expect(result.added).toBe(false);
-    expect(result.issues[0]).toContain("Invalid plugin.json");
+    const result = await add(projectDir, localRepoDir);
+
+    expect(result.added).toBe(true);
+    expect(result.resolvedVersion).toBe("0.0.1");
+
     const config = JSON.parse(readFileSync(join(projectDir, "wefter.config.json"), "utf-8"));
-    expect(config.plugins).toEqual([]);
+    expect(config.plugins).toEqual(["@wefterjs/network"]);
+
+    const pkg = JSON.parse(readFileSync(join(projectDir, "package.json"), "utf-8"));
+    expect(pkg.dependencies["@wefterjs/network"]).toMatch(/^file:/);
   });
 
-  it("refuses a package with a malformed @WefterMethod signature, surfacing the line number", async () => {
+  it("adds a local repository via file: prefix specifier", async () => {
     setup();
 
-    const result = await add(
-      projectDir,
-      "scanner",
-      fakeInstall({ name: "scanner" }, "\n@WefterMethod\nfun open(wrongParam: String) {\n}\n"),
+    writeFileSync(
+      join(localRepoDir, "package.json"),
+      JSON.stringify({ name: "@wefterjs/clipboard", version: "0.1.0" }),
     );
 
-    expect(result.added).toBe(false);
-    expect(result.issues[0]).toMatch(/malformed @WefterMethod.*line 2/i);
+    const result = await add(projectDir, `file:${localRepoDir}`);
+
+    expect(result.added).toBe(true);
+    expect(result.resolvedVersion).toBe("0.1.0");
+
     const config = JSON.parse(readFileSync(join(projectDir, "wefter.config.json"), "utf-8"));
-    expect(config.plugins).toEqual([]);
+    expect(config.plugins).toEqual(["@wefterjs/clipboard"]);
+
+    const pkg = JSON.parse(readFileSync(join(projectDir, "package.json"), "utf-8"));
+    expect(pkg.dependencies["@wefterjs/clipboard"]).toMatch(/^file:/);
   });
 
-  it("refuses a package whose declared methods don't match its extracted source", async () => {
+  it("adds a local repository via link: prefix specifier", async () => {
     setup();
 
-    const result = await add(
-      projectDir,
-      "scanner",
-      fakeInstall({ name: "scanner", methods: ["open", "close"] }, WELL_FORMED_KOTLIN),
+    writeFileSync(
+      join(localRepoDir, "package.json"),
+      JSON.stringify({ name: "@wefterjs/device", version: "0.2.0" }),
     );
 
-    expect(result.added).toBe(false);
-    expect(result.issues[0]).toContain("close");
+    const result = await add(projectDir, `link:${localRepoDir}`);
+
+    expect(result.added).toBe(true);
+    expect(result.resolvedVersion).toBe("0.2.0");
+
     const config = JSON.parse(readFileSync(join(projectDir, "wefter.config.json"), "utf-8"));
-    expect(config.plugins).toEqual([]);
+    expect(config.plugins).toEqual(["@wefterjs/device"]);
+
+    const pkg = JSON.parse(readFileSync(join(projectDir, "package.json"), "utf-8"));
+    expect(pkg.dependencies["@wefterjs/device"]).toMatch(/^link:/);
   });
 
-  it("is idempotent — adding an already-declared valid plugin again doesn't duplicate or fail", async () => {
+  it("reads plugin.json if package.json is absent in local repo", async () => {
     setup();
-    const install = fakeInstall({ name: "scanner", methods: ["open"] }, WELL_FORMED_KOTLIN);
 
-    await add(projectDir, "scanner", install);
-    const result = await add(projectDir, "scanner", install);
+    writeFileSync(
+      join(localRepoDir, "plugin.json"),
+      JSON.stringify({ name: "@wefterjs/screen", version: "0.0.5" }),
+    );
+
+    const result = await add(projectDir, localRepoDir);
+
+    expect(result.added).toBe(true);
+    expect(result.resolvedVersion).toBe("0.0.5");
+
+    const config = JSON.parse(readFileSync(join(projectDir, "wefter.config.json"), "utf-8"));
+    expect(config.plugins).toEqual(["@wefterjs/screen"]);
+  });
+
+  it("is idempotent when adding an already declared plugin", async () => {
+    setup();
+
+    writeFileSync(
+      join(projectDir, "wefter.config.json"),
+      JSON.stringify({ plugins: ["@wefterjs/network"] }),
+    );
+    writeFileSync(
+      join(localRepoDir, "package.json"),
+      JSON.stringify({ name: "@wefterjs/network", version: "0.0.1" }),
+    );
+
+    const result = await add(projectDir, localRepoDir);
 
     expect(result).toEqual({
       added: false,
       alreadyDeclared: true,
       issues: [],
-      exportedComponents: [],
-      requiredConfigKeys: [],
-      gradleConflicts: [],
+      resolvedVersion: "0.0.1",
+      installHint: "",
     });
+  });
+
+  it("falls back to local node_modules when npm registry fetch fails for an unpublished plugin", async () => {
+    setup();
+
+    vi.spyOn(npmRegistry, "fetchNpmPackageInfo").mockRejectedValue(new Error("404 Not Found"));
+
+    const pluginDir = join(projectDir, "node_modules", "@wefterjs/unpublished-plugin");
+    mkdirSync(pluginDir, { recursive: true });
+    writeFileSync(
+      join(pluginDir, "package.json"),
+      JSON.stringify({ name: "@wefterjs/unpublished-plugin", version: "0.0.1-local" }),
+    );
+
+    const result = await add(projectDir, "@wefterjs/unpublished-plugin");
+
+    expect(result.added).toBe(true);
+    expect(result.resolvedVersion).toBe("0.0.1-local");
+
     const config = JSON.parse(readFileSync(join(projectDir, "wefter.config.json"), "utf-8"));
-    expect(config.plugins).toEqual(["scanner"]);
-  });
-
-  it("surfaces an exported component declared by the newly added plugin", async () => {
-    setup();
-
-    const result = await add(
-      projectDir,
-      "browser",
-      fakeInstall(
-        {
-          name: "browser",
-          methods: ["open"],
-          android: {
-            manifestEntries: [{ type: "activity", name: ".BrowserAuthActivity", exported: true, intentFilters: [] }],
-          },
-        },
-        "\npackage dev.wefter.bridge\n\nimport org.json.JSONObject\n\nclass BrowserPlugin(context: android.content.Context, dispatcher: BridgeDispatcher) : WefterPlugin(context, dispatcher) {\n    @WefterMethod\n    fun open(payload: JSONObject, callback: (Result<Any>) -> Unit) {\n        resolve(callback)\n    }\n}\nclass BrowserAuthActivity\n",
-      ),
-    );
-
-    expect(result.added).toBe(true);
-    expect(result.exportedComponents).toEqual(["activity .BrowserAuthActivity"]);
-  });
-
-  it("surfaces a required pluginConfig key not yet declared in wefter.config.json", async () => {
-    setup();
-
-    const result = await add(
-      projectDir,
-      "browser",
-      fakeInstall(
-        {
-          name: "browser",
-          methods: ["open"],
-          android: {
-            manifestEntries: [
-              {
-                type: "activity",
-                name: ".BrowserAuthActivity",
-                exported: true,
-                intentFilters: [
-                  {
-                    action: "android.intent.action.VIEW",
-                    categories: [],
-                    data: { scheme: "${appScheme}" },
-                  },
-                ],
-              },
-            ],
-          },
-        },
-        "\npackage dev.wefter.bridge\n\nimport org.json.JSONObject\n\nclass BrowserPlugin(context: android.content.Context, dispatcher: BridgeDispatcher) : WefterPlugin(context, dispatcher) {\n    @WefterMethod\n    fun open(payload: JSONObject, callback: (Result<Any>) -> Unit) {\n        resolve(callback)\n    }\n}\nclass BrowserAuthActivity\n",
-      ),
-    );
-
-    expect(result.added).toBe(true);
-    expect(result.requiredConfigKeys).toEqual(["appScheme"]);
-  });
-
-  it("does not re-surface a required config key that's already set in wefter.config.json's pluginConfig", async () => {
-    projectDir = mkdtempSync(join(tmpdir(), "wefter-add-"));
-    writeFileSync(
-      join(projectDir, "wefter.config.json"),
-      JSON.stringify({ plugins: [], pluginConfig: { appScheme: "myapp" } }),
-    );
-
-    const result = await add(
-      projectDir,
-      "browser",
-      fakeInstall(
-        {
-          name: "browser",
-          methods: ["open"],
-          android: {
-            manifestEntries: [
-              {
-                type: "activity",
-                name: ".BrowserAuthActivity",
-                exported: true,
-                intentFilters: [
-                  { action: "android.intent.action.VIEW", categories: [], data: { scheme: "${appScheme}" } },
-                ],
-              },
-            ],
-          },
-        },
-        "\npackage dev.wefter.bridge\n\nimport org.json.JSONObject\n\nclass BrowserPlugin(context: android.content.Context, dispatcher: BridgeDispatcher) : WefterPlugin(context, dispatcher) {\n    @WefterMethod\n    fun open(payload: JSONObject, callback: (Result<Any>) -> Unit) {\n        resolve(callback)\n    }\n}\nclass BrowserAuthActivity\n",
-      ),
-    );
-
-    expect(result.requiredConfigKeys).toEqual([]);
-  });
-
-  it("surfaces a Gradle major-version conflict against an already-declared plugin", async () => {
-    projectDir = mkdtempSync(join(tmpdir(), "wefter-add-"));
-    writeFileSync(join(projectDir, "wefter.config.json"), JSON.stringify({ plugins: ["existing-plugin"] }));
-    mkdirSync(join(projectDir, "node_modules", "existing-plugin"), { recursive: true });
-    writeFileSync(
-      join(projectDir, "node_modules", "existing-plugin", "plugin.json"),
-      JSON.stringify({
-        name: "existing-plugin",
-        nativeDependencies: { android: { gradle: ["androidx.camera:camera-core:1.3.0"] } },
-      }),
-    );
-
-    const result = await add(
-      projectDir,
-      "camera",
-      fakeInstall(
-        {
-          name: "camera",
-          methods: ["open"],
-          nativeDependencies: { android: { gradle: ["androidx.camera:camera-core:2.0.0"] } },
-        },
-        WELL_FORMED_KOTLIN,
-      ),
-    );
-
-    expect(result.added).toBe(true);
-    expect(result.gradleConflicts).toHaveLength(1);
-    expect(result.gradleConflicts[0]).toContain("androidx.camera:camera-core");
-  });
-
-  it("accepts a scoped package name with a version specifier and installs under the bare name", async () => {
-    setup();
-
-    const result = await add(
-      projectDir,
-      "@wefterjs/plugin-scanner@1.2.3",
-      fakeInstall({ name: "scanner", methods: ["open"] }, WELL_FORMED_KOTLIN),
-    );
-
-    expect(result.issues).toEqual([]);
+    expect(config.plugins).toEqual(["@wefterjs/unpublished-plugin"]);
   });
 });
