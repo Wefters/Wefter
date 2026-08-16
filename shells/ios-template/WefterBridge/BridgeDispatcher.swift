@@ -22,6 +22,8 @@ public final class BridgeDispatcher: NSObject, WKScriptMessageHandler {
         self.webView = webView
     }
 
+    public var currentWebView: WKWebView? { webView }
+
     public func register(_ name: String, module: NativeModule) {
         modules[name] = module
         module.attachEmitter { [weak self] hookName, data in
