@@ -79,9 +79,19 @@ export async function run(projectDir: string, options: RunOptions): Promise<DevS
   logger.info(`Installing ${chalk.cyan(apkPath)} on ${chalk.bold(device.serial)}...`);
   await installAndLaunch(apkPath, environment.appId, androidNamespace(config), device.serial);
 
+  await announceDevtoolsUrl(devServer);
+
   await runHook(projectDir, "run", "after", { platform: "android", environment: options.env });
 
   return devServer;
+}
+
+async function announceDevtoolsUrl(devServer: DevServer | null): Promise<void> {
+  if (!devServer) return;
+  const devtoolsUrl = await devServer.devtoolsUrl;
+  if (devtoolsUrl) {
+    logger.success(`App is running — devtools dashboard: ${chalk.cyan(devtoolsUrl)}`);
+  }
 }
 
 function runAdb(args: string[]): Promise<void> {
@@ -165,6 +175,8 @@ export async function runIos(projectDir: string, options: IosRunOptions): Promis
   const simulator = await resolveSimulator(options.simulator);
   logger.info(`Installing ${chalk.cyan(appPath)} on ${chalk.bold(simulator)}...`);
   await installAndLaunchIos(appPath, iosBundleId(config, options.env), simulator);
+
+  await announceDevtoolsUrl(devServer);
 
   await runHook(projectDir, "run", "after", { platform: "ios", environment: options.env });
 

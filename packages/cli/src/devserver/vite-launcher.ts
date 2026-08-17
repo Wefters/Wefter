@@ -6,6 +6,7 @@ import logger from "../utils/logger.js";
 
 export interface DevServer {
   url: string;
+  devtoolsUrl: Promise<string | null>;
   process: ChildProcess;
   stop(): void;
 }
@@ -14,6 +15,23 @@ const ANSI_PATTERN = /\x1b\[[0-9;]*m/g;
 const VITE_READY_LINE = /^VITE\s+v[\d.]+\s+ready in/i;
 const VITE_ADDRESS_LINE = /^➜\s+(Local|Network):/;
 const VITE_TIMESTAMPED_LINE = /^\d{1,2}:\d{2}:\d{2}\s*(?:AM|PM)?\s*\[vite\]\s*(.*)$/i;
+
+const DEVTOOLS_DASHBOARD_ROUTE = "/__wefter-devtools";
+const DEVTOOLS_PLUGINS_API_ROUTE = "/__wefter-devtools/api/plugins";
+const DEVTOOLS_PROBE_TIMEOUT_MS = 1500;
+
+async function probeDevtoolsUrl(url: string): Promise<string | null> {
+  try {
+    const response = await fetch(`${url}${DEVTOOLS_PLUGINS_API_ROUTE}`, {
+      signal: AbortSignal.timeout(DEVTOOLS_PROBE_TIMEOUT_MS),
+    });
+    if (!response.ok) return null;
+    if (!(response.headers.get("content-type") ?? "").includes("application/json")) return null;
+    return `${url}${DEVTOOLS_DASHBOARD_ROUTE}`;
+  } catch {
+    return null;
+  }
+}
 
 function forwardViteLine(rawLine: string): void {
   const line = rawLine.replace(ANSI_PATTERN, "").trim();
@@ -58,7 +76,11 @@ export function startDevServer(projectDir: string, lanIp: string, port = 5173): 
       if (!resolved && text.includes("ready")) {
         resolved = true;
         logger.success(`Vite dev server ready at ${chalk.cyan(url)}`);
-        resolve({ url, process: proc, stop: () => proc.kill() });
+        const devtoolsUrl = probeDevtoolsUrl(url).then((found) => {
+          if (found) logger.success(`Devtools dashboard: ${chalk.cyan(found)}`);
+          return found;
+        });
+        resolve({ url, devtoolsUrl, process: proc, stop: () => proc.kill() });
       }
     });
 
