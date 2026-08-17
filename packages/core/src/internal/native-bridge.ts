@@ -1,4 +1,5 @@
 import { WefterBridgeError } from "./errors.js";
+import { tapBridgeCall, tapBridgeSettle, statusFromError } from "./devtools/bridge-tap.js";
 
 type PendingCall = { resolve: (v: unknown) => void; reject: (r: unknown) => void };
 
@@ -48,6 +49,9 @@ if (typeof window !== "undefined") {
               "message" in parsed && typeof (parsed as { message?: unknown }).message === "string"
                 ? (parsed as { message: string }).message
                 : String(parsed),
+              "nativeStack" in parsed && typeof (parsed as { nativeStack?: unknown }).nativeStack === "string"
+                ? (parsed as { nativeStack: string }).nativeStack
+                : undefined,
             )
           : new WefterBridgeError("UNKNOWN", String(parsed));
       pending.get(callId)?.reject(error);
@@ -85,23 +89,32 @@ export function invokeNative<T = unknown>(
   const signal = options?.signal;
   const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
+  if (import.meta.hot) tapBridgeCall(callId, plugin, method, payload);
+  const startedAt = Date.now();
+
   return new Promise<T>((resolve, reject) => {
     if (signal?.aborted) {
-      reject(new WefterBridgeError("ABORTED", "Call was aborted before it started"));
+      const error = new WefterBridgeError("ABORTED", "Call was aborted before it started");
+      if (import.meta.hot) tapBridgeSettle(callId, "cancelled", startedAt, { error });
+      reject(error);
       return;
     }
 
     const onAbort = () => {
       pending.delete(callId);
       cleanup();
-      reject(new WefterBridgeError("ABORTED", "Call was aborted"));
+      const error = new WefterBridgeError("ABORTED", "Call was aborted");
+      if (import.meta.hot) tapBridgeSettle(callId, "cancelled", startedAt, { error });
+      reject(error);
     };
     signal?.addEventListener("abort", onAbort);
 
     const timer = setTimeout(() => {
       pending.delete(callId);
       cleanup();
-      reject(new WefterBridgeError("TIMEOUT", `${plugin}.${method} timed out after ${timeoutMs}ms`));
+      const error = new WefterBridgeError("TIMEOUT", `${plugin}.${method} timed out after ${timeoutMs}ms`);
+      if (import.meta.hot) tapBridgeSettle(callId, "timeout", startedAt, { error });
+      reject(error);
     }, timeoutMs);
 
     const cleanup = () => {
@@ -112,10 +125,12 @@ export function invokeNative<T = unknown>(
     pending.set(callId, {
       resolve: (v) => {
         cleanup();
+        if (import.meta.hot) tapBridgeSettle(callId, "success", startedAt, { result: v });
         resolve(v as T);
       },
       reject: (r) => {
         cleanup();
+        if (import.meta.hot) tapBridgeSettle(callId, statusFromError(r), startedAt, { error: r });
         reject(r);
       },
     });
@@ -127,7 +142,9 @@ export function invokeNative<T = unknown>(
     } else {
       pending.delete(callId);
       cleanup();
-      reject(new WefterBridgeError("NO_BRIDGE", "No native bridge available"));
+      const error = new WefterBridgeError("NO_BRIDGE", "No native bridge available");
+      if (import.meta.hot) tapBridgeSettle(callId, "error", startedAt, { error });
+      reject(error);
     }
   });
 }

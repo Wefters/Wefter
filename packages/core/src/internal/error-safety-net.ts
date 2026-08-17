@@ -1,4 +1,6 @@
 import { invokeNative } from "./native-bridge.js";
+import { emitDevtoolsEvent } from "./devtools/emit.js";
+import { safeSerialize } from "./devtools/serialize.js";
 
 let isDebugBuild = true;
 
@@ -50,6 +52,15 @@ export function reportUnhandledError(error: unknown): void {
     el.appendChild(entry);
   } else {
     console.error("[wefter] unhandled error", error);
+  }
+
+  if (import.meta.hot) {
+    emitDevtoolsEvent("wefter:console", {
+      level: "uncaught",
+      args: [safeSerialize(error)],
+      stack: describeError(error),
+      timestamp: Date.now(),
+    });
   }
 }
 

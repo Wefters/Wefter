@@ -6,3 +6,6 @@ export { hideSplash } from "./internal/hide-splash.js";
 export { getDeviceInfo, type DeviceInfo } from "./internal/device-info.js";
 
 import "./internal/error-safety-net.js";
+import "./internal/devtools/console-patch.js";
+import "./internal/devtools/network-patch.js";
+import "./internal/devtools/presence.js";

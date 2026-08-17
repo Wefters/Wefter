@@ -63,13 +63,15 @@ public final class BridgeDispatcher: NSObject, WKScriptMessageHandler {
                         self?.sendResolve(callId, value)
                     case .failure(let error):
                         let code = (error as? WefterError)?.code ?? "UNKNOWN"
-                        self?.sendReject(callId, code, error.localizedDescription)
+                        let stack = (error as? WefterError)?.debugStack ?? Thread.callStackSymbols
+                        self?.sendReject(callId, code, error.localizedDescription, nativeStack: stack)
                     }
                 }
             }
         } catch {
             let code = (error as? WefterError)?.code ?? "PLUGIN_THREW"
-            sendReject(callId, code, error.localizedDescription)
+            let stack = (error as? WefterError)?.debugStack ?? Thread.callStackSymbols
+            sendReject(callId, code, error.localizedDescription, nativeStack: stack)
         }
     }
 
@@ -83,8 +85,14 @@ public final class BridgeDispatcher: NSObject, WKScriptMessageHandler {
         evaluateOnMain("window.__wefterNative.resolve(\(jsStringLiteral(callId)), \(jsStringLiteral(json)))")
     }
 
-    private func sendReject(_ callId: String, _ code: String, _ message: String) {
-        let errorJson = jsonString(for: ["code": code, "message": message])
+    private func sendReject(_ callId: String, _ code: String, _ message: String, nativeStack: [String]? = nil) {
+        var payload: [String: Any] = ["code": code, "message": message]
+        #if DEBUG
+        if let nativeStack, !nativeStack.isEmpty {
+            payload["nativeStack"] = nativeStack.joined(separator: "\n")
+        }
+        #endif
+        let errorJson = jsonString(for: payload)
         evaluateOnMain("window.__wefterNative.reject(\(jsStringLiteral(callId)), \(jsStringLiteral(errorJson)))")
     }
 

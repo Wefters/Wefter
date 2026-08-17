@@ -54,14 +54,14 @@ class BridgeDispatcher(private val webView: WebView) {
     fun invoke(callId: String, plugin: String, method: String, payloadJson: String) {
         val module = modules[plugin]
         if (module == null) {
-            sendReject(callId, "UNKNOWN_PLUGIN", "No such plugin: $plugin")
+            webView.post { sendReject(callId, "UNKNOWN_PLUGIN", "No such plugin: $plugin") }
             return
         }
         val payload =
                 try {
                     JSONObject(payloadJson)
                 } catch (e: Exception) {
-                    sendReject(callId, "INVALID_PAYLOAD", "Invalid payload: ${e.message}")
+                    webView.post { sendReject(callId, "INVALID_PAYLOAD", "Invalid payload: ${e.message}") }
                     return
                 }
         try {
@@ -71,13 +71,20 @@ class BridgeDispatcher(private val webView: WebView) {
                             onSuccess = { sendResolve(callId, it) },
                             onFailure = {
                                 val code = if (it is WefterError) it.code else "UNKNOWN"
-                                sendReject(callId, code, it.message ?: "Unknown error")
+                                sendReject(callId, code, it.message ?: "Unknown error", it.stackTraceToString())
                             }
                     )
                 }
             }
         } catch (e: Exception) {
-            sendReject(callId, "PLUGIN_THREW", "Plugin threw: ${e.message ?: e.toString()}")
+            webView.post {
+                sendReject(
+                        callId,
+                        "PLUGIN_THREW",
+                        "Plugin threw: ${e.message ?: e.toString()}",
+                        e.stackTraceToString()
+                )
+            }
         }
     }
 
@@ -99,10 +106,13 @@ class BridgeDispatcher(private val webView: WebView) {
         )
     }
 
-    private fun sendReject(callId: String, code: String, message: String) {
-        val errorJson = JSONObject().put("code", code).put("message", message).toString()
+    private fun sendReject(callId: String, code: String, message: String, nativeStack: String? = null) {
+        val errorBody = JSONObject().put("code", code).put("message", message)
+        if (BuildConfig.DEBUG && nativeStack != null) {
+            errorBody.put("nativeStack", nativeStack)
+        }
         webView.evaluateJavascript(
-                "window.__wefterNative.reject('$callId', ${JSONObject.quote(errorJson)})",
+                "window.__wefterNative.reject('$callId', ${JSONObject.quote(errorBody.toString())})",
                 null
         )
     }

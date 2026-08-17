@@ -37,6 +37,36 @@ describe("invokeNative", () => {
     await expect(promise).rejects.toMatchObject({ code: "PLUGIN_THREW", message: "boom" });
   });
 
+  it("carries an optional nativeStack through when the native side includes one (debug builds)", async () => {
+    window.AndroidBridge = {
+      invoke: (callId) => {
+        window.__wefterNative.reject(
+          callId,
+          JSON.stringify({
+            code: "PLUGIN_THREW",
+            message: "boom",
+            nativeStack: "java.lang.RuntimeException: boom\n\tat ...",
+          }),
+        );
+      },
+    };
+
+    await expect(invokeNative("device", "getInfo", {})).rejects.toMatchObject({
+      code: "PLUGIN_THREW",
+      nativeStack: "java.lang.RuntimeException: boom\n\tat ...",
+    });
+  });
+
+  it("leaves nativeStack undefined when the native side doesn't send one (release builds)", async () => {
+    window.AndroidBridge = {
+      invoke: (callId) => {
+        window.__wefterNative.reject(callId, JSON.stringify({ code: "PLUGIN_THREW", message: "boom" }));
+      },
+    };
+
+    await expect(invokeNative("device", "getInfo", {})).rejects.toMatchObject({ nativeStack: undefined });
+  });
+
   it("defaults to code UNKNOWN when the native side sends a payload with no code", async () => {
     window.AndroidBridge = {
       invoke: (callId) => {

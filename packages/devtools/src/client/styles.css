@@ -1,0 +1,350 @@
+:root {
+  color-scheme: dark;
+  --bg: #16181d;
+  --bg-raised: #1e2128;
+  --bg-hover: #262a33;
+  --border: #2e323c;
+  --text: #e4e6eb;
+  --text-dim: #8b909c;
+  --accent: #5b9dff;
+  --success: #4caf7d;
+  --error: #e5646c;
+  --warn: #d9a441;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font:
+    13px/1.5 -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.wd-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-raised);
+  flex-shrink: 0;
+}
+
+.wd-title {
+  font-weight: 600;
+}
+
+.wd-clients-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.wd-clients {
+  color: var(--text-dim);
+  font-size: 12px;
+}
+
+.wd-status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.wd-status-dot.connected {
+  background: var(--success);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 20%, transparent);
+}
+
+.wd-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 0 8px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-raised);
+  flex-shrink: 0;
+}
+
+.wd-tab {
+  padding: 8px 12px;
+  cursor: pointer;
+  color: var(--text-dim);
+  border-bottom: 2px solid transparent;
+  user-select: none;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.wd-tab:hover {
+  color: var(--text);
+}
+
+.wd-tab.active {
+  color: var(--text);
+  border-bottom-color: var(--accent);
+}
+
+.wd-panel {
+  flex: 1;
+  overflow: auto;
+  display: none;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.wd-panel.active {
+  display: flex;
+}
+
+.wd-toolbar {
+  display: flex;
+  gap: 8px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.wd-toolbar input,
+.wd-toolbar select {
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.wd-clear-btn {
+  margin-left: auto;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.wd-clear-btn:hover {
+  color: var(--error);
+  border-color: var(--error);
+}
+
+.wd-copy-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.wd-copy-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.wd-list {
+  overflow: auto;
+  flex: 1;
+}
+
+.wd-row-group {
+  border-left: 3px solid transparent;
+}
+
+.wd-row-accent-success {
+  border-left-color: color-mix(in srgb, var(--success) 60%, transparent);
+}
+
+.wd-row-accent-error {
+  border-left-color: color-mix(in srgb, var(--error) 65%, transparent);
+}
+
+.wd-row-accent-error .wd-row {
+  background: color-mix(in srgb, var(--error) 5%, transparent);
+}
+
+.wd-row-accent-warn {
+  border-left-color: color-mix(in srgb, var(--warn) 60%, transparent);
+}
+
+.wd-row-accent-pending {
+  border-left-color: var(--border);
+}
+
+.wd-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.wd-row:hover {
+  background: var(--bg-hover);
+}
+
+.wd-row-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.wd-chevron {
+  display: inline-block;
+  color: var(--text-dim);
+  font-size: 10px;
+  width: 8px;
+  flex-shrink: 0;
+  transition: transform 0.15s ease;
+}
+
+.wd-chevron.open {
+  transform: rotate(90deg);
+}
+
+.wd-chevron-spacer {
+  display: inline-block;
+  width: 8px;
+  flex-shrink: 0;
+}
+
+.wd-col-method {
+  min-width: 160px;
+  color: var(--text);
+}
+
+.wd-col-plugin {
+  min-width: 100px;
+  color: var(--text-dim);
+}
+
+.wd-col-dim {
+  color: var(--text-dim);
+  margin-left: auto;
+}
+
+.wd-badge {
+  padding: 1px 6px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.wd-badge-success {
+  background: color-mix(in srgb, var(--success) 25%, transparent);
+  color: var(--success);
+}
+
+.wd-badge-error {
+  background: color-mix(in srgb, var(--error) 25%, transparent);
+  color: var(--error);
+}
+
+.wd-badge-timeout,
+.wd-badge-cancelled {
+  background: color-mix(in srgb, var(--warn) 25%, transparent);
+  color: var(--warn);
+}
+
+.wd-badge-pending {
+  background: color-mix(in srgb, var(--text-dim) 25%, transparent);
+  color: var(--text-dim);
+}
+
+.wd-level-error,
+.wd-level-uncaught {
+  color: var(--error);
+}
+
+.wd-level-warn {
+  color: var(--warn);
+}
+
+.wd-detail {
+  padding: 10px;
+  background: var(--bg-raised);
+  border-bottom: 1px solid var(--border);
+  white-space: pre-wrap;
+  word-break: break-all;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.wd-native-stack {
+  color: var(--error);
+  background: color-mix(in srgb, var(--error) 8%, var(--bg-raised));
+}
+
+.wd-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.wd-detail-label {
+  color: var(--text-dim);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.wd-empty {
+  padding: 24px;
+  text-align: center;
+  color: var(--text-dim);
+}
+
+.wd-plugins-list {
+  padding: 10px;
+  gap: 10px;
+  display: flex;
+  flex-direction: column;
+}
+
+.wd-plugin-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: var(--bg-raised);
+}
+
+.wd-plugin-card-name {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.wd-plugin-card-row {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  padding: 2px 0;
+}

@@ -1,0 +1,33 @@
+{
+  "name": "@wefterjs/devtools",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "main": "dist/plugin.js",
+  "types": "dist/plugin.d.ts",
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/plugin.d.ts",
+      "default": "./dist/plugin.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node scripts/build-client.mjs",
+    "test": "vitest run"
+  },
+  "peerDependencies": {
+    "vite": "^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.7.4",
+    "@wefterjs/core": "workspace:*",
+    "esbuild": "^0.23.1",
+    "jsdom": "^25.0.0",
+    "typescript": "~6.0.3",
+    "vite": "^8.2.1",
+    "vitest": "^2.0.5"
+  }
+}

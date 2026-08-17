@@ -10,10 +10,12 @@ export type WefterErrorCode =
 
 export class WefterBridgeError extends Error {
   readonly code: WefterErrorCode;
+  readonly nativeStack?: string;
 
-  constructor(code: WefterErrorCode, message: string) {
+  constructor(code: WefterErrorCode, message: string, nativeStack?: string) {
     super(message);
     this.name = "WefterBridgeError";
     this.code = code;
+    this.nativeStack = nativeStack;
   }
 }
