@@ -8,6 +8,8 @@ final class ViewController: UIViewController {
     private static let maxRenderProcessRetries = 3
 
     private static let splashFadeTransitionSeconds: TimeInterval = 0.2
+    private static let devServerLoadTimeoutSeconds: TimeInterval = 8
+    private static let devServerRetryIntervalSeconds: TimeInterval = 3
 
     private static let devServerUnreachableMessage = "Dev server unreachable"
 
@@ -19,6 +21,11 @@ final class ViewController: UIViewController {
 
     private var usingDevServer = false
     private var renderProcessCrashCount = 0
+
+    private var devServerWatchdog: DispatchWorkItem?
+    private var devServerRetry: DispatchWorkItem?
+    private var isForeground = false
+    private var devServerUnreachableNotified = false
 
     private let devServerHost: String? = {
         guard !BuildConfig.devServerURL.isEmpty, let url = URL(string: BuildConfig.devServerURL) else { return nil }
@@ -45,6 +52,42 @@ final class ViewController: UIViewController {
         }
 
         loadInitialContent()
+
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(appDidBecomeActive),
+            name: UIApplication.didBecomeActiveNotification, object: nil
+        )
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(appWillResignActive),
+            name: UIApplication.willResignActiveNotification, object: nil
+        )
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    @objc private func appDidBecomeActive() {
+        isForeground = true
+        retryDevServerIfNeeded()
+    }
+
+    @objc private func appWillResignActive() {
+        isForeground = false
+        devServerRetry?.cancel()
+    }
+
+    private func isDevServerBuild() -> Bool {
+        #if DEBUG
+        return !BuildConfig.devServerURL.isEmpty
+        #else
+        return false
+        #endif
+    }
+
+    private func retryDevServerIfNeeded() {
+        guard isForeground, isDevServerBuild(), !usingDevServer else { return }
+        loadInitialContent(preferDevServer: true)
     }
 
     private func installFullBleed(_ subview: UIView, at index: Int) {
@@ -146,6 +189,7 @@ final class ViewController: UIViewController {
 
         if preferDevServer, isDevServerBuild, let url = URL(string: BuildConfig.devServerURL) {
             usingDevServer = true
+            armDevServerWatchdog()
             mainWebView.load(URLRequest(url: url))
         } else if isDevServerBuild {
             usingDevServer = false
@@ -154,6 +198,41 @@ final class ViewController: UIViewController {
             usingDevServer = false
             mainWebView.load(URLRequest(url: Self.bundledURL))
         }
+    }
+
+    private func armDevServerWatchdog() {
+        devServerWatchdog?.cancel()
+        let watchdog = DispatchWorkItem { [weak self] in
+            guard let self, self.usingDevServer else { return }
+            self.handleDevServerUnreachable()
+        }
+        devServerWatchdog = watchdog
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.devServerLoadTimeoutSeconds, execute: watchdog)
+    }
+
+    private func clearDevServerWatchdog() {
+        devServerWatchdog?.cancel()
+        devServerWatchdog = nil
+    }
+
+    private func handleDevServerUnreachable() {
+        clearDevServerWatchdog()
+        guard usingDevServer else { return }
+        usingDevServer = false
+        if !devServerUnreachableNotified {
+            devServerUnreachableNotified = true
+            showDevServerUnreachableMessage()
+        }
+        mainWebView.stopLoading()
+        mainWebView.load(URLRequest(url: Self.blankURL))
+        scheduleDevServerRetry()
+    }
+
+    private func scheduleDevServerRetry() {
+        devServerRetry?.cancel()
+        let retry = DispatchWorkItem { [weak self] in self?.retryDevServerIfNeeded() }
+        devServerRetry = retry
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.devServerRetryIntervalSeconds, execute: retry)
     }
 
     private func showDevServerUnreachableMessage() {
@@ -181,6 +260,11 @@ final class ViewController: UIViewController {
 
 extension ViewController: WKNavigationDelegate {
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        if usingDevServer {
+            clearDevServerWatchdog()
+            devServerRetry?.cancel()
+            devServerUnreachableNotified = false
+        }
 
         dispatcher.dispatchHook("appReady")
     }
@@ -217,9 +301,7 @@ extension ViewController: WKNavigationDelegate {
             ?? (nsError.userInfo[NSURLErrorFailingURLStringErrorKey] as? String).flatMap { URL(string: $0)?.host }
 
         guard usingDevServer, let failedHost, failedHost == devServerHost else { return }
-        usingDevServer = false
-        showDevServerUnreachableMessage()
-        webView.load(URLRequest(url: Self.blankURL))
+        handleDevServerUnreachable()
         #endif
     }
 

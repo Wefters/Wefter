@@ -4,6 +4,8 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -31,6 +33,8 @@ private const val BLANK_URL = "about:blank"
 private const val MAX_RENDER_PROCESS_RETRIES = 3
 
 private const val SPLASH_FADE_TRANSITION_MS = 200L
+private const val DEV_SERVER_LOAD_TIMEOUT_MS = 8000L
+private const val DEV_SERVER_RETRY_INTERVAL_MS = 3000L
 
 private const val CONTENT_SECURITY_POLICY =
         "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; " +
@@ -49,6 +53,12 @@ class MainActivity : AppCompatActivity() {
 
     private var usingDevServer = false
     private var renderProcessCrashCount = 0
+
+    private val handler = Handler(Looper.getMainLooper())
+    private var devServerWatchdog: Runnable? = null
+    private var devServerRetry: Runnable? = null
+    private var isForeground = false
+    private var devServerUnreachableNotified = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -90,16 +100,19 @@ class MainActivity : AppCompatActivity() {
 
         loadInitialContent()
 
-        onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
-            override fun handleOnBackPressed() {
-                if (webView.canGoBack()) {
-                    webView.goBack()
-                } else {
-                    isEnabled = false
-                    onBackPressedDispatcher.onBackPressed()
+        onBackPressedDispatcher.addCallback(
+                this,
+                object : OnBackPressedCallback(true) {
+                    override fun handleOnBackPressed() {
+                        if (webView.canGoBack()) {
+                            webView.goBack()
+                        } else {
+                            isEnabled = false
+                            onBackPressedDispatcher.onBackPressed()
+                        }
+                    }
                 }
-            }
-        })
+        )
     }
 
     override fun onRequestPermissionsResult(
@@ -110,6 +123,23 @@ class MainActivity : AppCompatActivity() {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         dispatcher.handlePermissionResult(requestCode, grantResults)
     }
+
+    override fun onResume() {
+        super.onResume()
+        isForeground = true
+        if (isDevServerBuild() && !usingDevServer) {
+            loadInitialContent(preferDevServer = true)
+        }
+    }
+
+    override fun onPause() {
+        super.onPause()
+        isForeground = false
+        devServerRetry?.let { handler.removeCallbacks(it) }
+    }
+
+    private fun isDevServerBuild(): Boolean =
+            BuildConfig.DEBUG && BuildConfig.DEV_SERVER_URL.isNotEmpty()
 
     private fun setupSplash() {
         val splash =
@@ -161,6 +191,11 @@ class MainActivity : AppCompatActivity() {
                     ) = interceptWithCsp(request)
 
                     override fun onPageFinished(view: WebView, url: String) {
+                        if (usingDevServer) {
+                            clearDevServerWatchdog()
+                            devServerRetry?.let { handler.removeCallbacks(it) }
+                            devServerUnreachableNotified = false
+                        }
 
                         dispatcher.dispatchHook("appReady")
                     }
@@ -194,14 +229,7 @@ class MainActivity : AppCompatActivity() {
                                         request.isForMainFrame &&
                                         request.url.host == devServerHost
                         ) {
-                            usingDevServer = false
-                            Toast.makeText(
-                                            this@MainActivity,
-                                            "Dev server unreachable",
-                                            Toast.LENGTH_LONG
-                                    )
-                                    .show()
-                            view.loadUrl(BLANK_URL)
+                            handleDevServerUnreachable()
                         }
                     }
 
@@ -277,6 +305,7 @@ class MainActivity : AppCompatActivity() {
         when {
             preferDevServer && isDevServerBuild -> {
                 usingDevServer = true
+                armDevServerWatchdog()
                 webView.loadUrl(devServerUrl)
             }
             isDevServerBuild -> {
@@ -288,6 +317,42 @@ class MainActivity : AppCompatActivity() {
                 webView.loadUrl(BUNDLED_URL)
             }
         }
+    }
+
+    private fun armDevServerWatchdog() {
+        devServerWatchdog?.let { handler.removeCallbacks(it) }
+        val watchdog = Runnable { if (usingDevServer) handleDevServerUnreachable() }
+        devServerWatchdog = watchdog
+        handler.postDelayed(watchdog, DEV_SERVER_LOAD_TIMEOUT_MS)
+    }
+
+    private fun clearDevServerWatchdog() {
+        devServerWatchdog?.let { handler.removeCallbacks(it) }
+        devServerWatchdog = null
+    }
+
+    private fun handleDevServerUnreachable() {
+        clearDevServerWatchdog()
+        if (!usingDevServer) return
+        usingDevServer = false
+        if (!devServerUnreachableNotified) {
+            devServerUnreachableNotified = true
+            Toast.makeText(this, "Dev server unreachable", Toast.LENGTH_SHORT).show()
+        }
+        webView.stopLoading()
+        webView.loadUrl(BLANK_URL)
+        scheduleDevServerRetry()
+    }
+
+    private fun scheduleDevServerRetry() {
+        devServerRetry?.let { handler.removeCallbacks(it) }
+        val retry = Runnable {
+            if (isForeground && isDevServerBuild() && !usingDevServer) {
+                loadInitialContent(preferDevServer = true)
+            }
+        }
+        devServerRetry = retry
+        handler.postDelayed(retry, DEV_SERVER_RETRY_INTERVAL_MS)
     }
 
     private fun showRendererDeadFallback() {
