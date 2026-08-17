@@ -24,6 +24,19 @@ export function wefterDevtools(_options: WefterDevtoolsOptions = {}) {
     name: "wefter:devtools",
     apply: "serve",
 
+    config() {
+      return {
+        optimizeDeps: {
+          exclude: ["@wefterjs/core"],
+        },
+        server: {
+          fs: {
+            strict: false,
+          },
+        },
+      };
+    },
+
     resolveId(source) {
       return resolveDevtoolsVirtualModule(source);
     },

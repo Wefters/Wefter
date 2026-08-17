@@ -8,7 +8,14 @@ final class ViewController: UIViewController {
     private static let maxRenderProcessRetries = 3
 
     private static let splashFadeTransitionSeconds: TimeInterval = 0.2
-    private static let devServerLoadTimeoutSeconds: TimeInterval = 8
+    // Generous on purpose: the *first* dev-server load after a fresh process start can be
+    // waiting on Vite's cold dependency-optimization pass (can easily run past 8s over WiFi with
+    // several plugins), not just a dead connection. Firing early here aborts an
+    // in-flight-but-fine load and falls back to blank, which — since retrying can hit that same
+    // cold-start cost again — was turning into a loop that never let the page finish. This still
+    // catches genuinely dead connections far sooner than the multi-minute OS-level TCP hang it
+    // replaces.
+    private static let devServerLoadTimeoutSeconds: TimeInterval = 25
     private static let devServerRetryIntervalSeconds: TimeInterval = 3
 
     private static let devServerUnreachableMessage = "Dev server unreachable"
