@@ -21,6 +21,8 @@ export const WefterConfigSchema = z.object({
     .regex(/^#[0-9A-Fa-f]{6}$/, "launchBackground must be a 6-digit hex color, e.g. #14161C")
     .optional(),
 
+  landscape: z.boolean().optional(),
+
   splash: z
     .union([
       z.literal(false),

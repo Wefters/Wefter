@@ -22,12 +22,12 @@
     "vite": "^5.0.0 || ^6.0.0 || ^7.0.0 || ^8.0.0"
   },
   "devDependencies": {
-    "@types/node": "^22.7.4",
+    "@types/node": "^26.5.0",
     "@wefterjs/core": "workspace:*",
-    "esbuild": "^0.23.1",
-    "jsdom": "^25.0.0",
+    "esbuild": "^0.28.2",
+    "jsdom": "^30.0.1",
     "typescript": "~6.0.3",
-    "vite": "^8.2.1",
-    "vitest": "^2.0.5"
+    "vite": "^8.2.2",
+    "vitest": "^5.0.0"
   }
 }

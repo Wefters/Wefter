@@ -21,6 +21,10 @@ android {
         buildConfigField("boolean", "SPLASH_WAIT_FOR_READY", "true")
         buildConfigField("boolean", "SPLASH_FADE_TRANSITION", "true")
         // WEFTER-SPLASH-CONFIG-END
+
+        // WEFTER-ORIENTATION-CONFIG-START
+        buildConfigField("boolean", "LANDSCAPE", "false")
+        // WEFTER-ORIENTATION-CONFIG-END
     }
 
     compileOptions {

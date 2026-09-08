@@ -2,6 +2,8 @@ package dev.wefter.bridge
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.content.pm.ActivityInfo
+import android.content.res.Configuration
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
@@ -69,6 +71,10 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
+
+        if (BuildConfig.LANDSCAPE) {
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        }
 
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
@@ -294,6 +300,12 @@ class MainActivity : AppCompatActivity() {
                             "hideSplash" -> {
                                 dispatcher.dispatchHook("hideSplash")
                                 callback(Result.success(JSONObject()))
+                            }
+                            "isLandscape" -> {
+                                val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+                                val result = JSONObject()
+                                result.put("landscape", isLandscape)
+                                callback(Result.success(result))
                             }
                             else -> callback(Result.failure(Exception("Unknown method: $method")))
                         }

@@ -41,6 +41,7 @@
 	</dict>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
+	<!-- WEFTER-ORIENTATIONS-START -->
 	<key>UISupportedInterfaceOrientations</key>
 	<array>
 		<string>UIInterfaceOrientationPortrait</string>
@@ -54,6 +55,7 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<!-- WEFTER-ORIENTATIONS-END -->
 
 	<!-- Privacy usage-description keys merged in here by registry-codegen's
 	     merge-info-plist.ts, one <key>NSFooUsageDescription</key><string>...</string> pair per

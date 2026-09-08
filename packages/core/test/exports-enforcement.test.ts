@@ -4,6 +4,7 @@ describe("package.json exports field", () => {
   it("allows importing the declared public entrypoint", async () => {
     const mod = await import("@wefterjs/core");
     expect(typeof mod.invokeNative).toBe("function");
+    expect(typeof mod.isLandscape).toBe("function");
   });
 
   it("allows importing the declared testing entrypoint", async () => {
