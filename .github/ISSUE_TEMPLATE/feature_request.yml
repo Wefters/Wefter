@@ -1,0 +1,47 @@
+name: Feature request
+description: Suggest an enhancement or new capability for the Wefter core packages or CLI.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for helping improve Wefter. Please describe your feature request below.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Target package or component
+      description: Select which component would implement this feature.
+      options:
+        - "@wefterjs/core"
+        - "@wefterjs/cli"
+        - "@wefterjs/devtools"
+        - "@wefterjs/registry-codegen"
+        - "shells/android-template"
+        - "shells/ios-template"
+        - "Monorepo tooling"
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What limitation or workflow obstacle does this feature address?
+      placeholder: Describe the problem clearly.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: Describe the proposed API, command line flag, or architecture changes.
+      placeholder: Include code examples or CLI command invocations where helpful.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Did you consider alternative approaches or workarounds?
+      placeholder: Describe any alternatives you investigated.
+

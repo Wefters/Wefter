@@ -1,0 +1,83 @@
+name: Bug report
+description: Report a bug in the Wefter core runtime, CLI, devtools, codegen, or native shell templates.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please search existing issues before filing a new bug report.
+  - type: dropdown
+    id: component
+    attributes:
+      label: Monorepo package or component
+      description: Select which package or native shell is affected.
+      options:
+        - "@wefterjs/core (Bridge runtime, invokeNative, registerHook)"
+        - "@wefterjs/cli (wefter sync, build, run, doctor, eject, add)"
+        - "@wefterjs/devtools (Vite plugin, agent overlay, dashboard)"
+        - "@wefterjs/registry-codegen (Plugin scanner, codegen, manifest merge)"
+        - "shells/android-template (Android Kotlin shell)"
+        - "shells/ios-template (iOS Swift shell)"
+        - "Other / Build setup"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Bug description
+      description: A clear explanation of what the bug is.
+      placeholder: Describe what happened and why it is incorrect.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Provide minimal steps to reproduce the issue.
+      placeholder: |
+        1. In a web project run 'wefter sync'
+        2. Run 'wefter run android'
+        3. See error
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What did you expect to happen instead?
+      placeholder: Describe the expected behavior.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: Your system and development tools versions.
+      placeholder: "e.g. Node 20.11, pnpm 9.1.0, macOS 14.3 / Ubuntu 22.04, JDK 17, Xcode 16.0"
+    validations:
+      required: true
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of 'wefter doctor'
+      description: Run 'wefter doctor' in your terminal and paste the complete output here.
+      render: shell
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Additional logs or terminal stack traces
+      description: Paste any relevant error logs or compiler messages.
+      render: shell
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Verification
+      options:
+        - label: I searched existing issues and confirmed this has not already been reported.
+          required: true
+        - label: I provided the complete output of 'wefter doctor'.
+          required: true
+
