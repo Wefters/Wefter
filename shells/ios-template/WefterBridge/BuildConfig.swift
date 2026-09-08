@@ -14,4 +14,8 @@ enum BuildConfig {
     static let splashWaitForReady = true
     static let splashFadeTransition = true
     // WEFTER-SPLASH-CONFIG-END
+
+    // WEFTER-ORIENTATION-CONFIG-START
+    static let landscape = false
+    // WEFTER-ORIENTATION-CONFIG-END
 }

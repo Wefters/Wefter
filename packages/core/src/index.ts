@@ -4,6 +4,7 @@ export { getPlatformInfo, CORE_PROTOCOL_VERSION, type PlatformInfo } from "./int
 export { definePlugin } from "./internal/define-plugin.js";
 export { hideSplash } from "./internal/hide-splash.js";
 export { getDeviceInfo, type DeviceInfo } from "./internal/device-info.js";
+export { isLandscape } from "./internal/landscape.js";
 
 import "./internal/error-safety-net.js";
 import "./internal/devtools/console-patch.js";
