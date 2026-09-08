@@ -53,7 +53,9 @@ describe("wefterDevtools", () => {
 
   it("excludes @wefterjs/core from dep optimization and relaxes fs.strict, since both are what actually let import.meta.hot reach it", () => {
     const plugin = wefterDevtools();
-    const configResult = (plugin.config as () => { optimizeDeps?: { exclude?: string[] }; server?: { fs?: { strict?: boolean } } })();
+    const configResult = (
+      plugin.config as () => { optimizeDeps?: { exclude?: string[] }; server?: { fs?: { strict?: boolean } } }
+    )();
     expect(configResult.optimizeDeps?.exclude).toContain("@wefterjs/core");
     expect(configResult.server?.fs?.strict).toBe(false);
   });

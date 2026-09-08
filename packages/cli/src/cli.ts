@@ -289,7 +289,9 @@ program
 
 program
   .command("add")
-  .description("Declare a plugin in wefter.config.json and add it to package.json dependencies (install is left to you)")
+  .description(
+    "Declare a plugin in wefter.config.json and add it to package.json dependencies (install is left to you)",
+  )
   .argument("<plugin>", "npm package name, optionally with a version or dist-tag (e.g. name@1.0.0)")
   .argument("[projectDir]", "project root directory", process.cwd())
   .action(async (plugin: string, projectDir: string) => {

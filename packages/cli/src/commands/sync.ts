@@ -61,6 +61,7 @@ import { resolveSplash, SPLASH_DEFAULTS } from "../native/resolve-splash.js";
 import { resolveLaunchBackground } from "../native/resolve-launch-background.js";
 import { injectLaunchBackgroundAndroid } from "../native/inject-launch-background.js";
 import { injectLaunchBackgroundIos } from "../native/inject-launch-background-ios.js";
+import { injectOrientationAndroid, injectOrientationIos } from "../native/inject-orientation.js";
 import { shellTemplatePath, iosShellTemplatePath } from "../native/shell-template.js";
 import { resolveRegisteredPlugins, unresolvedRegisteredPlugins } from "../plugins/registry.js";
 import { checkLockDrift, writeLockfile } from "../plugins/lockfile.js";
@@ -249,6 +250,9 @@ export async function sync(projectDir: string, options: SyncOptions = {}): Promi
     const launchBackground = resolveLaunchBackground(config, projectDir);
     injectLaunchBackgroundAndroid(androidColorsPath(projectDir), launchBackground);
     injectLaunchBackgroundIos(iosLaunchScreenStoryboardPath(projectDir), launchBackground);
+
+    injectOrientationAndroid(manifestPath, buildGradlePath, Boolean(config.landscape));
+    injectOrientationIos(iosInfoPlistPathVar, iosBuildConfigPathVar, Boolean(config.landscape));
 
     const kotlin = generateRegistryKotlin(androidPlugins, namespace, extraction);
     mkdirSync(dirname(outFile), { recursive: true });

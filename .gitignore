@@ -48,3 +48,4 @@ DerivedData/
 !.env.example
 
 .DS_Store
+.npm

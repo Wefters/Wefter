@@ -73,4 +73,38 @@ describe("WefterConfigSchema — iOS fields", () => {
       expect(result.data.iosSigning).toEqual({ teamId: "ABCDE12345" });
     }
   });
+
+  describe("landscape field", () => {
+    it("is undefined when omitted", () => {
+      const result = WefterConfigSchema.safeParse({
+        environments: { production: { appId: "com.example.app", appName: "Example" } },
+      });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.landscape).toBeUndefined();
+      }
+    });
+
+    it("accepts landscape: true", () => {
+      const result = WefterConfigSchema.safeParse({
+        environments: { production: { appId: "com.example.app", appName: "Example" } },
+        landscape: true,
+      });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.landscape).toBe(true);
+      }
+    });
+
+    it("accepts landscape: false", () => {
+      const result = WefterConfigSchema.safeParse({
+        environments: { production: { appId: "com.example.app", appName: "Example" } },
+        landscape: false,
+      });
+      expect(result.success).toBe(true);
+      if (result.success) {
+        expect(result.data.landscape).toBe(false);
+      }
+    });
+  });
 });

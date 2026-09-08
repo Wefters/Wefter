@@ -45,9 +45,7 @@ function createFakeRes() {
 
 describe("resolveDevtoolsVirtualModule / loadDevtoolsVirtualModule", () => {
   it("resolves the known virtual specifier to a null-prefixed id", () => {
-    expect(resolveDevtoolsVirtualModule("virtual:wefter-devtools-client")).toBe(
-      "\0virtual:wefter-devtools-client",
-    );
+    expect(resolveDevtoolsVirtualModule("virtual:wefter-devtools-client")).toBe("\0virtual:wefter-devtools-client");
   });
 
   it("returns undefined for any other specifier", () => {
@@ -101,7 +99,7 @@ describe("registerDashboardMiddleware", () => {
     routes.get(DASHBOARD_ROUTE)!({}, res, () => {});
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    expect(server.transformIndexHtml).toHaveBeenCalledWith(DASHBOARD_ROUTE, expect.stringContaining("<div id=\"app\">"));
+    expect(server.transformIndexHtml).toHaveBeenCalledWith(DASHBOARD_ROUTE, expect.stringContaining('<div id="app">'));
     expect(res.headers["Content-Type"]).toBe("text/html");
     expect(res.body).toContain("<!-- injected -->");
   });

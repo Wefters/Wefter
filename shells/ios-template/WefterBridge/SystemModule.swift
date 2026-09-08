@@ -27,6 +27,17 @@ final class SystemModule: NativeModule {
         case "hideSplash":
             viewController?.dispatcher.dispatchHook("hideSplash")
             callback(.success([:]))
+        case "isLandscape":
+            DispatchQueue.main.async {
+                let isLandscape: Bool
+                if #available(iOS 13.0, *), let windowScene = self.viewController?.view.window?.windowScene {
+                    isLandscape = windowScene.interfaceOrientation.isLandscape
+                } else {
+                    let orientation = UIApplication.shared.statusBarOrientation
+                    isLandscape = orientation.isLandscape
+                }
+                callback(.success(["landscape": isLandscape]))
+            }
         default:
             callback(.failure(WefterError(code: "UNKNOWN_METHOD", message: "No such method: \(method)")))
         }

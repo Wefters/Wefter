@@ -33,7 +33,10 @@ describe("createPluginsPanel", () => {
   });
 
   it("shows a loading state immediately, before the fetch resolves", () => {
-    vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(() => new Promise(() => {})),
+    );
     const panel = createPluginsPanel();
     expect(panel.querySelector(".wd-empty")?.textContent).toBe("Loading…");
   });

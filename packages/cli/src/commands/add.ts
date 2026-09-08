@@ -20,10 +20,7 @@ export interface ResolvedPackageInfo {
   installSpec: string;
 }
 
-export async function resolvePackageInfo(
-  projectDir: string,
-  packageSpec: string,
-): Promise<ResolvedPackageInfo> {
+export async function resolvePackageInfo(projectDir: string, packageSpec: string): Promise<ResolvedPackageInfo> {
   let scheme: "file:" | "link:" | null = null;
   let rawPath = packageSpec;
   let isExplicitPath = false;
@@ -57,8 +54,8 @@ export async function resolvePackageInfo(
     const pkgJsonPath = join(absPath, "package.json");
     const pluginJsonPath = join(absPath, "plugin.json");
 
-    let name = "";
-    let version = "0.0.0";
+    let name: string;
+    let version: string;
 
     if (existsSync(pkgJsonPath)) {
       const pkg = JSON.parse(readFileSync(pkgJsonPath, "utf-8")) as Record<string, unknown>;
@@ -195,4 +192,3 @@ function buildInstallHint(projectDir: string, installSpec: string): string {
   }
   return `npm install ${installSpec}`;
 }
-

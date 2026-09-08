@@ -65,9 +65,7 @@ export function generateRegistryKotlin(
     }
   }
 
-  const suppressAnnotation = registrationLines.length === 0
-    ? `    @Suppress("UNUSED_PARAMETER")\n`
-    : "";
+  const suppressAnnotation = registrationLines.length === 0 ? `    @Suppress("UNUSED_PARAMETER")\n` : "";
   const dispatchSection = dispatchClasses.length > 0 ? `${dispatchClasses.join("\n\n")}\n\n` : "";
 
   return `

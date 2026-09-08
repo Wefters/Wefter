@@ -47,6 +47,13 @@ final class ViewController: UIViewController {
         #endif
     }
 
+    override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
+        if BuildConfig.landscape {
+            return .landscape
+        }
+        return super.supportedInterfaceOrientations
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .systemBackground

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { mountDevtoolsApp, type MinimalHotContext } from "../src/client/main.js";
 import { WEFTER_EVENT, type ReplayPayload } from "../src/shared/events.js";
 

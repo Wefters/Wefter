@@ -526,4 +526,27 @@ describe("sync — iOS", () => {
     const registry = readFileSync(join(iosAppDir, "GeneratedRegistry.swift"), "utf-8");
     expect(registry).toContain("enum GeneratedRegistry");
   });
+
+  it("injects landscape orientation into Android and iOS shells when landscape: true in wefter.config.json", async () => {
+    const configPath = join(projectDir, "wefter.config.json");
+    const config = JSON.parse(readFileSync(configPath, "utf-8"));
+    config.landscape = true;
+    writeFileSync(configPath, JSON.stringify(config, null, 2), "utf-8");
+
+    await sync(projectDir);
+
+    const androidManifest = readFileSync(manifestPath, "utf-8");
+    expect(androidManifest).toContain('android:screenOrientation="sensorLandscape"');
+
+    const androidGradle = readFileSync(buildGradlePath, "utf-8");
+    expect(androidGradle).toContain('buildConfigField("boolean", "LANDSCAPE", "true")');
+
+    const iosPlist = readFileSync(join(iosAppDir, "Info.plist"), "utf-8");
+    expect(iosPlist).toContain("UIInterfaceOrientationLandscapeLeft");
+    expect(iosPlist).toContain("UIInterfaceOrientationLandscapeRight");
+    expect(iosPlist).not.toContain("UIInterfaceOrientationPortrait");
+
+    const iosBuildConfig = readFileSync(join(iosAppDir, "BuildConfig.swift"), "utf-8");
+    expect(iosBuildConfig).toContain("static let landscape = true");
+  });
 });
