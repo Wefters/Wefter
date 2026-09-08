@@ -156,4 +156,3 @@ describe("injectOrientationIos", () => {
     expect(buildConfig).toContain("static let landscape = false");
   });
 });
-

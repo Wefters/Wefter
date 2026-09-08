@@ -2,7 +2,7 @@
   "name": "wefter",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@11.9.0",
+  "packageManager": "pnpm@12.3.4",
   "scripts": {
     "build": "pnpm -r --if-present run build",
     "test": "pnpm -r --if-present run test",
@@ -12,15 +12,15 @@
     "lint:fix": "eslint . --fix"
   },
   "devDependencies": {
-    "@eslint/js": "^9.20.0",
-    "@typescript-eslint/eslint-plugin": "^8.24.0",
-    "@typescript-eslint/parser": "^8.24.0",
-    "eslint": "^9.20.0",
-    "eslint-config-prettier": "^10.0.1",
-    "eslint-plugin-prettier": "^5.2.3",
+    "@eslint/js": "^10.0.1",
+    "@typescript-eslint/eslint-plugin": "^8.70.0",
+    "@typescript-eslint/parser": "^8.70.0",
+    "eslint": "^10.10.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.6",
     "jiti": "^2.7.0",
-    "prettier": "^3.5.0",
+    "prettier": "^3.9.6",
     "typescript": "~6.0.3",
-    "typescript-eslint": "^8.24.0"
+    "typescript-eslint": "^8.70.0"
   }
 }

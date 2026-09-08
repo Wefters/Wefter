@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { add, resolvePackageInfo } from "../src/commands/add.js";
+import { add } from "../src/commands/add.js";
 import * as npmRegistry from "../src/plugins/npm-registry.js";
 
 let projectDir: string;
@@ -69,10 +69,7 @@ describe("add command", () => {
   it("adds a local repository via direct folder path", async () => {
     setup();
 
-    writeFileSync(
-      join(localRepoDir, "package.json"),
-      JSON.stringify({ name: "@wefterjs/network", version: "0.0.1" }),
-    );
+    writeFileSync(join(localRepoDir, "package.json"), JSON.stringify({ name: "@wefterjs/network", version: "0.0.1" }));
 
     const result = await add(projectDir, localRepoDir);
 
@@ -109,10 +106,7 @@ describe("add command", () => {
   it("adds a local repository via link: prefix specifier", async () => {
     setup();
 
-    writeFileSync(
-      join(localRepoDir, "package.json"),
-      JSON.stringify({ name: "@wefterjs/device", version: "0.2.0" }),
-    );
+    writeFileSync(join(localRepoDir, "package.json"), JSON.stringify({ name: "@wefterjs/device", version: "0.2.0" }));
 
     const result = await add(projectDir, `link:${localRepoDir}`);
 
@@ -129,10 +123,7 @@ describe("add command", () => {
   it("reads plugin.json if package.json is absent in local repo", async () => {
     setup();
 
-    writeFileSync(
-      join(localRepoDir, "plugin.json"),
-      JSON.stringify({ name: "@wefterjs/screen", version: "0.0.5" }),
-    );
+    writeFileSync(join(localRepoDir, "plugin.json"), JSON.stringify({ name: "@wefterjs/screen", version: "0.0.5" }));
 
     const result = await add(projectDir, localRepoDir);
 
@@ -146,14 +137,8 @@ describe("add command", () => {
   it("is idempotent when adding an already declared plugin", async () => {
     setup();
 
-    writeFileSync(
-      join(projectDir, "wefter.config.json"),
-      JSON.stringify({ plugins: ["@wefterjs/network"] }),
-    );
-    writeFileSync(
-      join(localRepoDir, "package.json"),
-      JSON.stringify({ name: "@wefterjs/network", version: "0.0.1" }),
-    );
+    writeFileSync(join(projectDir, "wefter.config.json"), JSON.stringify({ plugins: ["@wefterjs/network"] }));
+    writeFileSync(join(localRepoDir, "package.json"), JSON.stringify({ name: "@wefterjs/network", version: "0.0.1" }));
 
     const result = await add(projectDir, localRepoDir);
 

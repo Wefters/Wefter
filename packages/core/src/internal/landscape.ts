@@ -17,4 +17,3 @@ export async function isLandscape(): Promise<boolean> {
 
   return false;
 }
-

@@ -40,7 +40,7 @@ describe("createNetworkPanel", () => {
   });
 
   it("expands to show headers/body preview on click", () => {
-    const record = { ...baseRecord, status: 200, bodyPreview: "{\"ok\":true}" };
+    const record = { ...baseRecord, status: 200, bodyPreview: '{"ok":true}' };
     const panel = createNetworkPanel(createStore<NetworkRecord[]>([record]), vi.fn());
     (panel.querySelector(".wd-row") as HTMLElement).click();
     expect(panel.querySelector(".wd-detail")?.textContent).toContain("ok");

@@ -64,4 +64,3 @@ describe("isLandscape", () => {
     expect(result).toBe(false);
   });
 });
-

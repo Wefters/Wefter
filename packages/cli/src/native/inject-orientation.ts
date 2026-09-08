@@ -46,7 +46,10 @@ export function injectOrientationAndroid(manifestPath: string, buildGradlePath: 
 
     if (landscape) {
       if (orientationAttrRegex.test(activityTag)) {
-        activityTag = activityTag.replace(orientationAttrRegex, '\n            android:screenOrientation="sensorLandscape"');
+        activityTag = activityTag.replace(
+          orientationAttrRegex,
+          '\n            android:screenOrientation="sensorLandscape"',
+        );
       } else {
         activityTag = activityTag.replace(
           /(android:name="\.MainActivity")/,
@@ -136,4 +139,3 @@ export function injectOrientationIos(infoPlistPath: string, buildConfigPath: str
 
   writeFileSync(buildConfigPath, buildConfig, "utf-8");
 }
-
