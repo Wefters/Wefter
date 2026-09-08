@@ -10,3 +10,4 @@ import "./internal/error-safety-net.js";
 import "./internal/devtools/console-patch.js";
 import "./internal/devtools/network-patch.js";
 import "./internal/devtools/presence.js";
+import "./internal/devtools/reload.js";

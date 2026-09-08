@@ -135,6 +135,18 @@ describe("registerServerHandlers — presence", () => {
   });
 });
 
+describe("registerServerHandlers — reload", () => {
+  it("broadcasts a reload event to every client when a reload is requested", () => {
+    const { server, trigger, sent } = createFakeServer();
+    const state = createDevtoolsState();
+    registerServerHandlers(server, state);
+
+    trigger(WEFTER_EVENT.reloadRequest, {});
+
+    expect(sent).toContainEqual({ event: WEFTER_EVENT.reload, payload: {} });
+  });
+});
+
 describe("registerServerHandlers — replay", () => {
   it("replies to just the requesting client with the full current buffer state", () => {
     const { server, trigger } = createFakeServer();

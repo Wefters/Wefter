@@ -129,6 +129,16 @@ describe("mountDevtoolsApp", () => {
     expect(app.querySelector(".wd-clients")?.textContent).toBe("1 client connected");
   });
 
+  it("asks the dev server to broadcast a reload when the header Reload button is clicked", () => {
+    const app = document.createElement("div");
+    const { hot, sent } = createFakeHot();
+    mountDevtoolsApp(app, hot);
+
+    (app.querySelector(".wd-reload-btn") as HTMLElement).click();
+
+    expect(sent).toContainEqual({ event: WEFTER_EVENT.reloadRequest, payload: {} });
+  });
+
   it("sends a scoped clear request when a panel's Clear button is clicked", () => {
     const app = document.createElement("div");
     const { hot, sent } = createFakeHot();

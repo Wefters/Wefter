@@ -92,4 +92,8 @@ export function registerServerHandlers(server: ViteDevServer, state: DevtoolsSta
     state[data.channel].clear();
     server.ws.send(WEFTER_EVENT.cleared, data);
   });
+
+  server.ws.on(WEFTER_EVENT.reloadRequest, () => {
+    server.ws.send(WEFTER_EVENT.reload, {});
+  });
 }

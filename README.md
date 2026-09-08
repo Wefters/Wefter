@@ -23,102 +23,72 @@
 
 ---
 
-Wefter wraps your web app in a thin native shell and gives it typed, pluggable
-access to real device capability: camera, storage, biometrics, and more,
-through a lean bridge between JavaScript and the native side (Kotlin on
-Android, Swift on iOS). No backend interpreter bundled in, no custom
-rendering engine to learn. Vue, React, Angular, Svelte, or plain JS, the
-bridge doesn't care which one you bring.
+Wefter packages your web application into a native shell and provides typed access to device hardware through a lean bridge between JavaScript and native code (Kotlin on Android, Swift on iOS). You do not need bundled runtime servers or custom rendering engines. You can write your interface in Vue, React, Angular, Svelte, or plain JavaScript.
 
 ```bash
-npx wefter add @yourorg/scanner-plugin   # look up on registry + declare in config
-pnpm add @yourorg/scanner-plugin         # install with your package manager
-npx wefter run android --watch           # build, install, launch, hot-reload
+wefter add @yourorg/scanner-plugin   # look up on registry and declare in config
+pnpm add @yourorg/scanner-plugin     # install with your package manager
+wefter run android --watch           # build, install, launch, and live-reload
 ```
 
-That's the whole workflow: write JS, declare the native capability you need,
-run one command, see it on a real device. Swap `android` for `ios` and it's
-the same command.
+The same workflow applies whether you target Android or iOS.
 
 ## How it works
 
-Four moving parts, in order:
+The system operates across four main steps:
 
-1. **You write your app.** Vue, React, Angular, Svelte, or plain JS, the
-   same code you'd already write for the web, running inside a native
-   WebView, on Android or iOS.
-2. **You declare what native capability you need.**
-   `wefter add @yourorg/scanner-plugin` looks up the package on the npm
-   registry, adds it to your `package.json` dependencies, and declares it
-   in `wefter.config.json`. You then install it with your own package
-   manager (pnpm, npm, yarn, or bun).
-3. **`wefter sync` weaves it into a real native project.** Native source
-   gets copied in, dependencies and permissions get merged, and a typed
-   registry gets generated, all inside a disposable, fully regenerated
-   project (`.wefter/native/android` and/or `.wefter/native/ios`) you never
-   hand-edit.
-4. **`wefter run` builds, installs, and launches it** on a real device or
-   emulator/simulator, with live reload while you're actively developing.
+1. **Write your app.** Use standard web code running inside a native web view on Android or iOS.
+2. **Declare native capabilities.** Running `wefter add @yourorg/scanner-plugin` checks the package on the registry, adds it to `package.json`, and records it in `wefter.config.json`. Install dependencies using your preferred package manager (pnpm, npm, yarn, or bun).
+3. **Synchronize native code.** Running `wefter sync` weaves dependencies into a disposable native project (`.wefter/native/android` and `.wefter/native/ios`). Native plugin sources are copied, dependencies and permissions are merged, and a typed registry is generated automatically.
+4. **Build and launch.** Running `wefter run` compiles, installs, and launches the native app on an emulator, simulator, or connected physical device, supporting hot reload during development.
 
-At runtime, your JS calls a native method through a single typed bridge
-call, `invokeNative('scanner', 'open', {})`, and gets a real Promise back,
-the same call either platform.
+At runtime, JavaScript calls native methods through a single typed bridge function, `invokeNative("scanner", "open", {})`, which returns a Promise.
 
-## Why Wefter
+## Architecture and design
 
-Your app is JS running in a WebView, nothing else spins up underneath it.
-Native calls cross a single typed bridge with no server process in between
-on either platform, and the bridge itself doesn't know or care what
-rendered the page: `invokeNative` and `registerHook` are plain function
-exports, not tied to any component model, so a Vue app, a React app, and a
-plain `<script>` tag all call the same two functions the same way.
+Your application runs as JavaScript inside an optimized web view. Native method invocations pass directly through platform bridge handlers without an intermediary server process.
 
-The same JS runs on Android and iOS with no per-platform branching in your
-app code. Plugins are written natively per platform, but calling one looks
-identical either way, and what ships is your app plus a thin native bridge:
-no custom rendering engine, no framework runtime baked into the shell. The
-generated project is a small, readable Kotlin shell on Android and Swift
-shell on iOS, plus whatever plugins you declare, nothing hidden behind a
-compiled binary or a proprietary format.
+The JavaScript bridge exposes `invokeNative` and `registerHook`. Because these functions are plain JavaScript exports, they do not depend on any particular front-end framework. The same JavaScript runs on both Android and iOS without platform branches in your UI layer.
+
+Plugins are implemented natively in Kotlin on Android and Swift on iOS. The project generated during synchronization consists of readable Kotlin and Swift templates combined with your declared plugins, avoiding proprietary bytecode or opaque wrappers.
 
 ## Repository layout
 
-This is a pnpm workspace monorepo.
+This repository is configured as a pnpm monorepo.
 
-| Path                                                     | What it is                                                                                                                                          |
-| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`packages/core`](packages/core)                         | `@wefterjs/core`, the runtime library that ships inside your compiled app (`invokeNative`, `registerHook`, plugin definition helpers).              |
-| [`packages/cli`](packages/cli)                           | `@wefterjs/cli`, the `wefter` command: `sync`, `build`, `run`, `add`, `doctor`, `eject`, and plugin authoring commands.                             |
-| [`packages/registry-codegen`](packages/registry-codegen) | Internal codegen and native-project-weaving engine the CLI drives: plugin scanning, validation, Android/iOS codegen, manifest/gradle/plist merging. |
-| [`shells/android-template`](shells/android-template)     | The Android native shell template `wefter sync` weaves plugins into.                                                                                |
-| [`shells/ios-template`](shells/ios-template)             | The iOS native shell template `wefter sync` weaves plugins into.                                                                                    |
+| Path | Description |
+| --- | --- |
+| [`packages/core`](packages/core) | `@wefterjs/core`, the runtime library included in your compiled web app (`invokeNative`, `registerHook`, plugin definition helpers). |
+| [`packages/cli`](packages/cli) | `@wefterjs/cli`, the `wefter` command line tool (`sync`, `build`, `run`, `add`, `doctor`, `eject`, and plugin development utilities). |
+| [`packages/devtools`](packages/devtools) | `@wefterjs/devtools`, Vite plugin and browser dashboard for inspecting bridge calls, events, and plugin status during development. |
+| [`packages/registry-codegen`](packages/registry-codegen) | Native code generator that scans plugins, validates schemas, merges manifests, and generates typed Android and iOS registries. |
+| [`shells/android-template`](shells/android-template) | Android native project template used by `wefter sync` to assemble the runnable app. |
+| [`shells/ios-template`](shells/ios-template) | iOS native project template used by `wefter sync` to assemble the runnable app. |
 
 ## Getting started
 
-Full setup instructions (Node, JDK 17, Android SDK, Xcode) and a walkthrough
-of your first project live in the docs:
+Complete setup guides for Node, JDK 17, Android SDK, and Xcode are available in the documentation:
 
-- [Environment Setup](https://wefter.dev/docs/environment-setup)
-- [Installing](https://wefter.dev/docs/installing)
-- [App Configuration](https://wefter.dev/docs/app-configuration)
+- [Environment setup](https://wefter.dev/docs/environment-setup)
+- [Installation](https://wefter.dev/docs/installing)
+- [App configuration](https://wefter.dev/docs/app-configuration)
 - [CLI reference](https://wefter.dev/cli)
 - [Writing a plugin](https://wefter.dev/plugin)
 
-For local development on Wefter itself:
+To develop on the Wefter codebase locally:
 
 ```bash
 pnpm install
-pnpm build   # builds every package with a build script
-pnpm test    # runs every package's test suite
+pnpm build   # builds packages in topological order
+pnpm test    # runs unit test suites
 ```
 
 ## Community
 
-- **Docs:** [wefter.dev](https://wefter.dev)
-- **Discord:** [discord.gg/wefter](https://discord.gg/wefter)
-- **Issues / discussion:** [github.com/Wefters/Wefter](https://github.com/Wefters/Wefter)
+- Documentation: [wefter.dev](https://wefter.dev)
+- Discord: [discord.gg/wefter](https://discord.gg/wefter)
+- GitHub issues: [github.com/Wefters/Wefter](https://github.com/Wefters/Wefter)
 
 ## License
 
 [MIT](LICENSE) © 2026 Sandip Ghimire
-</content>

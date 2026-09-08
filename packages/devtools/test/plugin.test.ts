@@ -66,6 +66,42 @@ describe("wefterDevtools", () => {
     expect(resolved).toBe("\0virtual:wefter-devtools-client");
   });
 
+  it("resolves and loads the virtual app-agent module as an @wefterjs/core side-effect import", () => {
+    const plugin = wefterDevtools();
+    const resolved = (plugin.resolveId as (source: string) => string | undefined)("virtual:wefter-devtools-agent");
+    expect(resolved).toBe("\0virtual:wefter-devtools-agent");
+
+    const loaded = (plugin.load as (id: string) => string | undefined)("\0virtual:wefter-devtools-agent");
+    expect(loaded).toContain('import("@wefterjs/core")');
+    expect(loaded).toContain(".catch(");
+  });
+
+  it("injects the app-agent script into a served app page", () => {
+    const plugin = wefterDevtools();
+    const transform = plugin.transformIndexHtml as (
+      html: string,
+      ctx: { path: string },
+    ) => { tags: unknown[] } | undefined;
+
+    const result = transform("<html><head></head><body></body></html>", { path: "/index.html" });
+
+    expect(result?.tags).toContainEqual({
+      tag: "script",
+      attrs: { type: "module", src: "/@id/virtual:wefter-devtools-agent" },
+      injectTo: "head",
+    });
+  });
+
+  it("does not inject the app-agent script into the devtools dashboard shell itself", () => {
+    const plugin = wefterDevtools();
+    const transform = plugin.transformIndexHtml as (
+      html: string,
+      ctx: { path: string },
+    ) => { tags: unknown[] } | undefined;
+
+    expect(transform("<html></html>", { path: "/__wefter-devtools" })).toBeUndefined();
+  });
+
   it("does not resolve unrelated specifiers", () => {
     const plugin = wefterDevtools();
     const resolved = (plugin.resolveId as (source: string) => string | undefined)("vue");
