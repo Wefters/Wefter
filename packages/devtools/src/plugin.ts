@@ -4,6 +4,8 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { createDevtoolsState, registerServerHandlers } from "./server/handlers.js";
 import {
+  AGENT_MODULE_URL,
+  DASHBOARD_ROUTE,
   loadDevtoolsVirtualModule,
   registerDashboardMiddleware,
   registerPluginsApiMiddleware,
@@ -44,6 +46,15 @@ export function wefterDevtools(_options: WefterDevtoolsOptions = {}) {
     load(id) {
       clientBundleSource ??= readFileSync(join(here, "client/bundle.js"), "utf-8");
       return loadDevtoolsVirtualModule(id, clientBundleSource);
+    },
+
+    transformIndexHtml(html, ctx) {
+      // Every served app page, but not the dashboard shell itself.
+      if (ctx.path.startsWith(DASHBOARD_ROUTE)) return;
+      return {
+        html,
+        tags: [{ tag: "script", attrs: { type: "module", src: AGENT_MODULE_URL }, injectTo: "head" }],
+      };
     },
 
     configureServer(server: ViteDevServer) {

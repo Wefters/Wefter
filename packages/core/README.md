@@ -6,7 +6,7 @@
   </picture>
 
   <h1>@wefterjs/core</h1>
-  <p><strong>The typed JS ↔ native bridge runtime that ships inside a compiled Wefter app.</strong></p>
+  <p><strong>The typed JavaScript-to-native bridge runtime bundled inside Wefter applications.</strong></p>
 
   <p>
     <img alt="Version" src="https://img.shields.io/badge/version-0.0.1-blue?style=flat-square">
@@ -15,7 +15,7 @@
   </p>
 
   <p>
-    <a href="https://wefter.dev/docs/javascript-apis"><strong>API docs</strong></a> ·
+    <a href="https://wefter.dev/docs/javascript-apis"><strong>API documentation</strong></a> ·
     <a href="https://github.com/Wefters/Wefter">Wefter monorepo</a> ·
     <a href="https://discord.gg/wefter">Discord</a>
   </p>
@@ -23,93 +23,133 @@
 
 ---
 
-It gives your JS code a single, typed bridge to native plugin capability
-on both Android (Kotlin) and iOS (Swift), through the same functions
-either way.
+`@wefterjs/core` provides the runtime communication layer between JavaScript running in the web view and native code on Android (Kotlin) and iOS (Swift). It exposes promise-based invocations and event subscriptions with no dependency on external servers or background processes.
 
-## Install
+## Installation
 
 ```bash
 pnpm add @wefterjs/core
 ```
 
-This is a real runtime dependency, not a dev dependency, since your app
-imports it at run time on the device. Its counterpart, `@wefterjs/cli`, is
-a dev dependency instead, since it never ships in the built app.
+This package is a production runtime dependency. It executes on the user device inside the application bundle. In contrast, `@wefterjs/cli` is a dev dependency that operates only during development and build steps.
 
 ## Usage
 
-Most of the time you won't call this package's functions directly. A
-plugin you install with `wefter add` exposes its own wrapper functions
-(`Scanner.open()`, `Storage.get()`) that call into `@wefterjs/core`
-underneath. You'll reach for it directly for built-in system calls, or to
-check on the bridge itself:
+Most applications do not call `@wefterjs/core` directly for standard device features. Instead, plugins such as `@wefterjs/scanner` or `@wefterjs/storage` wrap these bridge calls in dedicated TypeScript modules.
+
+Direct calls to `@wefterjs/core` are typically used for lifecycle management, bridge readiness detection, and system queries:
 
 ```ts
-import { invokeNative, isNativeBridgeAvailable, getDeviceInfo, hideSplash } from "@wefterjs/core";
+import {
+  invokeNative,
+  isNativeBridgeAvailable,
+  onBridgeReady,
+  getDeviceInfo,
+  getPlatformInfo,
+  hideSplash,
+} from "@wefterjs/core";
+
+// Ensure the native bridge is initialized before the first call
+await onBridgeReady();
 
 if (isNativeBridgeAvailable()) {
   const { platform, osVersion } = await getDeviceInfo();
   console.log(`Running on ${platform} ${osVersion}`);
 }
 
+// Inspect current platform environment synchronously
+const platformInfo = getPlatformInfo();
+console.log("Core protocol version:", platformInfo.coreVersion);
+
+// Dismiss a configured splash screen
 await hideSplash();
 
-const { debug } = await invokeNative<{ debug: boolean }>("__system", "isDebug");
+// Make a raw system invocation
+const { isDebug } = await invokeNative<{ isDebug: boolean }>("__system", "isDebug");
 ```
 
-## API
+## JavaScript API reference
 
-| Export                                             | What it does                                                                                                                                                                      |
-| -------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `invokeNative(plugin, method, payload?, options?)` | Calls a native method, returns a Promise. Every plugin wrapper calls this underneath. Rejects with a `WefterBridgeError` on timeout, abort, or no bridge present.                 |
-| `registerHook(hookName, callback)`                 | Subscribes to native-pushed events (sensor readings, scan results). Returns `{ remove() }`.                                                                                       |
-| `onBridgeReady()`                                  | Resolves once the native bridge is wired up. Await it once before your first plugin call to avoid a startup race.                                                                 |
-| `isNativeBridgeAvailable()`                        | Synchronous check: `true` inside the native shell, `false` in a plain browser tab.                                                                                                |
-| `getPlatformInfo()`                                | Synchronous, no native round-trip: `{ platform, coreVersion, environment }`.                                                                                                      |
-| `getDeviceInfo()`                                  | Async native call: `{ platform, osVersion }` straight from the OS.                                                                                                                |
-| `hideSplash()`                                     | Signals the app is ready so a `dismissOn: "ready"` splash screen can dismiss.                                                                                                     |
-| `definePlugin(name, methods)`                      | Used by plugin authors to generate a typed wrapper object around `invokeNative`.                                                                                                  |
-| `WefterBridgeError`, `WefterErrorCode`             | The error class and code union every rejected call uses (`TIMEOUT`, `ABORTED`, `NO_BRIDGE`, `UNKNOWN_PLUGIN`, `INVALID_PAYLOAD`, `PLUGIN_THREW`, `PERMISSION_DENIED`, `UNKNOWN`). |
+### Bridge functions
 
-## Testing
+| Export | Description |
+| --- | --- |
+| `invokeNative<T>(plugin, method, payload?, options?)` | Sends a message to the native bridge and returns a Promise that resolves with the native response or rejects with a `WefterBridgeError`. |
+| `registerHook(hookName, callback)` | Subscribes to native push events (such as hardware back button presses, barcode scans, or network state transitions). Returns an object with a `remove()` cleanup method. |
+| `onBridgeReady()` | Returns a Promise that resolves once the native bridge objects (`window.AndroidBridge` or `window.webkit.messageHandlers`) are registered. |
+| `isNativeBridgeAvailable()` | Synchronous helper returning `true` when running inside a native Wefter shell, and `false` in a standard browser tab. |
+| `getPlatformInfo()` | Synchronous helper returning `{ platform, coreVersion, environment }` without native dispatch overhead. |
+| `getDeviceInfo()` | Asynchronous native call returning `{ platform, osVersion }` directly from the host operating system. |
+| `hideSplash()` | Signals the native shell to dismiss the splash screen when configured with `waitForReady: true`. |
+| `isLandscape()` | Returns `true` if the shell was built with landscape lock enabled. |
+| `definePlugin<T>(name, methodMap)` | Helper used by plugin authors to construct typed proxy objects around `invokeNative`. |
 
-`@wefterjs/core/testing` mocks the bridge so you can test components that
-call plugins without a real device or emulator:
+### Error handling
+
+When a bridge call fails, the returned Promise rejects with a `WefterBridgeError`. Inspect the `code` property to handle specific failures:
+
+```ts
+import { invokeNative, WefterBridgeError } from "@wefterjs/core";
+
+try {
+  await invokeNative("storage", "get", { key: "auth_token" });
+} catch (error) {
+  if (error instanceof WefterBridgeError) {
+    console.error("Bridge failure code:", error.code);
+    console.error("Bridge failure message:", error.message);
+  }
+}
+```
+
+Standard error codes include:
+
+- `TIMEOUT`: The native call did not complete within the requested timeout period.
+- `ABORTED`: The call was cancelled before completion.
+- `NO_BRIDGE`: The bridge is unavailable (for example, when running inside an unsupported browser tab).
+- `UNKNOWN_PLUGIN`: The requested plugin identifier is not registered in the native project.
+- `INVALID_PAYLOAD`: The payload could not be serialized or does not match expected parameters.
+- `PLUGIN_THREW`: The native plugin threw an unhandled exception.
+- `PERMISSION_DENIED`: The user or OS rejected a required permission.
+- `UNKNOWN`: General unhandled native failure.
+
+## Testing with mock bridge
+
+The `@wefterjs/core/testing` submodule allows testing UI components and plugins in browser tests or Node.js without requiring an emulator or physical device:
 
 ```ts
 import { installMockBridge, uninstallMockBridge } from "@wefterjs/core/testing";
 import { getDeviceInfo } from "@wefterjs/core";
 
+// Register custom mock handlers per plugin
 installMockBridge({
-  __system: async (method) => {
-    if (method === "getDeviceInfo") return { platform: "android", osVersion: "14" };
-    throw new Error(`unhandled method ${method}`);
+  __system: async (method, payload) => {
+    if (method === "getDeviceInfo") {
+      return { platform: "android", osVersion: "14" };
+    }
+    throw new Error(`Unhandled system method: ${method}`);
+  },
+  storage: async (method, payload) => {
+    if (method === "get") {
+      return { value: "test-token" };
+    }
+    return { success: true };
   },
 });
 
-const result = await getDeviceInfo();
-expect(result.platform).toBe("android");
+const info = await getDeviceInfo();
+console.log("Mocked platform:", info.platform);
 
+// Clean up after test completion
 uninstallMockBridge();
 ```
-
-Each handler receives `(method, payload)` for calls made to that plugin
-name. Call `uninstallMockBridge()` afterward so later tests don't inherit
-a mock they didn't set up.
 
 ## Development
 
 ```bash
-pnpm build   # tsc -p tsconfig.json
-pnpm test    # vitest run
+pnpm build   # compiles TypeScript via tsc
+pnpm test    # runs test suites via Vitest
 ```
-
-Part of the [Wefter](https://github.com/Wefters/Wefter) monorepo. See the
-root README for the full picture, and [wefter.dev](https://wefter.dev) for
-complete documentation.
 
 ## License
 
-MIT
-</content>
+[MIT](../../LICENSE) © 2026 Sandip Ghimire

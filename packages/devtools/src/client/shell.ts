@@ -8,16 +8,31 @@ export interface PanelDef {
   element: HTMLElement;
 }
 
-export function mountShell(root: HTMLElement, panels: PanelDef[], presenceStore: Store<ClientHelloEvent[]>): void {
+export function mountShell(
+  root: HTMLElement,
+  panels: PanelDef[],
+  presenceStore: Store<ClientHelloEvent[]>,
+  onReloadDevice: () => void = () => {},
+): void {
   let activeId = panels[0]?.id;
 
   const statusDot = h("span", { class: "wd-status-dot" });
   const clientsEl = h("span", { class: "wd-clients" }, "0 clients connected");
+  const reloadBtn = h(
+    "button",
+    {
+      class: "wd-reload-btn",
+      title: "Reload every connected app",
+      onclick: () => onReloadDevice(),
+    },
+    "⟳ Reload device",
+  );
   const header = h(
     "div",
     { class: "wd-header" },
     h("span", { class: "wd-title" }, "Wefter Dev Tools"),
     h("span", { class: "wd-clients-group" }, statusDot, clientsEl),
+    reloadBtn,
   );
   const tabsEl = h("div", { class: "wd-tabs" });
 
@@ -48,6 +63,7 @@ export function mountShell(root: HTMLElement, panels: PanelDef[], presenceStore:
   presenceStore.subscribe((clients) => {
     clientsEl.textContent = `${clients.length} client${clients.length === 1 ? "" : "s"} connected`;
     statusDot.classList.toggle("connected", clients.length > 0);
+    (reloadBtn as HTMLButtonElement).disabled = clients.length === 0;
   });
 
   for (const panel of panels) panel.element.classList.add("wd-panel");

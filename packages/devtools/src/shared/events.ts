@@ -84,4 +84,6 @@ export const WEFTER_EVENT = {
   replay: "wefter:__replay",
   clearRequest: "wefter:__clear_request",
   cleared: "wefter:__cleared",
+  reloadRequest: "wefter:__reload_request",
+  reload: "wefter:reload",
 } as const;

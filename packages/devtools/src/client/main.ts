@@ -81,6 +81,10 @@ export function mountDevtoolsApp(app: HTMLElement, hot: MinimalHotContext): void
     hot.send(WEFTER_EVENT.clearRequest, { channel });
   }
 
+  function reloadDevice(): void {
+    hot.send(WEFTER_EVENT.reloadRequest, {});
+  }
+
   hot.on("vite:ws:connect", requestReplay);
   requestReplay();
 
@@ -98,6 +102,7 @@ export function mountDevtoolsApp(app: HTMLElement, hot: MinimalHotContext): void
       { id: "plugins", label: "Plugins", element: createPluginsPanel() },
     ],
     presenceStore,
+    reloadDevice,
   );
 }
 

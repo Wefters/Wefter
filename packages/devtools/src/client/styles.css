@@ -54,6 +54,27 @@ body {
   gap: 6px;
 }
 
+.wd-reload-btn {
+  margin-left: auto;
+  background: var(--bg-raised);
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.wd-reload-btn:hover:not(:disabled) {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.wd-reload-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
 .wd-clients {
   color: var(--text-dim);
   font-size: 12px;

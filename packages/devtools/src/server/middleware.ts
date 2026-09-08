@@ -6,12 +6,29 @@ const PLUGINS_API_ROUTE = "/__wefter-devtools/api/plugins";
 const VIRTUAL_CLIENT_ID = "virtual:wefter-devtools-client";
 const RESOLVED_VIRTUAL_CLIENT_ID = "\0" + VIRTUAL_CLIENT_ID;
 
+const VIRTUAL_AGENT_ID = "virtual:wefter-devtools-agent";
+const RESOLVED_VIRTUAL_AGENT_ID = "\0" + VIRTUAL_AGENT_ID;
+export const AGENT_MODULE_URL = `/@id/${VIRTUAL_AGENT_ID}`;
+
+// Injected into every app page (see the plugin's transformIndexHtml). Loading @wefterjs/core
+// runs its devtools instrumentation — presence, console/network taps, reload listener — so the
+// dashboard sees the app even when the app's own code never imports @wefterjs/core directly, or
+// only reaches it transitively through a plugin that pins an older, un-instrumented copy.
+const AGENT_SOURCE = `import(${JSON.stringify("@wefterjs/core")}).catch((err) => {
+  console.debug("[wefter:devtools] @wefterjs/core agent unavailable", err);
+});
+`;
+
 export function resolveDevtoolsVirtualModule(source: string): string | undefined {
-  return source === VIRTUAL_CLIENT_ID ? RESOLVED_VIRTUAL_CLIENT_ID : undefined;
+  if (source === VIRTUAL_CLIENT_ID) return RESOLVED_VIRTUAL_CLIENT_ID;
+  if (source === VIRTUAL_AGENT_ID) return RESOLVED_VIRTUAL_AGENT_ID;
+  return undefined;
 }
 
 export function loadDevtoolsVirtualModule(id: string, clientBundleSource: string): string | undefined {
-  return id === RESOLVED_VIRTUAL_CLIENT_ID ? clientBundleSource : undefined;
+  if (id === RESOLVED_VIRTUAL_CLIENT_ID) return clientBundleSource;
+  if (id === RESOLVED_VIRTUAL_AGENT_ID) return AGENT_SOURCE;
+  return undefined;
 }
 
 export function registerPluginsApiMiddleware(server: ViteDevServer): void {

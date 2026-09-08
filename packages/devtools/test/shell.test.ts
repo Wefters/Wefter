@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createStore } from "../src/client/store.js";
 import { mountShell } from "../src/client/shell.js";
 import type { ClientHelloEvent } from "../src/shared/events.js";
@@ -25,6 +25,30 @@ describe("mountShell", () => {
     expect(tabs[0]?.textContent).toBe("One");
     expect(panels[0]!.element.classList.contains("active")).toBe(true);
     expect(panels[1]!.element.classList.contains("active")).toBe(false);
+  });
+
+  it("invokes the reload-device callback when the header Reload button is clicked", () => {
+    const root = document.createElement("div");
+    const onReloadDevice = vi.fn();
+    mountShell(root, makePanels(), createStore<ClientHelloEvent[]>([]), onReloadDevice);
+
+    (root.querySelector(".wd-reload-btn") as HTMLElement).click();
+
+    expect(onReloadDevice).toHaveBeenCalledTimes(1);
+  });
+
+  it("disables the Reload button while no client is connected and enables it once one is", async () => {
+    const root = document.createElement("div");
+    const presenceStore = createStore<ClientHelloEvent[]>([]);
+    mountShell(root, makePanels(), presenceStore, () => {});
+
+    presenceStore.set(() => []);
+    await flush();
+    expect((root.querySelector(".wd-reload-btn") as HTMLButtonElement).disabled).toBe(true);
+
+    presenceStore.set(() => [{ clientId: "a", url: "/", timestamp: Date.now() }]);
+    await flush();
+    expect((root.querySelector(".wd-reload-btn") as HTMLButtonElement).disabled).toBe(false);
   });
 
   it("switches the active panel and tab styling on click", () => {

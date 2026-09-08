@@ -6,7 +6,7 @@
   </picture>
 
   <h1>@wefterjs/cli</h1>
-  <p><strong>The <code>wefter</code> command: sync, build, run, and eject a Wefter app's native project.</strong></p>
+  <p><strong>The <code>wefter</code> command: sync, build, run, and eject native mobile projects.</strong></p>
 
   <p>
     <img alt="Version" src="https://img.shields.io/badge/version-0.0.1-blue?style=flat-square">
@@ -23,91 +23,101 @@
 
 ---
 
-It reads `wefter.config.json`, weaves your declared plugins into a real
-native Android/iOS project, and drives build/run/eject for that project.
+`@wefterjs/cli` reads `wefter.config.json`, resolves declared plugins, verifies lockfiles, merges native dependencies and permissions, and manages native compilation, device deployment, and live reloading.
 
-## Install
+## Installation
 
 ```bash
 pnpm add -D @wefterjs/cli
 ```
 
-Dev dependency only, the CLI never ships inside the built app. Your app's
-runtime dependency is [`@wefterjs/core`](../@wefterjs/cli).
+The CLI is installed as a development dependency. It operates on the build host and does not ship inside the compiled mobile application. The runtime counterpart is [`@wefterjs/core`](../core).
 
-## Requirements
+## System requirements
 
-- Node 18+
-- JDK 17 and the Android SDK (`ANDROID_HOME`/`ANDROID_SDK_ROOT`, with
-  `platform-tools` on `PATH`) for Android targets
-- Xcode 16+ for iOS targets
+- Node.js 18 or later
+- JDK 17 and Android SDK (`ANDROID_HOME` or `ANDROID_SDK_ROOT`, with `platform-tools` on `PATH`) for Android builds
+- macOS with Xcode 16 or later for iOS builds
 
-Run `wefter doctor` to check your machine against all of these at once.
-Full setup walkthrough: [wefter.dev/docs/environment-setup](https://wefter.dev/docs/environment-setup).
+Run `wefter doctor` to inspect machine setup and missing dependencies automatically. Complete instructions are available in the [environment setup guide](https://wefter.dev/docs/environment-setup).
 
 ## Quick start
 
 ```bash
-wefter add @yourorg/scanner-plugin   # look up on registry, declare in config
-pnpm add @yourorg/scanner-plugin     # install with your package manager
-wefter sync                          # weave declared plugins into the native project
-wefter run android --watch           # build, install, launch, hot-reload
+# Initialize Wefter in an existing web project
+wefter init
+
+# Add a plugin
+wefter add @wefterjs/scanner
+pnpm add @wefterjs/scanner
+
+# Sync and launch on Android with live reload
+wefter run android --watch
 ```
 
-## Commands
+## Command reference
 
-| Command                                                                                    | What it does                                                                                                                                          |
-| ------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `wefter doctor [projectDir] [--release-readiness]`                                         | Checks your environment is set up correctly. `--release-readiness` also checks the project itself is ready for a `--release` build.                   |
-| `wefter sync [projectDir] [--update-lock]`                                                 | Resolves declared plugins, verifies lockfile integrity, regenerates the native project. `--update-lock` accepts and re-locks drifted plugin versions. |
-| `wefter build <android\|ios> [projectDir] [--release] [--env <name>] [--simulator <name>]` | Syncs and builds the native app.                                                                                                                      |
-| `wefter run <android\|ios> [projectDir] [--watch] [--env <name>] [--simulator <name>]`     | Syncs, builds, installs, and launches the app. `--watch` starts a local dev server for hot reload.                                                    |
-| `wefter eject [projectDir]`                                                                | Copies the generated native project(s) to `android/` and `ios/` for hand-editing. Wefter stops regenerating them after this.                          |
-| `wefter audit [projectDir]`                                                                | Read-only: prints the plugins, permissions, and dependencies this project would sync, plus lockfile drift and permission violations.                  |
-| `wefter add <plugin> [projectDir]`                                                         | Looks up the plugin on the npm registry, adds it to `package.json` deps, and declares it in `wefter.config.json`. Prints the install command for your package manager. |
-| `wefter create-plugin <name> [targetDir]`                                                  | Scaffolds a new Wefter plugin package from working boilerplate.                                                                                       |
-| `wefter icon generate <source> [projectDir]`                                               | Previews Android launcher icons from a source image. Lost on the next `sync` unless `"icon"` is also set in `wefter.config.json`.                     |
-| `wefter splash generate [targetPath] [projectDir]`                                         | Scaffolds an example splash folder to edit and point `wefter.config.json` at.                                                                         |
-| `wefter plugin validate [pluginDir]`                                                       | Validates a plugin directory against the Wefter plugin schema and source conventions.                                                                 |
+| Command | Description |
+| --- | --- |
+| `wefter init [projectDir]` | Configures an existing web project by creating `wefter.config.json`, adding `@wefterjs/core` and `@wefterjs/cli` dependencies, and updating `.gitignore`. |
+| `wefter doctor [projectDir] [--release-readiness]` | Checks environment prerequisites (Node, JDK, Android SDK, Xcode, command-line tools). The `--release-readiness` flag checks signing configs, asset configurations, and production readiness. |
+| `wefter sync [projectDir] [--update-lock]` | Resolves declared plugins, verifies `wefter.lock.json`, copies native plugin sources, merges permissions and Gradle/SPM dependencies, and generates typed registries. Use `--update-lock` to record updated versions. |
+| `wefter build <android\|ios> [projectDir] [--release] [--env <name>] [--simulator <name>]` | Synchronizes and compiles the native application binary (`.apk` / `.aab` on Android, `.app` / `.ipa` on iOS). |
+| `wefter run <android\|ios> [projectDir] [--watch] [--env <name>] [--simulator <name>]` | Synchronizes, compiles, installs, and starts the app on a connected physical device, emulator, or simulator. The `--watch` flag starts the local dev server and proxies live updates to the native web view. |
+| `wefter eject [projectDir]` | Copies the disposable native project out of `.wefter/native/` to standalone `android/` and `ios/` folders for direct hand editing. After ejection, `wefter sync` stops regenerating those projects. |
+| `wefter audit [projectDir]` | Read-only inspection command that prints all resolved plugins, permissions, dependencies, and lockfile status without modifying files. |
+| `wefter add <plugin> [projectDir]` | Resolves a plugin from the registry, writes it into `wefter.config.json`, and records it in `package.json`. |
+| `wefter create-plugin <name> [targetDir]` | Scaffolds a new standalone Wefter plugin with TypeScript, Android (Kotlin), iOS (Swift), and testing boilerplate. |
+| `wefter plugin validate [pluginDir]` | Checks a plugin directory against the `plugin.json` schema and platform file layout rules. |
+| `wefter icon generate <source> [projectDir]` | Generates Android launcher icon mipmap densities from a source image. |
+| `wefter splash generate [targetPath] [projectDir]` | Creates an example splash screen asset directory to configure in `wefter.config.json`. |
 
-Run `wefter <command> --help` for a command's full option list.
+Run `wefter <command> --help` to inspect all options for a specific command.
 
-## How `sync` works
+## Synchronization workflow
 
-`sync` never hand-edits a native project you own. It regenerates a
-disposable one, `.wefter/native/android` and/or `.wefter/native/ios`, from
-your `wefter.config.json` and declared plugins every time it runs: native
-plugin source gets copied in, Gradle/CocoaPods dependencies and platform
-permissions get merged, and a typed plugin registry gets generated. `wefter
-eject` is the escape hatch if you need to hand-edit the native project
-directly. After that, `sync` stops touching it.
+The Wefter architecture keeps native project files disposable. By default, developers do not manually maintain Xcode or Gradle project folders.
 
-## Programmatic use
+When `wefter sync` runs:
 
-Most of the CLI's internals are also exported for use as a library, the
-same `sync`, `build`, `run`, `audit`, doctor checks, and native-project
-path helpers the `wefter` binary itself calls:
+1. `wefter.config.json` is parsed to find declared plugins, splash settings, environment configurations, and target platforms.
+2. The plugin scanner validates each plugin manifest (`plugin.json`) and reads declared Android dependencies, iOS Swift package dependencies, permissions, and native source directories.
+3. A clean native project is created in `.wefter/native/android` or `.wefter/native/ios` based on the templates in `shells/`.
+4. Native Kotlin and Swift files from each plugin are copied into the project.
+5. `AndroidManifest.xml` permissions, Gradle dependencies, and iOS `Info.plist` usage keys are merged.
+6. A typed registry (`GeneratedRegistry.kt` on Android, `GeneratedRegistry.swift` on iOS) is emitted so the native bridge can route calls directly without reflection.
+7. Compiled web assets from `webDir` are copied into the native asset bundle.
+
+If custom native configuration is required that cannot be expressed through plugins or `wefter.config.json`, run `wefter eject`. This copies the native shells to `android/` and `ios/` at the project root and transfers ownership of the build files to the developer.
+
+## Programmatic API
+
+Core CLI actions are exported as a TypeScript library for programmatic orchestration and scripting:
 
 ```ts
 import { sync, build, runAllChecks } from "@wefterjs/cli";
+
+// Run doctor diagnostics programmatically
+const doctorResults = await runAllChecks();
+
+// Run synchronization
+await sync(process.cwd(), { updateLock: false });
+
+// Run a native build
+await build("android", process.cwd(), {
+  release: false,
+  env: "development",
+});
 ```
 
 ## Development
 
 ```bash
-pnpm dev     # tsx src/cli.ts, run the CLI from source
-pnpm build   # tsc -p tsconfig.json
-pnpm test    # vitest run
+pnpm dev     # runs the CLI binary directly from TypeScript source via tsx
+pnpm build   # compiles TypeScript via tsc
+pnpm test    # executes CLI test suites with Vitest
 ```
-
-Depends on [`@wefterjs/registry-codegen`](../registry-codegen) for the
-underlying plugin scanning, validation, and Android/iOS codegen.
-
-Part of the [Wefter](https://github.com/Wefters/Wefter) monorepo. See the
-root README for the full picture, and [wefter.dev](https://wefter.dev) for
-complete documentation.
 
 ## License
 
-MIT
-</content>
+[MIT](../../LICENSE) © 2026 Sandip Ghimire
