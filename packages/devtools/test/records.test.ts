@@ -9,6 +9,10 @@ describe("appendRecord", () => {
     expect(result).not.toBe(original);
     expect(original).toEqual([1, 2]);
   });
+
+  it("drops the oldest entries beyond the cap", () => {
+    expect(appendRecord([1, 2, 3], 4, 3)).toEqual([2, 3, 4]);
+  });
 });
 
 describe("mergeRecordById", () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { createStore } from "../src/client/store.js";
-import { mountShell } from "../src/client/shell.js";
+import { mountShell, type PanelBadge } from "../src/client/shell.js";
 import type { ClientHelloEvent } from "../src/shared/events.js";
 
 function flush(): Promise<void> {
@@ -110,5 +110,101 @@ describe("mountShell", () => {
     await flush();
 
     expect(root.querySelector(".wd-status-dot")?.classList.contains("connected")).toBe(false);
+  });
+
+  it("marks tabs and panels up as an accessible tablist", () => {
+    const root = document.createElement("div");
+    const panels = makePanels();
+    mountShell(root, panels, createStore<ClientHelloEvent[]>([]));
+
+    const tabs = root.querySelectorAll<HTMLElement>('[role="tab"]');
+    expect(root.querySelector('[role="tablist"]')).not.toBeNull();
+    expect(tabs[0]!.getAttribute("aria-selected")).toBe("true");
+    expect(tabs[0]!.getAttribute("aria-controls")).toBe(panels[0]!.element.id);
+    expect(panels[0]!.element.getAttribute("role")).toBe("tabpanel");
+    expect([...tabs].map((t) => t.tabIndex)).toEqual([0, -1]);
+  });
+
+  it("moves between tabs with the left/right arrow keys", () => {
+    const root = document.createElement("div");
+    document.body.appendChild(root);
+    const panels = makePanels();
+    mountShell(root, panels, createStore<ClientHelloEvent[]>([]));
+
+    const first = root.querySelector<HTMLElement>(".wd-tab")!;
+    first.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+
+    expect(panels[1]!.element.classList.contains("active")).toBe(true);
+    expect(document.activeElement).toBe(root.querySelectorAll(".wd-tab")[1]);
+    root.remove();
+  });
+
+  it("switches panels with the number keys and focuses the active panel's filter with /", () => {
+    const root = document.createElement("div");
+    document.body.appendChild(root);
+    const panels = makePanels();
+    const search = document.createElement("input");
+    search.className = "wd-search";
+    panels[1]!.element.appendChild(search);
+    mountShell(root, panels, createStore<ClientHelloEvent[]>([]));
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "2", bubbles: true }));
+    expect(panels[1]!.element.classList.contains("active")).toBe(true);
+
+    document.dispatchEvent(new KeyboardEvent("keydown", { key: "/", bubbles: true }));
+    expect(document.activeElement).toBe(search);
+
+    // Typing a digit inside the filter must not switch panels.
+    search.dispatchEvent(new KeyboardEvent("keydown", { key: "1", bubbles: true }));
+    expect(panels[1]!.element.classList.contains("active")).toBe(true);
+    root.remove();
+  });
+
+  it("shows a tab badge only when its count is non-zero, with the requested tone", async () => {
+    const root = document.createElement("div");
+    const badge = createStore<PanelBadge>({ count: 0 });
+    const panels = makePanels();
+    mountShell(root, [{ ...panels[0]!, badge }, panels[1]!], createStore<ClientHelloEvent[]>([]));
+
+    badge.set(() => ({ count: 3, tone: "error" }));
+    await flush();
+
+    const el = root.querySelector(".wd-tab-badge")!;
+    expect(el.textContent).toBe("3");
+    expect(el.className).toBe("wd-tab-badge wd-tab-badge-error");
+  });
+
+  it("toggles between dark and light themes and remembers the choice", () => {
+    localStorage.removeItem("wefter-devtools:theme");
+    const root = document.createElement("div");
+    mountShell(root, makePanels(), createStore<ClientHelloEvent[]>([]));
+    const before = document.documentElement.dataset.theme;
+
+    root.querySelector<HTMLElement>(".wd-theme-btn")!.click();
+
+    const after = document.documentElement.dataset.theme;
+    expect(after).not.toBe(before);
+    expect(localStorage.getItem("wefter-devtools:theme")).toBe(after);
+  });
+
+  it("shows the URL of a single connected app next to the count", async () => {
+    const root = document.createElement("div");
+    const presenceStore = createStore<ClientHelloEvent[]>([]);
+    mountShell(root, makePanels(), presenceStore);
+
+    presenceStore.set(() => [{ clientId: "a", url: "http://localhost:5173/#/scan", timestamp: 1 }]);
+    await flush();
+
+    expect(root.querySelector(".wd-conn-url")?.textContent).toBe("http://localhost:5173/#/scan");
+  });
+
+  it("shows the full Wefter logo in the top bar", () => {
+    const root = document.createElement("div");
+    mountShell(root, makePanels(), createStore<ClientHelloEvent[]>([]));
+
+    const logo = root.querySelector(".wd-header .wd-logo")!;
+    expect(logo.getAttribute("aria-label")).toBe("Wefter");
+    // Mark (4 paths) + E, F, T, E, R wordmark (5 paths).
+    expect(logo.querySelectorAll("path").length).toBe(9);
   });
 });

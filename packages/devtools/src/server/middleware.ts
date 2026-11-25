@@ -45,7 +45,9 @@ export function registerDashboardMiddleware(server: ViteDevServer): void {
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Wefter Dev Tools</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark light" />
+    <title>Wefter DevTools</title>
   </head>
   <body>
     <div id="app"></div>

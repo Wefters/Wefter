@@ -6,8 +6,8 @@ export { hideSplash } from "./internal/hide-splash.js";
 export { getDeviceInfo, type DeviceInfo } from "./internal/device-info.js";
 export { isLandscape } from "./internal/landscape.js";
 
-import "./internal/error-safety-net.js";
 import "./internal/devtools/console-patch.js";
+import "./internal/devtools/uncaught.js";
 import "./internal/devtools/network-patch.js";
 import "./internal/devtools/presence.js";
 import "./internal/devtools/reload.js";

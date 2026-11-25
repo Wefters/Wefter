@@ -28,8 +28,8 @@ describe("mountDevtoolsApp", () => {
     const { hot } = createFakeHot();
     mountDevtoolsApp(app, hot);
 
-    const tabLabels = [...app.querySelectorAll(".wd-tab")].map((t) => t.textContent);
-    expect(tabLabels).toEqual(["Bridge Inspector", "Console", "Network", "Plugin / Permission State", "Plugins"]);
+    const tabLabels = [...app.querySelectorAll(".wd-tab-label")].map((t) => t.textContent);
+    expect(tabLabels).toEqual(["Bridge", "Console", "Network", "Plugins", "Clients"]);
   });
 
   it("requests a replay immediately on mount", () => {
@@ -88,8 +88,8 @@ describe("mountDevtoolsApp", () => {
     trigger(WEFTER_EVENT.bridgeResponse, { callId: "1", status: "success", result: { text: "hi" }, durationMs: 5 });
     await flush();
 
-    expect(app.querySelectorAll(".wd-row").length).toBe(1);
-    expect(app.querySelector(".wd-badge")?.textContent).toBe("success");
+    expect(app.querySelectorAll("#wd-panel-bridge .wd-trow").length).toBe(1);
+    expect(app.querySelector("#wd-panel-bridge .wd-badge")?.textContent).toBe("success");
   });
 
   it("routes console events to the Console panel", async () => {
@@ -114,8 +114,8 @@ describe("mountDevtoolsApp", () => {
     await flush();
 
     (app.querySelectorAll(".wd-tab")[2] as HTMLElement).click();
-    expect(app.querySelectorAll(".wd-row").length).toBe(1);
-    expect(app.querySelector(".wd-badge")?.textContent).toBe("200");
+    expect(app.querySelectorAll("#wd-panel-network .wd-trow").length).toBe(1);
+    expect(app.querySelector("#wd-panel-network .wd-badge")?.textContent).toBe("200");
   });
 
   it("updates presence from client_list events", async () => {
@@ -156,7 +156,7 @@ describe("mountDevtoolsApp", () => {
 
     trigger(WEFTER_EVENT.bridgeCall, { callId: "1", plugin: "haptics", method: "vibrate", args: {}, timestamp: 1 });
     await flush();
-    expect(app.querySelectorAll(".wd-row").length).toBe(1);
+    expect(app.querySelectorAll("#wd-panel-bridge .wd-trow").length).toBe(1);
 
     trigger(WEFTER_EVENT.cleared, { channel: "bridge" });
     await flush();
@@ -175,5 +175,65 @@ describe("mountDevtoolsApp", () => {
 
     (app.querySelectorAll(".wd-tab")[1] as HTMLElement).click();
     expect(app.textContent).toContain("still here");
+  });
+
+  it("badges the Bridge tab with the failed-call count, in the error tone", async () => {
+    const app = document.createElement("div");
+    const { hot, trigger } = createFakeHot();
+    mountDevtoolsApp(app, hot);
+
+    trigger(WEFTER_EVENT.bridgeCall, { callId: "1", plugin: "a", method: "x", args: {}, timestamp: 1 });
+    trigger(WEFTER_EVENT.bridgeCall, { callId: "2", plugin: "a", method: "y", args: {}, timestamp: 2 });
+    trigger(WEFTER_EVENT.bridgeResponse, {
+      callId: "2",
+      status: "error",
+      error: { code: "E", message: "m" },
+      durationMs: 1,
+    });
+    await flush();
+    await flush();
+
+    const badge = app.querySelector("#wd-tab-bridge .wd-tab-badge")!;
+    expect(badge.textContent).toBe("1");
+    expect(badge.className).toContain("wd-tab-badge-error");
+  });
+
+  it("shows totals in the status bar", async () => {
+    const app = document.createElement("div");
+    const { hot, trigger } = createFakeHot();
+    mountDevtoolsApp(app, hot);
+
+    trigger(WEFTER_EVENT.console, { level: "error", args: ["x"], stack: null, timestamp: 1 });
+    await flush();
+    await flush();
+
+    expect(app.querySelector(".wd-statusbar-stats")?.textContent).toContain("1 log · 1 error");
+  });
+
+  it("marks the dev server offline when the HMR socket drops, and online again on reconnect", async () => {
+    const app = document.createElement("div");
+    const { hot, trigger } = createFakeHot();
+    mountDevtoolsApp(app, hot);
+
+    trigger("vite:ws:disconnect");
+    await flush();
+    expect(app.querySelector(".wd-server-state")?.textContent).toContain("offline");
+
+    trigger("vite:ws:connect");
+    await flush();
+    expect(app.querySelector(".wd-server-state")?.textContent).toBe("Dev server connected");
+  });
+
+  it("caps the live bridge list like the server buffer does", async () => {
+    const app = document.createElement("div");
+    const { hot, trigger } = createFakeHot();
+    mountDevtoolsApp(app, hot);
+
+    for (let i = 0; i < 505; i++) {
+      trigger(WEFTER_EVENT.bridgeCall, { callId: String(i), plugin: "p", method: "m", args: {}, timestamp: i });
+    }
+    await flush();
+
+    expect(app.querySelectorAll("#wd-panel-bridge .wd-trow").length).toBe(500);
   });
 });

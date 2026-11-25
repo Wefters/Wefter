@@ -16,6 +16,18 @@ const baseCall: BridgeRecord = {
   status: "pending",
 };
 
+function rows(panel: HTMLElement): HTMLElement[] {
+  return [...panel.querySelectorAll<HTMLElement>(".wd-trow")];
+}
+
+function chip(panel: HTMLElement, value: string): HTMLElement {
+  return panel.querySelector<HTMLElement>(`.wd-chip[data-value="${value}"]`)!;
+}
+
+function key(el: HTMLElement, name: string): void {
+  el.dispatchEvent(new KeyboardEvent("keydown", { key: name, bubbles: true }));
+}
+
 describe("createBridgeInspectorPanel", () => {
   it("shows the empty state with no records", () => {
     const panel = createBridgeInspectorPanel(createStore<BridgeRecord[]>([]), vi.fn());
@@ -27,170 +39,156 @@ describe("createBridgeInspectorPanel", () => {
       { ...baseCall, callId: "1" },
       { ...baseCall, callId: "2" },
     ]);
-    const panel = createBridgeInspectorPanel(store, vi.fn());
-
-    expect(panel.querySelectorAll(".wd-row").length).toBe(2);
+    expect(rows(createBridgeInspectorPanel(store, vi.fn())).length).toBe(2);
   });
 
-  it("orders the newest call first", () => {
+  it("lists calls chronologically, oldest first, like a log", () => {
     const store = createStore<BridgeRecord[]>([
       { ...baseCall, callId: "1", method: "first" },
       { ...baseCall, callId: "2", method: "second" },
     ]);
     const panel = createBridgeInspectorPanel(store, vi.fn());
 
-    const rows = panel.querySelectorAll(".wd-col-method");
-    expect(rows[0]?.textContent).toBe("second");
-    expect(rows[1]?.textContent).toBe("first");
+    const methods = [...panel.querySelectorAll(".wd-trow .wd-col-method")].map((e) => e.textContent);
+    expect(methods).toEqual(["first", "second"]);
   });
 
-  it("expands a row to show args/result/error JSON on click, and collapses again on a second click", () => {
-    const store = createStore<BridgeRecord[]>([{ ...baseCall, result: { ok: true } }]);
+  it("shows a compact one-line preview of the arguments in the row", () => {
+    const store = createStore<BridgeRecord[]>([{ ...baseCall, args: { level: 0.6, animated: true } }]);
+    const panel = createBridgeInspectorPanel(store, vi.fn());
+    expect(panel.querySelector(".wd-cell-args")?.textContent).toBe("{level: 0.6, animated: true}");
+  });
+
+  it("opens the inspector on click and closes it on a second click", () => {
+    const store = createStore<BridgeRecord[]>([{ ...baseCall, status: "success", result: { ok: true } }]);
     const panel = createBridgeInspectorPanel(store, vi.fn());
 
-    expect(panel.querySelector(".wd-detail")).toBeNull();
-    (panel.querySelector(".wd-row") as HTMLElement).click();
-    expect(panel.querySelector(".wd-detail")?.textContent).toContain('"pattern"');
+    expect(panel.querySelector(".wd-inspector-head")).toBeNull();
+    rows(panel)[0]!.click();
+    expect(panel.querySelector(".wd-inspector-title")?.textContent).toBe("haptics.vibrate");
+    expect(panel.querySelector(".wd-inspector")?.textContent).toContain("pattern");
+    expect(rows(panel)[0]!.getAttribute("aria-selected")).toBe("true");
 
-    (panel.querySelector(".wd-row") as HTMLElement).click();
-    expect(panel.querySelector(".wd-detail")).toBeNull();
+    rows(panel)[0]!.click();
+    expect(panel.querySelector(".wd-inspector-head")).toBeNull();
   });
 
-  it("shows a separate native-stack-trace block only when error.nativeStack is present", () => {
-    const withStack = createStore<BridgeRecord[]>([
-      { ...baseCall, status: "error", error: { code: "E", message: "boom", nativeStack: "at Foo.bar(Foo.kt:12)" } },
-    ]);
-    const panel = createBridgeInspectorPanel(withStack, vi.fn());
-    (panel.querySelector(".wd-row") as HTMLElement).click();
-
-    expect(panel.querySelector(".wd-native-stack")?.textContent).toContain("at Foo.bar(Foo.kt:12)");
+  it("closes the inspector from its close button", () => {
+    const panel = createBridgeInspectorPanel(createStore<BridgeRecord[]>([baseCall]), vi.fn());
+    rows(panel)[0]!.click();
+    panel.querySelector<HTMLElement>(".wd-inspector-close")!.click();
+    expect(panel.querySelector(".wd-inspector-head")).toBeNull();
   });
 
-  it("omits the native-stack block when there is no nativeStack on the error", () => {
-    const noStack = createStore<BridgeRecord[]>([
-      { ...baseCall, status: "error", error: { code: "E", message: "boom" } },
+  it("shows Arguments and Result sections, and an Error section plus callout on failure", () => {
+    const ok = createBridgeInspectorPanel(
+      createStore<BridgeRecord[]>([{ ...baseCall, status: "success", result: { ok: true } }]),
+      vi.fn(),
+    );
+    rows(ok)[0]!.click();
+    expect([...ok.querySelectorAll(".wd-bridge-section .wd-section-title")].map((e) => e.textContent)).toEqual([
+      "Arguments",
+      "Result",
     ]);
-    const panel = createBridgeInspectorPanel(noStack, vi.fn());
-    (panel.querySelector(".wd-row") as HTMLElement).click();
 
+    const failed = createBridgeInspectorPanel(
+      createStore<BridgeRecord[]>([{ ...baseCall, status: "error", error: { code: "E_DENIED", message: "boom" } }]),
+      vi.fn(),
+    );
+    rows(failed)[0]!.click();
+    expect(failed.querySelector(".wd-callout-code")?.textContent).toBe("E_DENIED");
+    expect(failed.querySelector(".wd-bridge-section-error")?.textContent).toContain("boom");
+  });
+
+  it("says when a call is still waiting on native", () => {
+    const panel = createBridgeInspectorPanel(createStore<BridgeRecord[]>([baseCall]), vi.fn());
+    rows(panel)[0]!.click();
+    expect(panel.querySelector(".wd-inspector")?.textContent).toContain("Waiting for the native side to respond…");
+  });
+
+  it("shows the native stack trace in its own section, and not inside the Error section", () => {
+    const store = createStore<BridgeRecord[]>([
+      { ...baseCall, status: "error", error: { code: "E", message: "boom", nativeStack: "UNIQUE_STACK_TOKEN" } },
+    ]);
+    const panel = createBridgeInspectorPanel(store, vi.fn());
+    rows(panel)[0]!.click();
+
+    expect(panel.querySelector(".wd-native-stack")?.textContent).toContain("UNIQUE_STACK_TOKEN");
+    expect(panel.querySelector(".wd-bridge-section-error")?.textContent).not.toContain("UNIQUE_STACK_TOKEN");
+  });
+
+  it("omits the native-stack section when there is no nativeStack on the error", () => {
+    const store = createStore<BridgeRecord[]>([{ ...baseCall, status: "error", error: { code: "E", message: "x" } }]);
+    const panel = createBridgeInspectorPanel(store, vi.fn());
+    rows(panel)[0]!.click();
     expect(panel.querySelector(".wd-native-stack")).toBeNull();
   });
 
-  it("excludes nativeStack from the general args/result/error JSON block, to avoid duplicating it", () => {
-    const withStack = createStore<BridgeRecord[]>([
-      { ...baseCall, status: "error", error: { code: "E", message: "boom", nativeStack: "UNIQUE_STACK_TOKEN" } },
-    ]);
-    const panel = createBridgeInspectorPanel(withStack, vi.fn());
-    (panel.querySelector(".wd-row") as HTMLElement).click();
-
-    const details = panel.querySelectorAll(".wd-detail");
-    expect(details[0]?.textContent).not.toContain("UNIQUE_STACK_TOKEN");
-    expect(details[1]?.textContent).toContain("UNIQUE_STACK_TOKEN");
-  });
-
-  it("applies the error accent class to the row group for error records", () => {
-    const store = createStore<BridgeRecord[]>([{ ...baseCall, status: "error", error: { code: "E", message: "x" } }]);
-    const panel = createBridgeInspectorPanel(store, vi.fn());
-
-    expect(panel.querySelector(".wd-row-group")?.className).toContain("wd-row-accent-error");
-  });
-
-  it("filters by plugin via the plugin <select>", async () => {
+  it("applies the error accent class to failed rows (error, timeout, cancelled)", () => {
     const store = createStore<BridgeRecord[]>([
-      { ...baseCall, callId: "1", plugin: "haptics" },
-      { ...baseCall, callId: "2", plugin: "clipboard" },
+      { ...baseCall, callId: "1", status: "error", error: { code: "E", message: "x" } },
+      { ...baseCall, callId: "2", status: "timeout", error: { code: "T", message: "x" } },
+      { ...baseCall, callId: "3", status: "success" },
     ]);
-    const panel = createBridgeInspectorPanel(store, vi.fn());
-
-    const pluginSelect = panel.querySelectorAll("select")[0] as HTMLSelectElement;
-    pluginSelect.value = "clipboard";
-    pluginSelect.dispatchEvent(new Event("change"));
-
-    const rows = panel.querySelectorAll(".wd-row");
-    expect(rows.length).toBe(1);
-    expect(panel.querySelector(".wd-col-plugin")?.textContent).toBe("clipboard");
+    const classes = rows(createBridgeInspectorPanel(store, vi.fn())).map((r) =>
+      r.classList.contains("wd-row-accent-error"),
+    );
+    expect(classes).toEqual([true, true, false]);
   });
 
-  it("filters by status via the status <select>", () => {
+  it("shows a cancelled call as neutral, not as a failure", () => {
     const store = createStore<BridgeRecord[]>([
-      { ...baseCall, callId: "1", status: "success" },
-      { ...baseCall, callId: "2", status: "error", error: { code: "E", message: "x" } },
+      { ...baseCall, status: "cancelled", error: { code: "USER_CANCELLED", message: "x" } },
     ]);
     const panel = createBridgeInspectorPanel(store, vi.fn());
-
-    const statusSelect = panel.querySelectorAll("select")[1] as HTMLSelectElement;
-    statusSelect.value = "error";
-    statusSelect.dispatchEvent(new Event("change"));
-
-    expect(panel.querySelectorAll(".wd-row").length).toBe(1);
+    expect(rows(panel)[0]!.classList.contains("wd-row-accent-error")).toBe(false);
+    expect(panel.querySelector(".wd-trow .wd-badge")?.className).toBe("wd-badge wd-badge-cancelled");
   });
 
-  it("re-renders live when the store updates", async () => {
-    const store = createStore<BridgeRecord[]>([]);
-    const panel = createBridgeInspectorPanel(store, vi.fn());
-    expect(panel.querySelectorAll(".wd-row").length).toBe(0);
-
-    store.set(() => [baseCall]);
-    await flush();
-
-    expect(panel.querySelectorAll(".wd-row").length).toBe(1);
-  });
-
-  it("calls onClear when the Clear button is clicked", () => {
-    const onClear = vi.fn();
-    const panel = createBridgeInspectorPanel(createStore<BridgeRecord[]>([baseCall]), onClear);
-    (panel.querySelector(".wd-clear-btn") as HTMLElement).click();
-    expect(onClear).toHaveBeenCalledTimes(1);
-  });
-
-  it("expands only the clicked row, even when two records share a callId (e.g. across a reload)", () => {
+  it("selects only the clicked row, even when two records share a callId (e.g. across a reload)", () => {
     const store = createStore<BridgeRecord[]>([
       { ...baseCall, callId: "0", method: "isDebug", timestamp: 1000, status: "success", result: { debug: true } },
       { ...baseCall, callId: "0", method: "scan", timestamp: 2000, status: "success", result: { started: true } },
     ]);
     const panel = createBridgeInspectorPanel(store, vi.fn());
 
-    const rows = panel.querySelectorAll<HTMLElement>(".wd-row");
-    rows[0]!.click();
+    rows(panel)[1]!.click();
 
-    expect(panel.querySelectorAll(".wd-detail").length).toBe(1);
-    expect(panel.querySelector(".wd-detail")?.textContent).toContain("started");
-    expect(panel.querySelectorAll('.wd-row[aria-expanded="true"]').length).toBe(1);
+    expect(panel.querySelectorAll('.wd-trow[aria-selected="true"]').length).toBe(1);
+    expect(panel.querySelector(".wd-inspector")?.textContent).toContain("started");
   });
 
-  it("toggles a row from the keyboard (Enter / Space) and keeps it focused", () => {
-    const store = createStore<BridgeRecord[]>([{ ...baseCall, status: "success", result: { ok: true } }]);
-    const panel = createBridgeInspectorPanel(store, vi.fn());
-    document.body.appendChild(panel);
-
-    const row = panel.querySelector<HTMLElement>(".wd-row")!;
-    row.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-    const reRendered = panel.querySelector<HTMLElement>(".wd-row")!;
-    expect(reRendered.getAttribute("aria-expanded")).toBe("true");
-    expect(document.activeElement).toBe(reRendered);
-
-    reRendered.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
-    expect(panel.querySelector(".wd-row")?.getAttribute("aria-expanded")).toBe("false");
-    panel.remove();
-  });
-
-  it("shows Arguments and Result as separate sections, and Error instead of Result on failure", () => {
-    const ok = createBridgeInspectorPanel(
-      createStore<BridgeRecord[]>([{ ...baseCall, status: "success", result: { ok: true } }]),
-      vi.fn(),
-    );
-    (ok.querySelector(".wd-row") as HTMLElement).click();
-    expect([...ok.querySelectorAll(".wd-bridge-section .wd-detail-label")].map((e) => e.textContent)).toEqual([
-      "Arguments",
-      "Result",
+  it("filters by plugin via the plugin <select>", () => {
+    const store = createStore<BridgeRecord[]>([
+      { ...baseCall, callId: "1", plugin: "haptics" },
+      { ...baseCall, callId: "2", plugin: "clipboard" },
     ]);
+    const panel = createBridgeInspectorPanel(store, vi.fn());
 
-    const failed = createBridgeInspectorPanel(
-      createStore<BridgeRecord[]>([{ ...baseCall, status: "error", error: { code: "E", message: "boom" } }]),
-      vi.fn(),
-    );
-    (failed.querySelector(".wd-row") as HTMLElement).click();
-    expect(failed.querySelector(".wd-bridge-section-error")?.textContent).toContain("boom");
+    const pluginSelect = panel.querySelector("select") as HTMLSelectElement;
+    pluginSelect.value = "clipboard";
+    pluginSelect.dispatchEvent(new Event("change"));
+
+    expect(rows(panel).length).toBe(1);
+    expect(panel.querySelector(".wd-trow .wd-col-plugin")?.textContent).toBe("clipboard");
+  });
+
+  it("filters by status with the chips, where Failed covers error, timeout and cancelled", () => {
+    const store = createStore<BridgeRecord[]>([
+      { ...baseCall, callId: "1", status: "success" },
+      { ...baseCall, callId: "2", status: "error", error: { code: "E", message: "x" } },
+      { ...baseCall, callId: "3", status: "cancelled", error: { code: "C", message: "x" } },
+      { ...baseCall, callId: "4", status: "pending" },
+    ]);
+    const panel = createBridgeInspectorPanel(store, vi.fn());
+    expect(chip(panel, "failed").querySelector(".wd-chip-count")?.textContent).toBe("2");
+
+    chip(panel, "failed").click();
+    expect(rows(panel).length).toBe(2);
+    expect(chip(panel, "failed").getAttribute("aria-checked")).toBe("true");
+
+    chip(panel, "pending").click();
+    expect(rows(panel).length).toBe(1);
   });
 
   it("filters by text across plugin.method and summarises the visible calls", () => {
@@ -213,8 +211,117 @@ describe("createBridgeInspectorPanel", () => {
     search.value = "scanner.sc";
     search.dispatchEvent(new Event("input"));
 
-    expect(panel.querySelectorAll(".wd-row").length).toBe(1);
-    expect(panel.querySelector(".wd-col-method")?.textContent).toBe("scan");
+    expect(rows(panel).length).toBe(1);
+    expect(panel.querySelector(".wd-trow .wd-col-method")?.textContent).toBe("scan");
     expect(panel.querySelector(".wd-summary")?.textContent).toBe("1 of 3 calls");
+  });
+
+  it("shows a no-match empty state when filters hide every call", () => {
+    const panel = createBridgeInspectorPanel(createStore<BridgeRecord[]>([baseCall]), vi.fn());
+    const search = panel.querySelector<HTMLInputElement>(".wd-search")!;
+    search.value = "nothing-matches";
+    search.dispatchEvent(new Event("input"));
+    expect(panel.querySelector(".wd-empty")?.textContent).toBe("No calls match the filters.");
+  });
+
+  it("re-renders live when the store updates, and keeps the inspector on the same call as it resolves", async () => {
+    const store = createStore<BridgeRecord[]>([baseCall]);
+    const panel = createBridgeInspectorPanel(store, vi.fn());
+    rows(panel)[0]!.click();
+    expect(panel.querySelector(".wd-inspector")?.textContent).toContain("Waiting for the native side");
+
+    store.set((records) => [{ ...records[0]!, status: "success", result: { resolved: 42 }, durationMs: 7 }]);
+    await flush();
+
+    expect(panel.querySelector(".wd-inspector")?.textContent).toContain("resolved");
+    expect(panel.querySelector(".wd-trow .wd-duration-text")?.textContent).toBe("7 ms");
+  });
+
+  it("pauses the live view and shows how many calls arrived meanwhile", async () => {
+    const store = createStore<BridgeRecord[]>([baseCall]);
+    const panel = createBridgeInspectorPanel(store, vi.fn());
+    const pause = panel.querySelector<HTMLElement>(".wd-pause-btn")!;
+
+    pause.click();
+    store.set((records) => [...records, { ...baseCall, callId: "2" }, { ...baseCall, callId: "3" }]);
+    await flush();
+    expect(rows(panel).length).toBe(1);
+    expect(pause.textContent).toBe("Resume · 2 new");
+    expect(pause.getAttribute("aria-pressed")).toBe("true");
+
+    pause.click();
+    expect(rows(panel).length).toBe(3);
+  });
+
+  it("calls onClear when the Clear button is clicked", () => {
+    const onClear = vi.fn();
+    const panel = createBridgeInspectorPanel(createStore<BridgeRecord[]>([baseCall]), onClear);
+    (panel.querySelector(".wd-clear-btn") as HTMLElement).click();
+    expect(onClear).toHaveBeenCalledTimes(1);
+  });
+
+  describe("keyboard", () => {
+    function mount(records: BridgeRecord[]) {
+      const panel = createBridgeInspectorPanel(createStore<BridgeRecord[]>(records), vi.fn());
+      document.body.appendChild(panel);
+      return panel;
+    }
+    const three = [
+      { ...baseCall, callId: "1", method: "a" },
+      { ...baseCall, callId: "2", method: "b" },
+      { ...baseCall, callId: "3", method: "c" },
+    ];
+
+    it("keeps exactly one row tabbable", () => {
+      const panel = mount(three);
+      expect(rows(panel).filter((r) => r.tabIndex === 0).length).toBe(1);
+      panel.remove();
+    });
+
+    it("opens and closes the inspector with Enter / Space and keeps the row focused", () => {
+      const panel = mount([{ ...baseCall, status: "success", result: { ok: true } }]);
+      key(rows(panel)[0]!, "Enter");
+      expect(rows(panel)[0]!.getAttribute("aria-selected")).toBe("true");
+      expect(document.activeElement).toBe(rows(panel)[0]);
+
+      key(rows(panel)[0]!, " ");
+      expect(rows(panel)[0]!.getAttribute("aria-selected")).toBe("false");
+      panel.remove();
+    });
+
+    it("moves with the arrow keys, and the open inspector follows the focused row", () => {
+      const panel = mount(three);
+      rows(panel)[0]!.focus();
+      key(rows(panel)[0]!, "Enter");
+      key(document.activeElement as HTMLElement, "ArrowDown");
+
+      expect((document.activeElement as HTMLElement).dataset.key).toBe("2@1000");
+      expect(panel.querySelector(".wd-inspector-title")?.textContent).toBe("haptics.b");
+
+      key(document.activeElement as HTMLElement, "End");
+      expect(panel.querySelector(".wd-inspector-title")?.textContent).toBe("haptics.c");
+      panel.remove();
+    });
+
+    it("closes the inspector with Escape", () => {
+      const panel = mount(three);
+      rows(panel)[1]!.click();
+      key(rows(panel)[1]!, "Escape");
+      expect(panel.querySelector(".wd-inspector-head")).toBeNull();
+      panel.remove();
+    });
+
+    it("keeps focus on the same row when new calls stream in", async () => {
+      const store = createStore<BridgeRecord[]>(three);
+      const panel = createBridgeInspectorPanel(store, vi.fn());
+      document.body.appendChild(panel);
+      rows(panel)[1]!.focus();
+
+      store.set((records) => [...records, { ...baseCall, callId: "4", method: "d" }]);
+      await flush();
+
+      expect((document.activeElement as HTMLElement).dataset.key).toBe("2@1000");
+      panel.remove();
+    });
   });
 });

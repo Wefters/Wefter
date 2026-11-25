@@ -1,5 +1,7 @@
-export function appendRecord<T>(list: T[], item: T): T[] {
-  return [...list, item];
+/** Returns a new list with `item` appended, dropping the oldest entries beyond `cap`. */
+export function appendRecord<T>(list: T[], item: T, cap = Infinity): T[] {
+  const next = [...list, item];
+  return next.length > cap ? next.slice(next.length - cap) : next;
 }
 
 export function mergeRecordById<T, K extends keyof T>(list: T[], key: K, patch: Partial<T> & Pick<T, K>): T[] {

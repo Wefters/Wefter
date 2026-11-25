@@ -1,6 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  chipGroup,
   clearButton,
+  compactPreview,
+  formatDuration,
+  jsonTree,
   copyButton,
   expandChevron,
   formatTime,
@@ -142,5 +146,88 @@ describe("copyButton", () => {
     await Promise.resolve();
     await Promise.resolve();
     expect(btn.textContent).toBe("Copy");
+  });
+});
+
+describe("compactPreview", () => {
+  it("summarises objects one level deep and abbreviates nested containers", () => {
+    expect(compactPreview({ a: 1, s: "x", n: null, nested: { b: 2 }, list: [1, 2] })).toBe(
+      '{a: 1, s: "x", n: null, nested: {…}, list: […2]}',
+    );
+  });
+
+  it("caps long previews with an ellipsis", () => {
+    const text = compactPreview({ text: "x".repeat(500) }, 40);
+    expect(text.length).toBe(40);
+    expect(text.endsWith("…")).toBe(true);
+  });
+});
+
+describe("formatDuration", () => {
+  it("uses ms below a second and seconds above", () => {
+    expect(formatDuration(18)).toBe("18 ms");
+    expect(formatDuration(4820)).toBe("4.82 s");
+    expect(formatDuration(10000)).toBe("10.0 s");
+    expect(formatDuration(undefined)).toBe("");
+  });
+});
+
+describe("jsonTree", () => {
+  it("opens to the requested depth and builds deeper children only when opened", () => {
+    const tree = jsonTree({ a: { b: { c: 1 } } }, { expandDepth: 1 });
+    const root = tree.querySelector<HTMLDetailsElement>("details")!;
+    expect(root.open).toBe(true);
+
+    const child = root.querySelector<HTMLDetailsElement>(".wd-tree-children > details")!;
+    expect(child.open).toBe(false);
+    expect(child.querySelector(".wd-tree-children")?.childElementCount).toBe(0);
+
+    child.open = true;
+    child.dispatchEvent(new Event("toggle"));
+    expect(child.textContent).toContain("c");
+  });
+
+  it("renders primitives as coloured leaves", () => {
+    const tree = jsonTree({ s: "x", n: 2, b: true }, { expandDepth: 1 });
+    expect(tree.querySelector(".wd-json-string")?.textContent).toBe('"x"');
+    expect(tree.querySelector(".wd-json-number")?.textContent).toBe("2");
+    expect(tree.querySelector(".wd-json-literal")?.textContent).toBe("true");
+  });
+});
+
+describe("chipGroup", () => {
+  it("behaves as a radio group: one checked chip, arrow keys move the choice", () => {
+    const onChange = vi.fn();
+    const group = chipGroup(
+      "Level",
+      [
+        { value: "", label: "All" },
+        { value: "warn", label: "Warn" },
+      ],
+      onChange,
+    );
+    document.body.appendChild(group.element);
+    const [all, warn] = group.element.querySelectorAll<HTMLElement>(".wd-chip");
+
+    all!.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
+
+    expect(onChange).toHaveBeenLastCalledWith("warn");
+    expect(warn!.getAttribute("aria-checked")).toBe("true");
+    expect(all!.getAttribute("aria-checked")).toBe("false");
+    expect(document.activeElement).toBe(warn);
+    group.element.remove();
+  });
+
+  it("shows counts and hides zero counts", () => {
+    const group = chipGroup(
+      "Level",
+      [
+        { value: "a", label: "A" },
+        { value: "b", label: "B" },
+      ],
+      vi.fn(),
+    );
+    group.setCounts({ a: 4, b: 0 });
+    expect([...group.element.querySelectorAll(".wd-chip-count")].map((c) => c.textContent)).toEqual(["4", ""]);
   });
 });

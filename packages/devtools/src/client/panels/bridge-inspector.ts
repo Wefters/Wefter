@@ -1,204 +1,241 @@
 import type { Store } from "../store.js";
 import type { BridgeRecord } from "../../shared/events.js";
 import { clear, h } from "../dom.js";
+import { createRecordTable } from "./record-table.js";
 import {
+  chipGroup,
   clearButton,
-  copyButton,
-  expandChevron,
+  compactPreview,
+  durationCell,
+  emptyState,
+  formatDuration,
   formatTime,
+  inspectorSection,
   jsonPreview,
-  jsonView,
+  keyValueList,
+  mutedText,
+  pauseControl,
+  searchField,
   statusAccentClass,
   statusBadge,
+  toolbar,
+  toolbarDivider,
+  toolbarSpacer,
+  valueView,
 } from "./shared.js";
 
-const STATUSES = ["pending", "success", "error", "timeout", "cancelled"];
+const FAILED = new Set(["error", "timeout", "cancelled"]);
 
+/**
+ * Identity of one row. callId alone is not enough: records buffered before a reload (or sent by an
+ * older @wefterjs/core whose ids restart at "0") can share a callId.
+ */
 function recordKey(record: BridgeRecord): string {
   return `${record.callId}@${record.timestamp}`;
 }
 
-function formatDuration(record: BridgeRecord): string {
-  if (record.status === "pending") return "…";
-  return record.durationMs !== undefined ? `${record.durationMs} ms` : "";
+function hasArgs(args: unknown): boolean {
+  if (args === undefined || args === null) return false;
+  if (typeof args === "object") return Object.keys(args).length > 0;
+  return true;
 }
 
-function detailSection(
-  label: string,
-  value: unknown,
-  options: { tone?: "error"; emptyText?: string } = {},
-): HTMLElement {
-  const hasValue = value !== undefined;
+function callName(record: BridgeRecord, className = "wd-bridge-call"): HTMLElement {
   return h(
-    "section",
-    { class: `wd-bridge-section${options.tone ? ` wd-bridge-section-${options.tone}` : ""}` },
-    h(
-      "div",
-      { class: "wd-detail-header" },
-      h("span", { class: "wd-detail-label" }, label),
-      hasValue ? copyButton(() => jsonPreview(value)) : null,
-    ),
-    hasValue ? jsonView(value) : h("div", { class: "wd-bridge-empty-value" }, options.emptyText ?? "—"),
+    "span",
+    { class: className },
+    h("span", { class: "wd-col-plugin" }, record.plugin),
+    h("span", { class: "wd-bridge-sep" }, "."),
+    h("span", { class: "wd-col-method" }, record.method),
   );
+}
+
+function inspectRecord(record: BridgeRecord) {
+  const body: Node[] = [];
+  const { nativeStack, ...errorWithoutStack } = record.error ?? {};
+
+  if (record.error) {
+    body.push(
+      h(
+        "div",
+        { class: "wd-callout wd-callout-error", role: "status" },
+        h("div", { class: "wd-callout-code" }, record.error.code),
+        h("div", { class: "wd-callout-message" }, record.error.message),
+      ),
+    );
+  }
+
+  body.push(
+    inspectorSection(
+      "Overview",
+      keyValueList([
+        ["Plugin", h("code", null, record.plugin)],
+        ["Method", h("code", null, record.method)],
+        ["Status", statusBadge(record.status)],
+        ["Started", formatTime(record.timestamp)],
+        ["Duration", record.status === "pending" ? "Waiting for native…" : formatDuration(record.durationMs) || "—"],
+        ["Call ID", h("code", null, record.callId)],
+      ]),
+    ),
+    inspectorSection("Arguments", hasArgs(record.args) ? valueView(record.args) : mutedText("No arguments"), {
+      copy: hasArgs(record.args) ? () => jsonPreview(record.args) : undefined,
+      className: "wd-bridge-section",
+    }),
+  );
+
+  if (record.status === "pending") {
+    body.push(
+      inspectorSection("Result", mutedText("Waiting for the native side to respond…"), {
+        className: "wd-bridge-section",
+      }),
+    );
+  } else if (record.error) {
+    body.push(
+      inspectorSection("Error", valueView(errorWithoutStack), {
+        tone: "error",
+        copy: () => jsonPreview(errorWithoutStack),
+        className: "wd-bridge-section wd-bridge-section-error",
+      }),
+    );
+  } else {
+    body.push(
+      inspectorSection(
+        "Result",
+        record.result === undefined ? mutedText("No value returned") : valueView(record.result),
+        {
+          copy: record.result === undefined ? undefined : () => jsonPreview(record.result),
+          className: "wd-bridge-section",
+        },
+      ),
+    );
+  }
+
+  if (nativeStack) {
+    body.push(
+      inspectorSection("Native stack trace", h("pre", { class: "wd-pre wd-stack" }, nativeStack), {
+        copy: () => nativeStack,
+        className: "wd-native-stack",
+      }),
+    );
+  }
+
+  return { title: callName(record), meta: statusBadge(record.status), body };
 }
 
 export function createBridgeInspectorPanel(store: Store<BridgeRecord[]>, onClear: () => void): HTMLElement {
   let pluginFilter = "";
   let statusFilter = "";
   let search = "";
-  let focusKeyAfterRender: string | null = null;
-  const expanded = new Set<string>();
+  let snapshot: BridgeRecord[] | null = null;
 
-  const searchInput = h("input", {
-    type: "search",
-    class: "wd-search",
-    placeholder: "Filter calls (plugin.method)…",
-    "aria-label": "Filter bridge calls",
-    oninput: (e) => {
-      search = (e.target as HTMLInputElement).value.trim().toLowerCase();
-      render();
-    },
+  const pause = pauseControl((paused) => {
+    snapshot = paused ? store.get() : null;
+    render();
   });
   const pluginSelect = h("select", {
+    class: "wd-select",
     "aria-label": "Filter by plugin",
     onchange: (e) => {
       pluginFilter = (e.target as HTMLSelectElement).value;
       render();
     },
   });
-  const statusSelect = h(
-    "select",
-    {
-      "aria-label": "Filter by status",
-      onchange: (e) => {
-        statusFilter = (e.target as HTMLSelectElement).value;
-        render();
-      },
+  const statusChips = chipGroup(
+    "Filter by status",
+    [
+      { value: "", label: "All" },
+      { value: "success", label: "Success" },
+      { value: "failed", label: "Failed", tone: "error" },
+      { value: "pending", label: "Pending" },
+    ],
+    (value) => {
+      statusFilter = value;
+      render();
     },
-    h("option", { value: "" }, "All statuses"),
-    ...STATUSES.map((s) => h("option", { value: s }, s)),
   );
   const summaryEl = h("span", { class: "wd-summary", "aria-live": "polite" });
 
-  const listEl = h("div", { class: "wd-list" });
+  const table = createRecordTable<BridgeRecord>({
+    ariaLabel: "Bridge calls",
+    columns: [
+      { label: "Status" },
+      { label: "Call" },
+      { label: "Arguments" },
+      { label: "Duration", className: "wd-th-end" },
+      { label: "Time", className: "wd-th-end" },
+    ],
+    gridTemplate: "84px minmax(150px, 1.1fr) minmax(0, 1.6fr) 128px 96px",
+    keyOf: recordKey,
+    // A cancelled call (the user backed out) is not shown as a failure.
+    rowClass: (r) => (r.status === "cancelled" ? "" : statusAccentClass(r.status)),
+    durationOf: (r) => r.durationMs,
+    cells: (record, { maxDurationMs }) => [
+      h("span", { class: "wd-cell" }, statusBadge(record.status)),
+      callName(record, "wd-cell wd-bridge-call"),
+      h("span", { class: "wd-cell wd-cell-args" }, hasArgs(record.args) ? compactPreview(record.args) : "—"),
+      durationCell(record.durationMs, record.status === "pending", maxDurationMs),
+      h("span", { class: "wd-cell wd-cell-time" }, formatTime(record.timestamp)),
+    ],
+    inspect: inspectRecord,
+    emptyState: () =>
+      (snapshot ?? store.get()).length === 0
+        ? emptyState("No bridge calls yet.", "Calls from your app to native plugins show up here live.", "bridge")
+        : emptyState("No calls match the filters.", "Clear the search or pick another plugin or status.", "search"),
+  });
+
   const root = h(
     "div",
     { class: "wd-panel-content" },
-    h("div", { class: "wd-toolbar" }, searchInput, pluginSelect, statusSelect, summaryEl, clearButton(onClear)),
-    listEl,
+    toolbar(
+      pause.element,
+      clearButton(onClear),
+      toolbarDivider(),
+      searchField("Filter by plugin or method…", (value) => {
+        search = value;
+        render();
+      }),
+      pluginSelect,
+      statusChips.element,
+      toolbarSpacer(),
+      summaryEl,
+    ),
+    table.element,
   );
 
   function renderPluginOptions(records: BridgeRecord[]): void {
     const plugins = [...new Set(records.map((r) => r.plugin))].sort();
-    const current = pluginSelect.value;
     clear(pluginSelect);
     pluginSelect.appendChild(h("option", { value: "" }, "All plugins"));
     for (const plugin of plugins) pluginSelect.appendChild(h("option", { value: plugin }, plugin));
-    pluginSelect.value = plugins.includes(current) ? current : "";
+    if (!plugins.includes(pluginFilter)) pluginFilter = "";
+    pluginSelect.value = pluginFilter;
   }
 
-  function toggle(key: string, refocus: boolean): void {
-    if (expanded.has(key)) expanded.delete(key);
-    else expanded.add(key);
-    focusKeyAfterRender = refocus ? key : null;
-    render();
-  }
-
-  function renderRow(record: BridgeRecord): HTMLElement {
-    const key = recordKey(record);
-    const isOpen = expanded.has(key);
-
-    const row = h(
-      "div",
-      {
-        class: "wd-row wd-bridge-row",
-        role: "button",
-        tabindex: "0",
-        "aria-expanded": String(isOpen),
-        "data-key": key,
-        onclick: () => toggle(key, false),
-        onkeydown: (e) => {
-          const { key: pressed } = e as KeyboardEvent;
-          if (pressed === "Enter" || pressed === " ") {
-            e.preventDefault();
-            toggle(key, true);
-          }
-        },
-      },
-      expandChevron(isOpen),
-      statusBadge(record.status),
-      h(
-        "span",
-        { class: "wd-bridge-call" },
-        h("span", { class: "wd-col-plugin" }, record.plugin),
-        h("span", { class: "wd-bridge-sep" }, "."),
-        h("span", { class: "wd-col-method" }, record.method),
-      ),
-      h("span", { class: "wd-bridge-duration" }, formatDuration(record)),
-      h("span", { class: "wd-bridge-time" }, formatTime(record.timestamp)),
-    );
-
-    const wrapper = h(
-      "div",
-      { class: `wd-row-group ${statusAccentClass(record.status)}${isOpen ? " open" : ""}` },
-      row,
-    );
-    if (!isOpen) return wrapper;
-
-    const nativeStack = record.error?.nativeStack;
-    const { nativeStack: _omit, ...errorWithoutStack } = record.error ?? {};
-
-    let outcome: HTMLElement;
-    if (record.status === "pending") {
-      outcome = detailSection("Result", undefined, { emptyText: "Waiting for the native side to respond…" });
-    } else if (record.error) {
-      outcome = detailSection("Error", errorWithoutStack, { tone: "error" });
-    } else {
-      outcome = detailSection("Result", record.result, { emptyText: "No value returned" });
-    }
-
-    wrapper.appendChild(
-      h(
-        "div",
-        { class: "wd-detail wd-bridge-detail" },
-        h(
-          "div",
-          { class: "wd-bridge-sections" },
-          detailSection("Arguments", record.args, { emptyText: "None" }),
-          outcome,
-        ),
-        h("div", { class: "wd-bridge-meta" }, `call id ${record.callId}`),
-      ),
-    );
-    if (nativeStack) {
-      wrapper.appendChild(
-        h(
-          "div",
-          { class: "wd-detail wd-native-stack" },
-          h(
-            "div",
-            { class: "wd-detail-header" },
-            h("span", { class: "wd-detail-label" }, "Native stack trace"),
-            copyButton(() => nativeStack),
-          ),
-          nativeStack,
-        ),
-      );
-    }
-    return wrapper;
+  function matchesStatus(record: BridgeRecord): boolean {
+    if (!statusFilter) return true;
+    if (statusFilter === "failed") return FAILED.has(record.status);
+    return record.status === statusFilter;
   }
 
   function render(): void {
-    const records = store.get();
+    const live = store.get();
+    const records = snapshot ?? live;
+    pause.setPending(snapshot ? Math.max(0, live.length - snapshot.length) : 0);
     renderPluginOptions(records);
-    const filtered = records.filter(
+
+    const scoped = records.filter(
       (r) =>
         (!pluginFilter || r.plugin === pluginFilter) &&
-        (!statusFilter || r.status === statusFilter) &&
         (!search || `${r.plugin}.${r.method}`.toLowerCase().includes(search)),
     );
+    statusChips.setCounts({
+      success: scoped.filter((r) => r.status === "success").length,
+      failed: scoped.filter((r) => FAILED.has(r.status)).length,
+      pending: scoped.filter((r) => r.status === "pending").length,
+    });
+    const filtered = scoped.filter(matchesStatus);
 
-    const failed = filtered.filter((r) => r.status !== "success" && r.status !== "pending").length;
+    const failed = filtered.filter((r) => FAILED.has(r.status)).length;
     const pendingCount = filtered.filter((r) => r.status === "pending").length;
     const total = filtered.length === records.length ? `${records.length}` : `${filtered.length} of ${records.length}`;
     summaryEl.textContent =
@@ -206,34 +243,7 @@ export function createBridgeInspectorPanel(store: Store<BridgeRecord[]>, onClear
       (failed ? ` · ${failed} failed` : "") +
       (pendingCount ? ` · ${pendingCount} pending` : "");
 
-    clear(listEl);
-    if (filtered.length === 0) {
-      listEl.appendChild(
-        h("div", { class: "wd-empty" }, records.length === 0 ? "No bridge calls yet." : "No calls match the filters."),
-      );
-      return;
-    }
-
-    listEl.appendChild(
-      h(
-        "div",
-        { class: "wd-bridge-head", "aria-hidden": "true" },
-        h("span", null),
-        h("span", null, "Status"),
-        h("span", null, "Call"),
-        h("span", { class: "wd-bridge-duration" }, "Duration"),
-        h("span", { class: "wd-bridge-time" }, "Time"),
-      ),
-    );
-    for (const record of filtered.slice().reverse()) listEl.appendChild(renderRow(record));
-
-    if (focusKeyAfterRender) {
-      const target = [...listEl.querySelectorAll<HTMLElement>(".wd-bridge-row")].find(
-        (el) => el.dataset.key === focusKeyAfterRender,
-      );
-      target?.focus();
-      focusKeyAfterRender = null;
-    }
+    table.setRecords(filtered);
   }
 
   store.subscribe(render);

@@ -23,7 +23,7 @@
 
 ---
 
-`@wefterjs/devtools` is a Vite plugin that connects your running mobile application to an inspection environment. It captures bridge invocations, native event dispatches, network traffic, and console output, displaying them in both an on-device drawer and a dedicated desktop browser dashboard.
+`@wefterjs/devtools` is a Vite plugin that connects your running mobile application to an inspection environment. It captures bridge invocations, native event dispatches, network traffic, and console output, displaying them in a desktop browser dashboard.
 
 ## Installation
 
@@ -43,10 +43,7 @@ import vue from "@vitejs/plugin-vue";
 import { wefterDevtools } from "@wefterjs/devtools";
 
 export default defineConfig({
-  plugins: [
-    vue(),
-    wefterDevtools(),
-  ],
+  plugins: [vue(), wefterDevtools()],
 });
 ```
 
@@ -58,28 +55,51 @@ When the Vite development server starts:
 
 1. **Client agent injection**: The plugin hooks `transformIndexHtml` to inject a lightweight client agent module into the application `<head>`.
 2. **Bridge instrumentation**: Inside the running app, `@wefterjs/core` detects the devtools agent and routes bridge telemetry (payloads, response times, errors) to the local Vite server over WebSockets.
-3. **Console and network monitoring**: Standard `console.log`, `console.error`, and `fetch` calls are captured and forwarded to the devtools state store.
-4. **On-device overlay**: A collapsible diagnostic panel appears directly in the web view on the device or simulator, letting developers inspect local state without connecting a desktop debugger.
-5. **Desktop dashboard**: A full screen web dashboard is served directly from the Vite dev server at `/__wefter/dashboard`.
+3. **Console and network monitoring**: `console.*` calls, uncaught errors, `fetch` and `XMLHttpRequest` traffic are captured and forwarded to the dev server, which keeps a bounded history (500 bridge calls, 1000 console entries, 500 requests).
+4. **Desktop dashboard**: The dashboard at `/__wefter-devtools` replays that history on open and then streams new events live. `wefter run` prints its URL when the dev server starts.
+
+## The dashboard
+
+| Panel       | What it shows                                                                                                                                                                                                                                                                      |
+| ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Bridge**  | Every `invokeNative` call, oldest first: status, `plugin.method`, an inline preview of the arguments, duration with a waterfall bar, and start time. Select a call to open the inspector with its arguments, result or error, and the native stack trace when the shell sends one. |
+| **Console** | App console output and uncaught exceptions. Filter by level, repeated lines collapse into one row with a count, objects expand as trees, and rows with a stack trace expand inline.                                                                                                |
+| **Network** | `fetch` and XHR requests, with request headers and a parsed response preview in the inspector.                                                                                                                                                                                     |
+| **Plugins** | The plugins in `wefter.config.json`: methods, hooks, events, declared permissions, which platforms have native source, and how often each was called this session.                                                                                                                 |
+| **Clients** | The app instances connected to this dev server.                                                                                                                                                                                                                                    |
+
+The Bridge, Console and Network panels can be paused: the view freezes, events keep arriving, and the Resume button shows how many came in meanwhile. The count next to each tab shows failed calls, console errors (or warnings) and failed requests.
+
+Keyboard shortcuts:
+
+| Key                   | Action                                                 |
+| --------------------- | ------------------------------------------------------ |
+| `/` or `Ctrl`/`⌘` `K` | Focus the current panel's filter (`Esc` clears it)     |
+| `1`–`5`               | Switch panel                                           |
+| `↑` `↓` `Home` `End`  | Move between rows; the inspector follows the selection |
+| `Enter` / `Space`     | Open or close the inspector for the focused row        |
+| `Esc`                 | Close the inspector                                    |
+
+The dashboard follows the system light or dark setting; the button in the top bar switches it and remembers the choice.
 
 ## Dashboard and routes
 
 The devtools server adds internal middleware routes to your Vite server:
 
-| Route | Description |
-| --- | --- |
-| `/__wefter/dashboard` | Standalone browser user interface displaying connected device presence, real-time bridge invocation logs, console history, and network request timings. |
-| `/__wefter/api/plugins` | JSON endpoint returning metadata for all plugins declared in `wefter.config.json`, including exported methods, supported hooks, and required permissions. |
+| Route                            | Description                                                                                                                                               |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/__wefter-devtools`             | The dashboard described above.                                                                                                                            |
+| `/__wefter-devtools/api/plugins` | JSON endpoint returning metadata for all plugins declared in `wefter.config.json`, including exported methods, supported hooks, and required permissions. |
 
 ## WebSocket messages
 
-The server and client communicate over Vite's internal WebSocket channel using typed event prefixes:
+The app, the dev server and the dashboard talk over Vite's HMR WebSocket using these events (see `src/shared/events.ts`):
 
-- `wefter:devtools:bridge`: Emitted when `invokeNative` is called or returns, containing method name, payload, execution time, and error details.
-- `wefter:devtools:console`: Emitted on captured console activity.
-- `wefter:devtools:network`: Emitted on captured network requests and responses.
-- `wefter:devtools:presence`: Signals device connection or disconnection.
-- `wefter:devtools:reload`: Triggers an application reload on connected devices.
+- `wefter:bridge_call` / `wefter:bridge_response`: an `invokeNative` call and its result, error and duration.
+- `wefter:console`: captured console output and uncaught errors.
+- `wefter:network_request` / `wefter:network_response`: captured requests and their responses.
+- `wefter:client_hello` / `wefter:client_list`: app presence.
+- `wefter:reload`: reloads every connected app (sent by the dashboard's Reload app button).
 
 ## Development
 
@@ -91,4 +111,3 @@ pnpm test    # runs unit tests with Vitest and JSDOM
 ## License
 
 [MIT](../../LICENSE) © 2026 Sandip Ghimire
-
