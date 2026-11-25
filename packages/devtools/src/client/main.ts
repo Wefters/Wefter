@@ -15,7 +15,6 @@ import { createStore, type Store } from "./store.js";
 import { appendRecord, mergeRecordById } from "./records.js";
 import { mountShell, type PanelBadge, type StatusItem } from "./shell.js";
 import { createBridgeInspectorPanel } from "./panels/bridge-inspector.js";
-import { createClientsPanel } from "./panels/clients.js";
 import { createConsolePanel } from "./panels/console.js";
 import { createNetworkPanel } from "./panels/network.js";
 import { createPluginsPanel } from "./panels/plugins.js";
@@ -129,7 +128,6 @@ export function mountDevtoolsApp(app: HTMLElement, hot: MinimalHotContext): void
     const failed = records.filter(isFailedRequest).length;
     return failed ? { count: failed, tone: "error" } : { count: records.length };
   });
-  const clientsBadge = derive<ClientHelloEvent[], PanelBadge>(presenceStore, (clients) => ({ count: clients.length }));
 
   const stats = createStore<StatusItem[]>([]);
   const refreshStats = () =>
@@ -178,12 +176,6 @@ export function mountDevtoolsApp(app: HTMLElement, hot: MinimalHotContext): void
         element: createNetworkPanel(networkStore, () => clearChannel("network")),
       },
       { id: "plugins", label: "Plugins", element: createPluginsPanel(bridgeStore) },
-      {
-        id: "clients",
-        label: "Clients",
-        badge: clientsBadge,
-        element: createClientsPanel(presenceStore),
-      },
     ],
     presenceStore,
     reloadDevice,

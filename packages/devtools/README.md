@@ -66,7 +66,6 @@ When the Vite development server starts:
 | **Console** | App console output and uncaught exceptions. Filter by level, repeated lines collapse into one row with a count, objects expand as trees, and rows with a stack trace expand inline.                                                                                                |
 | **Network** | `fetch` and XHR requests, with request headers and a parsed response preview in the inspector.                                                                                                                                                                                     |
 | **Plugins** | The plugins in `wefter.config.json`: methods, hooks, events, declared permissions, which platforms have native source, and how often each was called this session.                                                                                                                 |
-| **Clients** | The app instances connected to this dev server.                                                                                                                                                                                                                                    |
 
 The Bridge, Console and Network panels can be paused: the view freezes, events keep arriving, and the Resume button shows how many came in meanwhile. The count next to each tab shows failed calls, console errors (or warnings) and failed requests.
 
@@ -75,7 +74,7 @@ Keyboard shortcuts:
 | Key                   | Action                                                 |
 | --------------------- | ------------------------------------------------------ |
 | `/` or `Ctrl`/`⌘` `K` | Focus the current panel's filter (`Esc` clears it)     |
-| `1`–`5`               | Switch panel                                           |
+| `1`–`4`               | Switch panel                                           |
 | `↑` `↓` `Home` `End`  | Move between rows; the inspector follows the selection |
 | `Enter` / `Space`     | Open or close the inspector for the focused row        |
 | `Esc`                 | Close the inspector                                    |

@@ -23,13 +23,13 @@ function createFakeHot() {
 const emptyReplay: ReplayPayload = { bridge: [], console: [], network: [], presence: [] };
 
 describe("mountDevtoolsApp", () => {
-  it("mounts the shell with all 5 tabs", () => {
+  it("mounts the shell with all 4 tabs", () => {
     const app = document.createElement("div");
     const { hot } = createFakeHot();
     mountDevtoolsApp(app, hot);
 
     const tabLabels = [...app.querySelectorAll(".wd-tab-label")].map((t) => t.textContent);
-    expect(tabLabels).toEqual(["Bridge", "Console", "Network", "Plugins", "Clients"]);
+    expect(tabLabels).toEqual(["Bridge", "Console", "Network", "Plugins"]);
   });
 
   it("requests a replay immediately on mount", () => {

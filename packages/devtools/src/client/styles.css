@@ -1265,39 +1265,6 @@ button {
   font-size: 11.5px;
 }
 
-/* ── Clients ────────────────────────────────────────────────────────────── */
-
-.wd-clients-table {
-  --cols: 150px minmax(0, 1fr) 110px;
-}
-
-.wd-client-id-cell {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.wd-client-id {
-  color: var(--text-2);
-}
-
-.wd-client-url {
-  font-family: var(--font-mono);
-}
-
-.wd-state-note {
-  margin: 0;
-  padding: 10px 16px;
-  border-top: 1px solid var(--line);
-  background: var(--chrome);
-  color: var(--text-3);
-}
-
-.wd-state-note strong {
-  color: var(--text-2);
-  font-weight: 600;
-}
-
 /* ── Status bar ─────────────────────────────────────────────────────────── */
 
 .wd-statusbar {
