@@ -8,13 +8,6 @@ final class ViewController: UIViewController {
     private static let maxRenderProcessRetries = 3
 
     private static let splashFadeTransitionSeconds: TimeInterval = 0.2
-    // Generous on purpose: the *first* dev-server load after a fresh process start can be
-    // waiting on Vite's cold dependency-optimization pass (can easily run past 8s over WiFi with
-    // several plugins), not just a dead connection. Firing early here aborts an
-    // in-flight-but-fine load and falls back to blank, which — since retrying can hit that same
-    // cold-start cost again — was turning into a loop that never let the page finish. This still
-    // catches genuinely dead connections far sooner than the multi-minute OS-level TCP hang it
-    // replaces.
     private static let devServerLoadTimeoutSeconds: TimeInterval = 25
     private static let devServerRetryIntervalSeconds: TimeInterval = 3
 
@@ -104,6 +97,14 @@ final class ViewController: UIViewController {
         loadInitialContent(preferDevServer: true)
     }
 
+    private static func pinPageToScreen(_ webView: WKWebView) {
+        let scrollView = webView.scrollView
+        scrollView.contentInsetAdjustmentBehavior = .never
+        scrollView.bounces = false
+        scrollView.alwaysBounceVertical = false
+        scrollView.alwaysBounceHorizontal = false
+    }
+
     private func installFullBleed(_ subview: UIView, at index: Int) {
         subview.translatesAutoresizingMaskIntoConstraints = false
         view.insertSubview(subview, at: index)
@@ -136,6 +137,7 @@ final class ViewController: UIViewController {
 
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = self
+        Self.pinPageToScreen(webView)
 
         let newDispatcher = BridgeDispatcher(webView: webView)
         dispatcher = newDispatcher
@@ -158,6 +160,7 @@ final class ViewController: UIViewController {
     private func setupSplash() {
         let config = makeSchemeAwareConfiguration()
         let splash = WKWebView(frame: .zero, configuration: config)
+        Self.pinPageToScreen(splash)
 
         installFullBleed(splash, at: 1)
         splash.load(URLRequest(url: Self.splashURL))
