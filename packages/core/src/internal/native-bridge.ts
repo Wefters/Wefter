@@ -3,9 +3,31 @@ import { tapBridgeCall, tapBridgeSettle, statusFromError } from "./devtools/brid
 
 type PendingCall = { resolve: (v: unknown) => void; reject: (r: unknown) => void };
 
-const pending = new Map<string, PendingCall>();
-const hooks = new Map<string, Set<(data: unknown) => void>>();
-let callCounter = 0;
+interface BridgeState {
+  pending: Map<string, PendingCall>;
+  hooks: Map<string, Set<(data: unknown) => void>>;
+  nextCallId: number;
+  sessionId: string;
+}
+
+const BRIDGE_STATE_KEY = Symbol.for("wefter.bridge.state.v1");
+
+function getBridgeState(): BridgeState {
+  const holder = globalThis as unknown as Record<symbol, BridgeState | undefined>;
+  return (holder[BRIDGE_STATE_KEY] ??= {
+    pending: new Map(),
+    hooks: new Map(),
+    nextCallId: 0,
+    sessionId: Math.random().toString(36).slice(2, 8) || "s",
+  });
+}
+
+const { pending, hooks } = getBridgeState();
+
+function nextCallId(): string {
+  const state = getBridgeState();
+  return `${state.sessionId}-${state.nextCallId++}`;
+}
 
 const DEFAULT_TIMEOUT_MS = 10000;
 
@@ -85,7 +107,7 @@ export function invokeNative<T = unknown>(
   payload: unknown = {},
   options?: { signal?: AbortSignal; timeoutMs?: number },
 ): Promise<T> {
-  const callId = String(callCounter++);
+  const callId = nextCallId();
   const signal = options?.signal;
   const timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 

@@ -137,6 +137,7 @@ body {
 
 .wd-toolbar {
   display: flex;
+  align-items: center;
   gap: 8px;
   padding: 6px 10px;
   border-bottom: 1px solid var(--border);
@@ -233,6 +234,8 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex: 1;
+  min-width: 0;
 }
 
 .wd-chevron {
@@ -257,6 +260,9 @@ body {
 .wd-col-method {
   min-width: 160px;
   color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .wd-col-plugin {
@@ -267,6 +273,8 @@ body {
 .wd-col-dim {
   color: var(--text-dim);
   margin-left: auto;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
 }
 
 .wd-badge {
@@ -368,4 +376,156 @@ body {
   font-size: 12px;
   font-family: var(--font-mono);
   padding: 2px 0;
+}
+
+/* ---------- focus ---------- */
+
+.wd-row:focus-visible,
+.wd-toolbar input:focus-visible,
+.wd-toolbar select:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+.wd-search {
+  min-width: 220px;
+}
+
+.wd-summary {
+  color: var(--text-dim);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ---------- bridge inspector ---------- */
+
+.wd-bridge-head,
+.wd-bridge-row {
+  display: grid;
+  grid-template-columns: 10px 92px minmax(0, 1fr) 72px 104px;
+  align-items: center;
+  column-gap: 12px;
+}
+
+.wd-bridge-head {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: 6px 10px 6px 13px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.wd-bridge-row .wd-badge {
+  justify-self: start;
+}
+
+.wd-bridge-call {
+  display: flex;
+  align-items: baseline;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.wd-bridge-call .wd-col-plugin,
+.wd-bridge-call .wd-col-method {
+  min-width: 0;
+}
+
+.wd-bridge-call .wd-col-plugin {
+  flex-shrink: 0;
+}
+
+.wd-bridge-call .wd-col-method {
+  font-weight: 600;
+}
+
+.wd-bridge-sep {
+  color: var(--text-dim);
+}
+
+.wd-bridge-duration,
+.wd-bridge-time {
+  text-align: right;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.wd-row-group.open > .wd-row {
+  background: var(--bg-hover);
+}
+
+.wd-bridge-detail {
+  white-space: normal;
+  word-break: normal;
+  padding: 12px 12px 10px 13px;
+}
+
+.wd-bridge-sections {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 10px;
+}
+
+.wd-bridge-section {
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  padding: 8px 10px;
+}
+
+.wd-bridge-section-error {
+  border-color: color-mix(in srgb, var(--error) 45%, var(--border));
+  background: color-mix(in srgb, var(--error) 6%, var(--bg));
+}
+
+.wd-bridge-section-error .wd-detail-label {
+  color: var(--error);
+}
+
+.wd-bridge-empty-value {
+  color: var(--text-dim);
+  font-style: italic;
+}
+
+.wd-bridge-meta {
+  margin-top: 8px;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.wd-json {
+  margin: 0;
+  max-height: 320px;
+  overflow: auto;
+  white-space: pre;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.wd-json-key {
+  color: #9cc4ff;
+}
+
+.wd-json-string {
+  color: #a5d6a7;
+}
+
+.wd-json-number {
+  color: #f0b77a;
+}
+
+.wd-json-literal {
+  color: #d7a6f5;
 }

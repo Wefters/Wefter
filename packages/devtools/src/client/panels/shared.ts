@@ -64,3 +64,29 @@ export function statusAccentClass(status: string): string {
   if (status === "pending") return "wd-row-accent-pending";
   return "wd-row-accent-error";
 }
+
+const JSON_TOKEN = /("(?:\\.|[^"\\])*")(\s*:)?|\b(true|false|null)\b|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g;
+
+export function jsonView(value: unknown): HTMLElement {
+  const text = jsonPreview(value);
+  const pre = h("pre", { class: "wd-json" });
+  let last = 0;
+  for (const match of text.matchAll(JSON_TOKEN)) {
+    const index = match.index ?? 0;
+    if (index > last) pre.appendChild(document.createTextNode(text.slice(last, index)));
+    const [whole, str, colon, literal, num] = match;
+    if (str !== undefined) {
+      pre.appendChild(h("span", { class: colon ? "wd-json-key" : "wd-json-string" }, str));
+      if (colon) pre.appendChild(document.createTextNode(colon));
+    } else if (literal !== undefined) {
+      pre.appendChild(h("span", { class: "wd-json-literal" }, literal));
+    } else if (num !== undefined) {
+      pre.appendChild(h("span", { class: "wd-json-number" }, num));
+    } else {
+      pre.appendChild(document.createTextNode(whole));
+    }
+    last = index + whole.length;
+  }
+  if (last < text.length) pre.appendChild(document.createTextNode(text.slice(last)));
+  return pre;
+}

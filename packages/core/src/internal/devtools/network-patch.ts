@@ -1,9 +1,11 @@
 import { emitDevtoolsEvent } from "./emit.js";
 import { truncate } from "./serialize.js";
+import { claimOnce } from "./claim-once.js";
 
 const BODY_PREVIEW_CAP = 2048;
 
 let counter = 0;
+const sessionPrefix = Math.random().toString(36).slice(2, 8) || "s";
 let fetchInstalled = false;
 let xhrInstalled = false;
 
@@ -23,7 +25,7 @@ export function installFetchPatch(): void {
   window.fetch = (async (...args: Parameters<typeof fetch>) => {
     const [input, init] = args;
     const request = input instanceof Request ? input : undefined;
-    const requestId = String(counter++);
+    const requestId = `${sessionPrefix}-${counter++}`;
     const url = request ? request.url : input.toString();
     const method = init?.method ?? request?.method ?? "GET";
     const headers = headersToRecord(new Headers(init?.headers ?? request?.headers));
@@ -90,7 +92,13 @@ export function installXhrPatch(): void {
   const originalSetRequestHeader = proto.setRequestHeader;
 
   proto.open = function (this: XMLHttpRequest, method: string, url: string | URL, ...rest: unknown[]) {
-    xhrMeta.set(this, { requestId: String(counter++), method, url: url.toString(), headers: {}, startedAt: 0 });
+    xhrMeta.set(this, {
+      requestId: `${sessionPrefix}-${counter++}`,
+      method,
+      url: url.toString(),
+      headers: {},
+      startedAt: 0,
+    });
     return originalOpen.apply(this, [method, url, ...rest] as unknown as Parameters<typeof originalOpen>);
   } as typeof proto.open;
 
@@ -136,7 +144,7 @@ export function installXhrPatch(): void {
   } as typeof proto.send;
 }
 
-if (typeof window !== "undefined" && import.meta.hot) {
+if (typeof window !== "undefined" && import.meta.hot && claimOnce("network")) {
   installFetchPatch();
   installXhrPatch();
 }

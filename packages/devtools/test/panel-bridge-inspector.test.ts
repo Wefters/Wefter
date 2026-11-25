@@ -142,4 +142,79 @@ describe("createBridgeInspectorPanel", () => {
     (panel.querySelector(".wd-clear-btn") as HTMLElement).click();
     expect(onClear).toHaveBeenCalledTimes(1);
   });
+
+  it("expands only the clicked row, even when two records share a callId (e.g. across a reload)", () => {
+    const store = createStore<BridgeRecord[]>([
+      { ...baseCall, callId: "0", method: "isDebug", timestamp: 1000, status: "success", result: { debug: true } },
+      { ...baseCall, callId: "0", method: "scan", timestamp: 2000, status: "success", result: { started: true } },
+    ]);
+    const panel = createBridgeInspectorPanel(store, vi.fn());
+
+    const rows = panel.querySelectorAll<HTMLElement>(".wd-row");
+    rows[0]!.click();
+
+    expect(panel.querySelectorAll(".wd-detail").length).toBe(1);
+    expect(panel.querySelector(".wd-detail")?.textContent).toContain("started");
+    expect(panel.querySelectorAll('.wd-row[aria-expanded="true"]').length).toBe(1);
+  });
+
+  it("toggles a row from the keyboard (Enter / Space) and keeps it focused", () => {
+    const store = createStore<BridgeRecord[]>([{ ...baseCall, status: "success", result: { ok: true } }]);
+    const panel = createBridgeInspectorPanel(store, vi.fn());
+    document.body.appendChild(panel);
+
+    const row = panel.querySelector<HTMLElement>(".wd-row")!;
+    row.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    const reRendered = panel.querySelector<HTMLElement>(".wd-row")!;
+    expect(reRendered.getAttribute("aria-expanded")).toBe("true");
+    expect(document.activeElement).toBe(reRendered);
+
+    reRendered.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
+    expect(panel.querySelector(".wd-row")?.getAttribute("aria-expanded")).toBe("false");
+    panel.remove();
+  });
+
+  it("shows Arguments and Result as separate sections, and Error instead of Result on failure", () => {
+    const ok = createBridgeInspectorPanel(
+      createStore<BridgeRecord[]>([{ ...baseCall, status: "success", result: { ok: true } }]),
+      vi.fn(),
+    );
+    (ok.querySelector(".wd-row") as HTMLElement).click();
+    expect([...ok.querySelectorAll(".wd-bridge-section .wd-detail-label")].map((e) => e.textContent)).toEqual([
+      "Arguments",
+      "Result",
+    ]);
+
+    const failed = createBridgeInspectorPanel(
+      createStore<BridgeRecord[]>([{ ...baseCall, status: "error", error: { code: "E", message: "boom" } }]),
+      vi.fn(),
+    );
+    (failed.querySelector(".wd-row") as HTMLElement).click();
+    expect(failed.querySelector(".wd-bridge-section-error")?.textContent).toContain("boom");
+  });
+
+  it("filters by text across plugin.method and summarises the visible calls", () => {
+    const store = createStore<BridgeRecord[]>([
+      { ...baseCall, callId: "1", plugin: "scanner", method: "scan", status: "success" },
+      {
+        ...baseCall,
+        callId: "2",
+        plugin: "device",
+        method: "getInfo",
+        status: "error",
+        error: { code: "E", message: "x" },
+      },
+      { ...baseCall, callId: "3", plugin: "__system", method: "isDebug", status: "pending" },
+    ]);
+    const panel = createBridgeInspectorPanel(store, vi.fn());
+    expect(panel.querySelector(".wd-summary")?.textContent).toBe("3 calls · 1 failed · 1 pending");
+
+    const search = panel.querySelector<HTMLInputElement>(".wd-search")!;
+    search.value = "scanner.sc";
+    search.dispatchEvent(new Event("input"));
+
+    expect(panel.querySelectorAll(".wd-row").length).toBe(1);
+    expect(panel.querySelector(".wd-col-method")?.textContent).toBe("scan");
+    expect(panel.querySelector(".wd-summary")?.textContent).toBe("1 of 3 calls");
+  });
 });

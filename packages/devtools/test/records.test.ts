@@ -42,15 +42,15 @@ describe("mergeRecordById", () => {
     expect(result).toEqual([{ id: "a", status: "success", plugin: "haptics" }]);
   });
 
-  it("matches the most-recently-pushed record when duplicate ids exist, first match wins by index order", () => {
+  it("patches the most-recently-pushed record when duplicate ids exist (ids can repeat across reloads)", () => {
     const list = [
       { id: "a", value: 1 },
       { id: "a", value: 2 },
     ];
     const result = mergeRecordById(list, "id", { id: "a", value: 99 });
     expect(result).toEqual([
+      { id: "a", value: 1 },
       { id: "a", value: 99 },
-      { id: "a", value: 2 },
     ]);
   });
 });

@@ -1,4 +1,5 @@
 import { onDevtoolsEvent } from "./emit.js";
+import { claimOnce } from "./claim-once.js";
 
 // The devtools dashboard's "Reload device" button asks the dev server to broadcast
 // `wefter:reload`; every connected app webview picks it up here and reloads itself.
@@ -8,6 +9,6 @@ export function installReloadListener(reload: () => void = () => location.reload
   });
 }
 
-if (typeof window !== "undefined" && import.meta.hot) {
+if (typeof window !== "undefined" && import.meta.hot && claimOnce("reload")) {
   installReloadListener();
 }

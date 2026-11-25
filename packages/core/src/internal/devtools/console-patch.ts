@@ -1,5 +1,6 @@
 import { emitDevtoolsEvent } from "./emit.js";
 import { safeSerialize } from "./serialize.js";
+import { claimOnce } from "./claim-once.js";
 
 const LEVELS = ["log", "info", "warn", "error", "debug"] as const;
 type ConsoleLevel = (typeof LEVELS)[number];
@@ -41,6 +42,6 @@ export function __resetConsolePatchForTest(): void {
   installed = false;
 }
 
-if (typeof window !== "undefined" && import.meta.hot) {
+if (typeof window !== "undefined" && import.meta.hot && claimOnce("console")) {
   installConsolePatch();
 }

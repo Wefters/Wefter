@@ -28,6 +28,12 @@ export function wefterDevtools(_options: WefterDevtoolsOptions = {}) {
 
     config() {
       return {
+        resolve: {
+          // Plugins usually depend on their own copy of @wefterjs/core. Without deduping, the
+          // app bundles one core per plugin; only the app's own copy reports to devtools, so the
+          // Bridge Inspector showed nothing but core's internal calls (e.g. __system.isDebug).
+          dedupe: ["@wefterjs/core"],
+        },
         optimizeDeps: {
           exclude: ["@wefterjs/core"],
         },

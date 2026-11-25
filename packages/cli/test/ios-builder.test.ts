@@ -145,5 +145,13 @@ describe("buildIos", () => {
       expect.arrayContaining(["-destination", "platform=iOS Simulator,name=iPhone 16"]),
       expect.any(Object),
     );
+
+    fakeSpawn(0);
+    await buildIos(dir, baseConfig, "development", false, { simulator: "676D13F1-5938-4995-B46F-D961E48E6454" });
+    expect(spawnMock).toHaveBeenLastCalledWith(
+      "xcodebuild",
+      expect.arrayContaining(["-destination", "platform=iOS Simulator,id=676D13F1-5938-4995-B46F-D961E48E6454"]),
+      expect.any(Object),
+    );
   });
 });

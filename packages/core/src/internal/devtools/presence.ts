@@ -1,4 +1,5 @@
 import { emitDevtoolsEvent, onDevtoolsEvent } from "./emit.js";
+import { claimOnce } from "./claim-once.js";
 
 interface ClientListEntry {
   clientId?: string;
@@ -60,6 +61,6 @@ export function __resetPresenceForTest(): void {
   announced = false;
 }
 
-if (typeof window !== "undefined" && import.meta.hot) {
+if (typeof window !== "undefined" && import.meta.hot && claimOnce("presence")) {
   installPresence();
 }

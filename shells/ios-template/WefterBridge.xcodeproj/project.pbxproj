@@ -21,6 +21,7 @@
 		C354FA708C7E8A908B713E95 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A0DF3DBE4D58FED8A728E7E /* ViewController.swift */; };
 		CF1CB80B2B73A41BA5EF542E /* www in Resources */ = {isa = PBXBuildFile; fileRef = 5D2CCE8038A39D5E0853964B /* www */; };
 		D37DC2C9A7A5236BB4734865 /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 79317DE23F0749D0B7D52B20 /* WebKit.framework */; };
+		F2E1D0C9B8A7F6E5D4C3B2A1 /* WefterBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F2 /* WefterBridge.swift */; };
 		E5E2AB29955B73647F0BBE42 /* BridgeDispatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EAAC8D82F01B7210760474F /* BridgeDispatcher.swift */; };
 /* End PBXBuildFile section */
 
@@ -38,6 +39,7 @@
 		471360EAD4D6DF146AFCA5EA /* Shared.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Shared.xcconfig; sourceTree = "<group>"; };
 		4C7B2C1D0E2ADCD93C0A5EB2 /* WefterError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WefterError.swift; sourceTree = "<group>"; };
 		5D2CCE8038A39D5E0853964B /* www */ = {isa = PBXFileReference; lastKnownFileType = folder; path = www; sourceTree = "<group>"; };
+		A1B2C3D4E5F6A7B8C9D0E1F2 /* WefterBridge.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WefterBridge.swift; sourceTree = "<group>"; };
 		6EAAC8D82F01B7210760474F /* BridgeDispatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeDispatcher.swift; sourceTree = "<group>"; };
 		7684319E1B429AD564B858F9 /* Debug-Production.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "Debug-Production.xcconfig"; sourceTree = "<group>"; };
 		79317DE23F0749D0B7D52B20 /* WebKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = WebKit.framework; path = System/Library/Frameworks/WebKit.framework; sourceTree = SDKROOT; };
@@ -120,6 +122,7 @@
 				7E38E74319CD75AA65FEF9F0 /* LaunchScreen.storyboard */,
 				6EAAC8D82F01B7210760474F /* BridgeDispatcher.swift */,
 				B8F67897996FAFB893CCB491 /* WefterPlugin.swift */,
+				A1B2C3D4E5F6A7B8C9D0E1F2 /* WefterBridge.swift */,
 				4C7B2C1D0E2ADCD93C0A5EB2 /* WefterError.swift */,
 				3A9EF4E863A5E850A965CDA2 /* BuildConfig.swift */,
 				36E8B5359309CC6273931BDB /* AssetSchemeHandler.swift */,
@@ -214,6 +217,7 @@
 				C354FA708C7E8A908B713E95 /* ViewController.swift in Sources */,
 				E5E2AB29955B73647F0BBE42 /* BridgeDispatcher.swift in Sources */,
 				673BD4755D05AD7853C1F76E /* WefterPlugin.swift in Sources */,
+				F2E1D0C9B8A7F6E5D4C3B2A1 /* WefterBridge.swift in Sources */,
 				9F7C9E215EDFE6A4AABC4B3A /* WefterError.swift in Sources */,
 				86D3748421599E3E9C8FE21D /* BuildConfig.swift in Sources */,
 				4C6428DA8099F4EFBACEA67C /* AssetSchemeHandler.swift in Sources */,

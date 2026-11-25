@@ -169,12 +169,13 @@ export async function runIos(projectDir: string, options: IosRunOptions): Promis
     );
   }
 
-  logger.info(`Building the iOS app (env: ${chalk.bold(options.env)})...`);
-  const { appPath } = await buildIos(projectDir, config, options.env, false, { simulator: options.simulator });
-
   const simulator = await resolveSimulator(options.simulator);
-  logger.info(`Installing ${chalk.cyan(appPath)} on ${chalk.bold(simulator)}...`);
-  await installAndLaunchIos(appPath, iosBundleId(config, options.env), simulator);
+
+  logger.info(`Building the iOS app (env: ${chalk.bold(options.env)})...`);
+  const { appPath } = await buildIos(projectDir, config, options.env, false, { simulator: simulator.udid });
+
+  logger.info(`Installing ${chalk.cyan(appPath)} on ${chalk.bold(simulator.name)} (${simulator.udid})...`);
+  await installAndLaunchIos(appPath, iosBundleId(config, options.env), simulator.udid);
 
   await announceDevtoolsUrl(devServer);
 

@@ -60,6 +60,12 @@ describe("wefterDevtools", () => {
     expect(configResult.server?.fs?.strict).toBe(false);
   });
 
+  it("dedupes @wefterjs/core so every plugin shares the one copy that reports bridge calls", () => {
+    const plugin = wefterDevtools();
+    const configResult = (plugin.config as () => { resolve?: { dedupe?: string[] } })();
+    expect(configResult.resolve?.dedupe).toContain("@wefterjs/core");
+  });
+
   it("resolves the virtual client module id", () => {
     const plugin = wefterDevtools();
     const resolved = (plugin.resolveId as (source: string) => string | undefined)("virtual:wefter-devtools-client");

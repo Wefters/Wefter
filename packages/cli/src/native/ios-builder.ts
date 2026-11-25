@@ -18,6 +18,8 @@ function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+const SIMULATOR_UDID_PATTERN = /^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/i;
+
 export function buildIos(
   projectDir: string,
   config: WefterConfig,
@@ -32,7 +34,9 @@ export function buildIos(
   const derivedDataPath = join(projectRoot, "build");
 
   const destination = options.simulator
-    ? `platform=iOS Simulator,name=${options.simulator}`
+    ? SIMULATOR_UDID_PATTERN.test(options.simulator)
+      ? `platform=iOS Simulator,id=${options.simulator}`
+      : `platform=iOS Simulator,name=${options.simulator}`
     : "generic/platform=iOS Simulator";
 
   const args = [
