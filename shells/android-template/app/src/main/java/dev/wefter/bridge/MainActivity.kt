@@ -29,10 +29,14 @@ import androidx.core.view.WindowCompat
 import androidx.webkit.WebViewAssetLoader
 import org.json.JSONObject
 
-/** Origin the bundled web app is served from by `WebViewAssetLoader`, giving it a real HTTPS origin. */
+/**
+ * Origin the bundled web app is served from by `WebViewAssetLoader`, giving it a real HTTPS origin. The
+ * `www` assets folder is its root, as on iOS (`app://local/`), so root-relative URLs such as the
+ * `/assets/index.js` a Vite build writes resolve.
+ */
 private const val ASSETS_ORIGIN = "appassets.androidplatform.net"
-private const val BUNDLED_URL = "https://$ASSETS_ORIGIN/assets/www/index.html"
-private const val SPLASH_URL = "https://$ASSETS_ORIGIN/assets/www/splash/index.html"
+private const val BUNDLED_URL = "https://$ASSETS_ORIGIN/index.html"
+private const val SPLASH_URL = "https://$ASSETS_ORIGIN/splash/index.html"
 private const val BLANK_URL = "about:blank"
 /** How often the web renderer may crash before giving up and showing a fallback message. */
 private const val MAX_RENDER_PROCESS_RETRIES = 3
@@ -109,9 +113,10 @@ class MainActivity : AppCompatActivity() {
             isAppearanceLightNavigationBars = backgroundLuminance > 0.5
         }
 
+        val bundledAssets = WebViewAssetLoader.AssetsPathHandler(this)
         assetLoader =
                 WebViewAssetLoader.Builder()
-                        .addPathHandler("/assets/", WebViewAssetLoader.AssetsPathHandler(this))
+                        .addPathHandler("/") { path -> bundledAssets.handle("www/${path.ifEmpty { "index.html" }}") }
                         .build()
 
         devServerHost =

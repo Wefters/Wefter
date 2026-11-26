@@ -5,7 +5,13 @@ import { buildIos, type IosBuildResult } from "../native/ios-builder.js";
 import { checkReleaseSecurity } from "../native/release-security-check.js";
 import { checkReleaseSecurityIos } from "../native/release-security-check-ios.js";
 import { checkInfoPlistPermissionKeys } from "../native/check-info-plist-permissions.js";
-import { loadWefterConfig, pluginsDirPath } from "../config/project-paths.js";
+import { withoutDevServerAndroid, withoutDevServerIos } from "../native/without-dev-server.js";
+import {
+  androidBuildGradlePath,
+  iosBuildConfigPath,
+  loadWefterConfig,
+  pluginsDirPath,
+} from "../config/project-paths.js";
 import { checkSyncFreshness } from "../plugins/sync-freshness.js";
 import { resolveRegisteredPlugins, unresolvedRegisteredPlugins } from "../plugins/registry.js";
 import { runHook } from "../hooks/run-hook.js";
@@ -33,7 +39,7 @@ function buildLabel(options: BuildOptions): string {
  * Builds the Android app.
  *
  * Requires an up-to-date sync, runs the `wefter:build` hooks around the build, and for release builds first
- * runs the release security check.
+ * runs the release security check. The app always loads its bundled web app, even after `wefter run --watch`.
  *
  * @throws {Error} When the project needs a sync or the release check fails.
  * @throws {ProcessFailure} When Gradle fails.
@@ -60,7 +66,9 @@ export async function build(projectDir: string, options: BuildOptions): Promise<
   const unresolved = unresolvedRegisteredPlugins(pluginsDir, config.plugins);
 
   const { apkPath, sizeBytes } = await step(`Building Android app (${buildLabel(options)})`, (s) =>
-    buildAndroid(projectDir, config, options.env, options.release, { onProgress: s.detail }),
+    withoutDevServerAndroid(androidBuildGradlePath(projectDir), () =>
+      buildAndroid(projectDir, config, options.env, options.release, { onProgress: s.detail }),
+    ),
   );
 
   await runHook(projectDir, "build", "after", { platform: "android", environment: options.env });
@@ -91,7 +99,7 @@ export interface IosBuildCommandOptions extends BuildOptions {
  *
  * Requires an up-to-date sync, runs the `wefter:build` hooks around the build, checks that `Info.plist`
  * has every permission description the plugins need, and for release builds first runs the release
- * security check.
+ * security check. The app always loads its bundled web app, even after `wefter run --watch`.
  *
  * @throws {Error} When the project needs a sync or a check fails.
  * @throws {ProcessFailure} When xcodebuild fails.
@@ -128,10 +136,12 @@ export async function buildIosCommand(
   }
 
   const { appPath, sizeBytes } = await step(`Building iOS app (${buildLabel(options)})`, (s) =>
-    buildIos(projectDir, config, options.env, options.release, {
-      simulator: options.simulator,
-      onProgress: s.detail,
-    }),
+    withoutDevServerIos(iosBuildConfigPath(projectDir), () =>
+      buildIos(projectDir, config, options.env, options.release, {
+        simulator: options.simulator,
+        onProgress: s.detail,
+      }),
+    ),
   );
 
   await runHook(projectDir, "build", "after", { platform: "ios", environment: options.env });
