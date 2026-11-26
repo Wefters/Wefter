@@ -94,6 +94,12 @@ export function registerServerHandlers(server: ViteDevServer, state: DevtoolsSta
   });
 
   server.ws.on(WEFTER_EVENT.reloadRequest, () => {
-    server.ws.send(WEFTER_EVENT.reload, {});
+    reloadConnectedApps(server, state);
   });
+}
+
+/** Tells every connected app to reload; returns how many apps are connected to receive it. */
+export function reloadConnectedApps(server: ViteDevServer, state: DevtoolsState): number {
+  server.ws.send(WEFTER_EVENT.reload, {});
+  return state.presence.size;
 }

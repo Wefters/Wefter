@@ -7,6 +7,10 @@ import { CLI_VERSION, CORE_VERSION } from "./internal/version.js";
 import { sync } from "./commands/sync.js";
 import { build, buildIosCommand } from "./commands/build.js";
 import { run, runIos } from "./commands/run.js";
+import { attachRunSession } from "./commands/run-interactive.js";
+import { openRunLog } from "./process/run-log.js";
+import { configureUi } from "./ui/terminal.js";
+import { debugRetryCommand, printBuildSummary, printFailure } from "./ui/report.js";
 import { eject } from "./commands/eject.js";
 import { audit } from "./commands/audit.js";
 import { add } from "./commands/add.js";
@@ -25,6 +29,16 @@ loadDotenv({ quiet: true });
 
 function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** Flags to repeat in a suggested command (only those the user passed or that differ from defaults). */
+function commonFlags(projectDir: string, env: string, simulator: string | undefined, leading: string[]): string[] {
+  const flags: string[] = [];
+  if (resolve(projectDir) !== process.cwd()) flags.push(JSON.stringify(projectDir));
+  flags.push(...leading);
+  if (env !== "development") flags.push("--env", env);
+  if (simulator) flags.push("--simulator", JSON.stringify(simulator));
+  return flags;
 }
 
 let activeCleanup: (() => void | Promise<void>) | null = null;
@@ -146,46 +160,51 @@ program
   .option("--release", "build a release artifact instead of debug", false)
   .option("--env <environment>", "environment to build (from wefter.config.json)", "development")
   .option("--simulator <name>", "iOS only: xcrun simctl device name/UDID to build for")
-  .action(async (platform: string, projectDir: string, opts: { release: boolean; env: string; simulator?: string }) => {
-    if (platform !== "android" && platform !== "ios") {
-      logger.error(`Unsupported platform "${platform}". Use "android" or "ios".`);
-      process.exitCode = 1;
-      return;
-    }
-    try {
-      logger.info(`Building the native project (env: ${opts.env})...`);
-      if (platform === "android") {
-        const result = await build(resolve(projectDir), { release: opts.release, env: opts.env });
-        logger.success(`Built ${result.apkPath} (${formatBytes(result.sizeBytes)})`);
-        logger.info(`Using ${result.syncedPlugins.length} registered plugin(s): ${result.syncedPlugins.join(", ")}`);
-        if (result.unresolvedRegisteredPlugins.length > 0) {
-          logger.warn(
-            `Registered plugin(s) not found in node_modules: ${result.unresolvedRegisteredPlugins.join(", ")}. ` +
-              `Run \`wefter sync\` to refresh the registry.`,
-          );
-        }
-      } else {
-        const result = await buildIosCommand(resolve(projectDir), {
-          release: opts.release,
-          env: opts.env,
-          simulator: opts.simulator,
-        });
-        logger.success(`Built ${result.appPath} (${formatBytes(result.sizeBytes)})`);
-        logger.info(`Using ${result.syncedPlugins.length} registered plugin(s): ${result.syncedPlugins.join(", ")}`);
-        if (result.unresolvedRegisteredPlugins.length > 0) {
-          logger.warn(
-            `Registered plugin(s) not found in node_modules: ${result.unresolvedRegisteredPlugins.join(", ")}. ` +
-              `Run \`wefter sync\` to refresh the registry.`,
-          );
-        }
+  .option("--debug", "stream the full Xcode/Gradle output instead of a progress spinner", false)
+  .action(
+    async (
+      platform: string,
+      projectDir: string,
+      opts: { release: boolean; env: string; simulator?: string; debug: boolean },
+    ) => {
+      if (platform !== "android" && platform !== "ios") {
+        logger.error(`Unsupported platform "${platform}". Use "android" or "ios".`);
+        process.exitCode = 1;
+        return;
       }
-      process.exitCode = 0;
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      logger.error(`Build failed: ${message}`);
-      process.exitCode = 1;
-    }
-  });
+      configureUi({ debug: opts.debug });
+      const root = resolve(projectDir);
+      openRunLog(root, `build-${platform}`);
+      const flags = commonFlags(projectDir, opts.env, opts.simulator, opts.release ? ["--release"] : []);
+      try {
+        const result =
+          platform === "android"
+            ? await build(root, { release: opts.release, env: opts.env })
+            : await buildIosCommand(root, { release: opts.release, env: opts.env, simulator: opts.simulator });
+        if (result.unresolvedRegisteredPlugins.length > 0) {
+          logger.warn(
+            `Registered plugin(s) not found in node_modules: ${result.unresolvedRegisteredPlugins.join(", ")}. ` +
+              `Run \`wefter sync\` to refresh the registry.`,
+          );
+        }
+        printBuildSummary({
+          appName: result.appName,
+          platformLabel: `${platform === "ios" ? "iOS" : "Android"} · ${opts.release ? "release" : "debug"} · ${opts.env}`,
+          artifactPath: "apkPath" in result ? result.apkPath : result.appPath,
+          sizeLabel: formatBytes(result.sizeBytes),
+          plugins: result.syncedPlugins,
+        });
+        process.exitCode = 0;
+      } catch (err) {
+        printFailure(
+          `${platform === "ios" ? "iOS" : "Android"} build failed`,
+          err,
+          debugRetryCommand({ command: "build", platform, flags }),
+        );
+        process.exitCode = 1;
+      }
+    },
+  );
 
 program
   .command("run")
@@ -195,28 +214,36 @@ program
   .option("--watch", "enable hot reload via a local dev server", false)
   .option("--env <environment>", "environment to run (from wefter.config.json)", "development")
   .option("--simulator <name>", "iOS only: xcrun simctl device name/UDID to run on")
-  .action(async (platform: string, projectDir: string, opts: { watch: boolean; env: string; simulator?: string }) => {
-    if (platform !== "android" && platform !== "ios") {
-      logger.error(`Unsupported platform "${platform}". Use "android" or "ios".`);
-      process.exitCode = 1;
-      return;
-    }
-    try {
-      const devServer =
-        platform === "android"
-          ? await run(resolve(projectDir), { watch: opts.watch, env: opts.env })
-          : await runIos(resolve(projectDir), { watch: opts.watch, env: opts.env, simulator: opts.simulator });
-      logger.success(`App installed and launched (env: ${opts.env}).`);
-      if (devServer) {
-        logger.info(`Watching ${devServer.url} — edits will hot-reload on-device. Press Ctrl+C to stop.`);
-        registerCleanup(() => devServer.stop());
+  .option("--debug", "stream the full Xcode/Gradle/adb output instead of a progress spinner", false)
+  .action(
+    async (
+      platform: string,
+      projectDir: string,
+      opts: { watch: boolean; env: string; simulator?: string; debug: boolean },
+    ) => {
+      if (platform !== "android" && platform !== "ios") {
+        logger.error(`Unsupported platform "${platform}". Use "android" or "ios".`);
+        process.exitCode = 1;
+        return;
       }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      logger.error(`Run failed: ${message}`);
-      process.exitCode = 1;
-    }
-  });
+      configureUi({ debug: opts.debug });
+      const root = resolve(projectDir);
+      openRunLog(root, `run-${platform}`);
+      const flags = commonFlags(projectDir, opts.env, opts.simulator, opts.watch ? ["--watch"] : []);
+      const retryWithDebug = debugRetryCommand({ command: "run", platform, flags });
+      try {
+        const session =
+          platform === "android"
+            ? await run(root, { watch: opts.watch, env: opts.env })
+            : await runIos(root, { watch: opts.watch, env: opts.env, simulator: opts.simulator });
+        const stop = attachRunSession(session, { retryWithDebug });
+        if (session.devServer) registerCleanup(stop);
+      } catch (err) {
+        printFailure(`Couldn't run the ${platform === "ios" ? "iOS" : "Android"} app`, err, retryWithDebug);
+        process.exitCode = 1;
+      }
+    },
+  );
 
 program
   .command("eject")

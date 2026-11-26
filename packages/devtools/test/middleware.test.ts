@@ -10,6 +10,8 @@ import {
   loadDevtoolsVirtualModule,
   registerDashboardMiddleware,
   registerPluginsApiMiddleware,
+  registerReloadApiMiddleware,
+  RELOAD_API_ROUTE,
   resolveDevtoolsVirtualModule,
 } from "../src/server/middleware.js";
 import { collectPluginInfo } from "../src/server/plugins-info.js";
@@ -32,12 +34,13 @@ function createFakeServer(root = "/project") {
 
 function createFakeRes() {
   return {
+    statusCode: 200,
     headers: {} as Record<string, string>,
     body: "",
     setHeader(name: string, value: string) {
       this.headers[name] = value;
     },
-    end(body: string) {
+    end(body = "") {
       this.body = body;
     },
   };
@@ -127,5 +130,33 @@ describe("registerDashboardMiddleware", () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     expect(next).toHaveBeenCalledWith(err);
+  });
+});
+
+describe("registerReloadApiMiddleware", () => {
+  it("reloads the connected apps on POST and answers how many received it", () => {
+    const { server, routes } = createFakeServer();
+    const reloadApps = vi.fn(() => 2);
+    registerReloadApiMiddleware(server, reloadApps);
+
+    const res = createFakeRes();
+    routes.get(RELOAD_API_ROUTE)!({ method: "POST" }, res, vi.fn());
+
+    expect(reloadApps).toHaveBeenCalledTimes(1);
+    expect(res.headers["Content-Type"]).toBe("application/json");
+    expect(JSON.parse(res.body)).toEqual({ clients: 2 });
+  });
+
+  it("refuses other methods without reloading anything", () => {
+    const { server, routes } = createFakeServer();
+    const reloadApps = vi.fn(() => 1);
+    registerReloadApiMiddleware(server, reloadApps);
+
+    const res = createFakeRes();
+    routes.get(RELOAD_API_ROUTE)!({ method: "GET" }, res, vi.fn());
+
+    expect(res.statusCode).toBe(405);
+    expect(res.headers.Allow).toBe("POST");
+    expect(reloadApps).not.toHaveBeenCalled();
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { NormalizedHotChannelClient, ViteDevServer } from "vite";
-import { createDevtoolsState, registerServerHandlers } from "../src/server/handlers.js";
+import { createDevtoolsState, registerServerHandlers, reloadConnectedApps } from "../src/server/handlers.js";
 import { WEFTER_EVENT } from "../src/shared/events.js";
 
 type Handler = (data: unknown, client: unknown) => void;
@@ -162,5 +162,22 @@ describe("registerServerHandlers — replay", () => {
       WEFTER_EVENT.replay,
       expect.objectContaining({ bridge: [{ ...call, status: "pending" }] }),
     );
+  });
+});
+
+describe("reloadConnectedApps", () => {
+  it("broadcasts the reload and returns how many apps are connected to receive it", () => {
+    const { server, trigger, sent } = createFakeServer();
+    const state = createDevtoolsState();
+    registerServerHandlers(server, state);
+    trigger(WEFTER_EVENT.clientHello, { clientId: "a", url: "/", timestamp: 1 }, createFakeClient().client);
+
+    expect(reloadConnectedApps(server, state)).toBe(1);
+    expect(sent).toContainEqual({ event: WEFTER_EVENT.reload, payload: {} });
+  });
+
+  it("returns 0 when no app is connected, so the caller can restart the app natively", () => {
+    const { server } = createFakeServer();
+    expect(reloadConnectedApps(server, createDevtoolsState())).toBe(0);
   });
 });

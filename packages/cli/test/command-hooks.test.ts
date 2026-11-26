@@ -21,11 +21,16 @@ vi.mock("../src/native/ios-builder.js", () => ({
   buildIos: (...args: unknown[]) => buildIosMock(...args),
 }));
 
-const resolveSimulatorMock = vi.fn().mockResolvedValue("iPhone 15");
-const installAndLaunchIosMock = vi.fn().mockResolvedValue(undefined);
+const BOOTED_SIMULATOR = { udid: "AAA-1", name: "iPhone 15", state: "Booted", isAvailable: true };
+const resolveSimulatorMock = vi.fn().mockResolvedValue(BOOTED_SIMULATOR);
+const installIosAppMock = vi.fn().mockResolvedValue(undefined);
+const launchIosAppMock = vi.fn().mockResolvedValue(undefined);
 vi.mock("../src/native/ios-run.js", () => ({
   resolveSimulator: (...args: unknown[]) => resolveSimulatorMock(...args),
-  installAndLaunchIos: (...args: unknown[]) => installAndLaunchIosMock(...args),
+  bootSimulator: vi.fn().mockResolvedValue(false),
+  installIosApp: (...args: unknown[]) => installIosAppMock(...args),
+  launchIosApp: (...args: unknown[]) => launchIosAppMock(...args),
+  restartIosApp: vi.fn().mockResolvedValue(undefined),
 }));
 
 const spawnMock = vi.fn((cmd: string, args: string[] = []) => {
@@ -70,8 +75,9 @@ beforeEach(async () => {
   runHookMock.mockReset().mockResolvedValue(undefined);
   buildAndroidMock.mockReset().mockResolvedValue({ apkPath: "/out/app.apk", sizeBytes: 123 });
   buildIosMock.mockReset().mockResolvedValue({ appPath: "/out/App.app", sizeBytes: 456 });
-  resolveSimulatorMock.mockReset().mockResolvedValue("iPhone 15");
-  installAndLaunchIosMock.mockReset().mockResolvedValue(undefined);
+  resolveSimulatorMock.mockReset().mockResolvedValue(BOOTED_SIMULATOR);
+  installIosAppMock.mockReset().mockResolvedValue(undefined);
+  launchIosAppMock.mockReset().mockResolvedValue(undefined);
   spawnMock.mockClear();
 });
 
@@ -178,7 +184,7 @@ describe("run() hook wiring", () => {
   });
 
   it("fires iOS run hooks with platform: ios and does not fire after on install failure", async () => {
-    installAndLaunchIosMock.mockRejectedValueOnce(new Error("install failed"));
+    installIosAppMock.mockRejectedValueOnce(new Error("install failed"));
     const { runIos } = await import("../src/commands/run.js");
 
     await expect(runIos(projectDir, { watch: false, env: "development" })).rejects.toThrow("install failed");

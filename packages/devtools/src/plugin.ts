@@ -2,13 +2,14 @@ import type { Plugin, ViteDevServer } from "vite";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { createDevtoolsState, registerServerHandlers } from "./server/handlers.js";
+import { createDevtoolsState, registerServerHandlers, reloadConnectedApps } from "./server/handlers.js";
 import {
   AGENT_MODULE_URL,
   DASHBOARD_ROUTE,
   loadDevtoolsVirtualModule,
   registerDashboardMiddleware,
   registerPluginsApiMiddleware,
+  registerReloadApiMiddleware,
   resolveDevtoolsVirtualModule,
 } from "./server/middleware.js";
 
@@ -66,6 +67,8 @@ export function wefterDevtools(_options: WefterDevtoolsOptions = {}) {
     configureServer(server: ViteDevServer) {
       registerServerHandlers(server, state);
       registerPluginsApiMiddleware(server);
+      // Before the dashboard route: connect matches by prefix and the dashboard owns its parent path.
+      registerReloadApiMiddleware(server, () => reloadConnectedApps(server, state));
       registerDashboardMiddleware(server);
     },
   } satisfies Plugin;

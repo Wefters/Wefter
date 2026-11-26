@@ -1,9 +1,11 @@
-import { spawn } from "node:child_process";
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { iosProjectRootDir, iosXcodeProjectPath } from "../config/project-paths.js";
 import { iosSigningBuildSettings } from "./signing-ios.js";
 import type { WefterConfig } from "../config/wefter-config-schema.js";
+import { runProcess } from "../process/run-process.js";
+import { diagnoseXcode } from "./ios-diagnostics.js";
+import { createXcodeProgress } from "./build-progress.js";
 
 export interface IosBuildResult {
   appPath: string;
@@ -12,6 +14,8 @@ export interface IosBuildResult {
 
 export interface IosBuildOptions {
   simulator?: string;
+  /** Receives short "what Xcode is doing" texts for a spinner. */
+  onProgress?: (detail: string) => void;
 }
 
 function capitalize(s: string): string {
@@ -20,7 +24,7 @@ function capitalize(s: string): string {
 
 const SIMULATOR_UDID_PATTERN = /^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/i;
 
-export function buildIos(
+export async function buildIos(
   projectDir: string,
   config: WefterConfig,
   env: string,
@@ -54,24 +58,20 @@ export function buildIos(
     ...(release ? iosSigningBuildSettings(config) : []),
   ];
 
-  return new Promise((resolve, reject) => {
-    const proc = spawn("xcodebuild", args, { cwd: projectRoot, stdio: "inherit" });
-
-    proc.on("exit", (code) => {
-      if (code !== 0) {
-        reject(new Error(`xcodebuild failed with exit code ${code}`));
-        return;
-      }
-      try {
-        const appPath = resolveAppPath(derivedDataPath, configuration);
-        resolve({ appPath, sizeBytes: directorySize(appPath) });
-      } catch (err) {
-        reject(err);
-      }
-    });
-
-    proc.on("error", reject);
+  const progress = createXcodeProgress();
+  await runProcess("xcodebuild", args, {
+    cwd: projectRoot,
+    tool: "Xcode",
+    diagnose: diagnoseXcode,
+    failureMessage: (code) => `xcodebuild failed with exit code ${code}`,
+    onLine: (line) => {
+      const detail = progress(line);
+      if (detail) options.onProgress?.(detail);
+    },
   });
+
+  const appPath = resolveAppPath(derivedDataPath, configuration);
+  return { appPath, sizeBytes: directorySize(appPath) };
 }
 
 function resolveAppPath(derivedDataPath: string, configuration: string): string {

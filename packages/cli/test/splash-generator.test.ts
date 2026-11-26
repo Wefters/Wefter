@@ -1,8 +1,16 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { generateSplash } from "../src/native/splash-generator.js";
+import { setTerminalStreams } from "../src/ui/terminal.js";
+
+/** Captures what the CLI writes to stderr (warnings) instead of printing it. */
+function captureStderr(): { text: () => string; restore: () => void } {
+  let err = "";
+  setTerminalStreams({ out: () => {}, err: (chunk) => (err += chunk), columns: () => 80 });
+  return { text: () => err, restore: () => setTerminalStreams(null) };
+}
 
 let projectDir: string;
 let webAssetsDir: string;
@@ -90,14 +98,14 @@ describe("generateSplash", () => {
     setup();
     mkdirSync(join(projectDir, "splash"), { recursive: true });
     writeFileSync(join(projectDir, "splash/index.html"), '<html><img src="./logo.png"></html>');
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const stderr = captureStderr();
 
     generateSplash(projectDir, resolved(), webAssetsDir);
+    stderr.restore();
 
     expect(existsSync(join(webAssetsDir, "splash/index.html"))).toBe(true);
-    expect(warnSpy).toHaveBeenCalled();
-    expect(warnSpy.mock.calls.some((call) => call.some((arg) => String(arg).includes("logo.png")))).toBe(true);
-    warnSpy.mockRestore();
+    expect(stderr.text()).toContain("[WARN]");
+    expect(stderr.text()).toContain("logo.png");
   });
 
   it("does not warn about remote or anchor references", () => {
@@ -107,11 +115,11 @@ describe("generateSplash", () => {
       join(projectDir, "splash/index.html"),
       '<html><a href="#top"></a><script src="https://example.com/a.js"></script></html>',
     );
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const stderr = captureStderr();
 
     generateSplash(projectDir, resolved(), webAssetsDir);
+    stderr.restore();
 
-    expect(warnSpy).not.toHaveBeenCalled();
-    warnSpy.mockRestore();
+    expect(stderr.text()).toBe("");
   });
 });

@@ -1,9 +1,11 @@
-import { spawn } from "node:child_process";
 import { join } from "node:path";
 import { readdirSync, statSync } from "node:fs";
 import { androidProjectRootDir } from "../config/project-paths.js";
 import { buildSigningEnv } from "./signing.js";
 import type { WefterConfig } from "../config/wefter-config-schema.js";
+import { runProcess } from "../process/run-process.js";
+import { diagnoseGradle } from "./android-diagnostics.js";
+import { createGradleProgress } from "./build-progress.js";
 
 export interface AndroidBuildResult {
   apkPath: string;
@@ -14,39 +16,40 @@ function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-export function buildAndroid(
+export interface AndroidBuildOptions {
+  /** Receives short "what Gradle is doing" texts for a spinner. */
+  onProgress?: (detail: string) => void;
+}
+
+export async function buildAndroid(
   projectDir: string,
   config: WefterConfig,
   env: string,
   release: boolean,
+  options: AndroidBuildOptions = {},
 ): Promise<AndroidBuildResult> {
   const buildType = release ? "Release" : "Debug";
   const task = `assemble${capitalize(env)}${buildType}`;
   const projectRoot = androidProjectRootDir(projectDir);
   const signingEnv = release ? buildSigningEnv(projectDir, config) : {};
 
-  return new Promise((resolve, reject) => {
-    const proc = spawn("./gradlew", [task], {
-      cwd: projectRoot,
-      stdio: "inherit",
-      env: { ...process.env, ...signingEnv },
-    });
-
-    proc.on("exit", (code) => {
-      if (code !== 0) {
-        reject(new Error(`Gradle build failed with exit code ${code}`));
-        return;
-      }
-      try {
-        const apkPath = resolveApkPath(projectRoot, env, release);
-        resolve({ apkPath, sizeBytes: statSync(apkPath).size });
-      } catch (err) {
-        reject(err);
-      }
-    });
-
-    proc.on("error", reject);
+  const progress = createGradleProgress(`${capitalize(env)}${buildType}`);
+  // --console=plain prints one "> Task :module:task" line per task, which is what the progress
+  // tracker reads (and what the run log stores); Gradle's rich console is only for a terminal.
+  await runProcess("./gradlew", [task, "--console=plain"], {
+    cwd: projectRoot,
+    env: { ...process.env, ...signingEnv },
+    tool: "Gradle",
+    diagnose: diagnoseGradle,
+    failureMessage: (code) => `Gradle build failed with exit code ${code}`,
+    onLine: (line) => {
+      const detail = progress(line);
+      if (detail) options.onProgress?.(detail);
+    },
   });
+
+  const apkPath = resolveApkPath(projectRoot, env, release);
+  return { apkPath, sizeBytes: statSync(apkPath).size };
 }
 
 function resolveApkPath(projectRoot: string, env: string, release: boolean): string {

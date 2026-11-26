@@ -3,6 +3,7 @@ import { collectPluginInfo } from "./plugins-info.js";
 
 export const DASHBOARD_ROUTE = "/__wefter-devtools";
 const PLUGINS_API_ROUTE = "/__wefter-devtools/api/plugins";
+export const RELOAD_API_ROUTE = "/__wefter-devtools/api/reload";
 const VIRTUAL_CLIENT_ID = "virtual:wefter-devtools-client";
 const RESOLVED_VIRTUAL_CLIENT_ID = "\0" + VIRTUAL_CLIENT_ID;
 
@@ -36,6 +37,25 @@ export function registerPluginsApiMiddleware(server: ViteDevServer): void {
     const plugins = collectPluginInfo(server.config.root);
     res.setHeader("Content-Type", "application/json");
     res.end(JSON.stringify(plugins));
+  });
+}
+
+/**
+ * `POST /__wefter-devtools/api/reload` reloads every connected app web view (the CLI's `r`
+ * shortcut uses it) and answers `{ clients }`, the number of apps that received the reload. A 0
+ * tells the caller nothing was reloaded, so it can restart the app natively instead.
+ */
+export function registerReloadApiMiddleware(server: ViteDevServer, reloadApps: () => number): void {
+  server.middlewares.use(RELOAD_API_ROUTE, (req, res) => {
+    if (req.method !== "POST") {
+      res.statusCode = 405;
+      res.setHeader("Allow", "POST");
+      res.end();
+      return;
+    }
+    const clients = reloadApps();
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify({ clients }));
   });
 }
 

@@ -7,8 +7,10 @@ import { loadWefterConfig, pluginsDirPath } from "../config/project-paths.js";
 import { checkSyncFreshness } from "../plugins/sync-freshness.js";
 import { resolveRegisteredPlugins, unresolvedRegisteredPlugins } from "../plugins/registry.js";
 import { runHook } from "../hooks/run-hook.js";
+import { step } from "../ui/steps.js";
 
 export interface BuildResult extends AndroidBuildResult {
+  appName: string;
   syncedPlugins: string[];
   unresolvedRegisteredPlugins: string[];
 }
@@ -16,6 +18,10 @@ export interface BuildResult extends AndroidBuildResult {
 export interface BuildOptions {
   release: boolean;
   env: string;
+}
+
+function buildLabel(options: BuildOptions): string {
+  return `${options.env}, ${options.release ? "release" : "debug"}`;
 }
 
 export async function build(projectDir: string, options: BuildOptions): Promise<BuildResult> {
@@ -39,19 +45,23 @@ export async function build(projectDir: string, options: BuildOptions): Promise<
   const resolved = resolveRegisteredPlugins(pluginsDir, config.plugins);
   const unresolved = unresolvedRegisteredPlugins(pluginsDir, config.plugins);
 
-  const { apkPath, sizeBytes } = await buildAndroid(projectDir, config, options.env, options.release);
+  const { apkPath, sizeBytes } = await step(`Building Android app (${buildLabel(options)})`, (s) =>
+    buildAndroid(projectDir, config, options.env, options.release, { onProgress: s.detail }),
+  );
 
   await runHook(projectDir, "build", "after", { platform: "android", environment: options.env });
 
   return {
     apkPath,
     sizeBytes,
+    appName: config.environments[options.env]?.appName ?? "app",
     syncedPlugins: resolved.map((p) => p.manifest.name),
     unresolvedRegisteredPlugins: unresolved,
   };
 }
 
 export interface IosBuildCommandResult extends IosBuildResult {
+  appName: string;
   syncedPlugins: string[];
   unresolvedRegisteredPlugins: string[];
 }
@@ -91,15 +101,19 @@ export async function buildIosCommand(
     );
   }
 
-  const { appPath, sizeBytes } = await buildIos(projectDir, config, options.env, options.release, {
-    simulator: options.simulator,
-  });
+  const { appPath, sizeBytes } = await step(`Building iOS app (${buildLabel(options)})`, (s) =>
+    buildIos(projectDir, config, options.env, options.release, {
+      simulator: options.simulator,
+      onProgress: s.detail,
+    }),
+  );
 
   await runHook(projectDir, "build", "after", { platform: "ios", environment: options.env });
 
   return {
     appPath,
     sizeBytes,
+    appName: config.environments[options.env]?.appName ?? "app",
     syncedPlugins: resolved.map((p) => p.manifest.name),
     unresolvedRegisteredPlugins: unresolved,
   };

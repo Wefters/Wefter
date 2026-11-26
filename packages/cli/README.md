@@ -62,8 +62,8 @@ wefter run android --watch
 | `wefter init [projectDir]` | Configures an existing web project by creating `wefter.config.json`, adding `@wefterjs/core` and `@wefterjs/cli` dependencies, and updating `.gitignore`. |
 | `wefter doctor [projectDir] [--release-readiness]` | Checks environment prerequisites (Node, JDK, Android SDK, Xcode, command-line tools). The `--release-readiness` flag checks signing configs, asset configurations, and production readiness. |
 | `wefter sync [projectDir] [--update-lock]` | Resolves declared plugins, verifies `wefter.lock.json`, copies native plugin sources, merges permissions and Gradle/SPM dependencies, and generates typed registries. Use `--update-lock` to record updated versions. |
-| `wefter build <android\|ios> [projectDir] [--release] [--env <name>] [--simulator <name>]` | Synchronizes and compiles the native application binary (`.apk` / `.aab` on Android, `.app` / `.ipa` on iOS). |
-| `wefter run <android\|ios> [projectDir] [--watch] [--env <name>] [--simulator <name>]` | Synchronizes, compiles, installs, and starts the app on a connected physical device, emulator, or simulator. The `--watch` flag starts the local dev server and proxies live updates to the native web view. |
+| `wefter build <android\|ios> [projectDir] [--release] [--env <name>] [--simulator <name>] [--debug]` | Synchronizes and compiles the native application binary (`.apk` / `.aab` on Android, `.app` / `.ipa` on iOS). `--debug` streams the full Xcode/Gradle output instead of a progress spinner. |
+| `wefter run <android\|ios> [projectDir] [--watch] [--env <name>] [--simulator <name>] [--debug]` | Synchronizes, compiles, installs, and starts the app on a connected physical device, emulator, or simulator. The `--watch` flag starts the local dev server and proxies live updates to the native web view. `--debug` streams the full Xcode/Gradle/`adb` output. |
 | `wefter eject [projectDir]` | Copies the disposable native project out of `.wefter/native/` to standalone `android/` and `ios/` folders for direct hand editing. After ejection, `wefter sync` stops regenerating those projects. |
 | `wefter audit [projectDir]` | Read-only inspection command that prints all resolved plugins, permissions, dependencies, and lockfile status without modifying files. |
 | `wefter add <plugin> [projectDir]` | Resolves a plugin from the registry, writes it into `wefter.config.json`, and records it in `package.json`. |
@@ -73,6 +73,17 @@ wefter run android --watch
 | `wefter splash generate [targetPath] [projectDir]` | Creates an example splash screen asset directory to configure in `wefter.config.json`. |
 
 Run `wefter <command> --help` to inspect all options for a specific command.
+
+## Build output, logs and shortcuts
+
+`wefter run` and `wefter build` show one line per step (a spinner while it runs, `✔` or `✖` when it's done) instead of the raw Xcode, Gradle and `adb` output. Dev server (Vite) messages are always shown.
+
+- **Failures** show the real errors, a fix for problems Wefter recognises, the path of the full log, and the same command with `--debug`.
+- **Logs**: every `run` and `build` writes `.wefter/logs/<command>-<platform>-<time>.log`; the last 10 are kept.
+- **`--debug`** streams every tool's output live and prints each command before it runs.
+- **CI / piped output**: no spinner; each step prints a start line and a result line.
+
+With `wefter run <platform> --watch` in a terminal, press `r` to reload the app (or restart it if no web view is connected), `Ctrl+R` to rebuild and relaunch the native app, `o` to open DevTools, `c` to clear, `h` for help and `q` to quit.
 
 ## Synchronization workflow
 

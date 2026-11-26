@@ -126,7 +126,7 @@ describe("wefterDevtools", () => {
     expect(loaded).toBeUndefined();
   });
 
-  it("registers bridge/console/network handlers and both HTTP routes on configureServer", () => {
+  it("registers bridge/console/network handlers and the HTTP routes on configureServer", () => {
     const plugin = wefterDevtools();
     const { server, wsHandlers, routes } = createFakeServer();
 
@@ -135,19 +135,20 @@ describe("wefterDevtools", () => {
     expect(wsHandlers.has(WEFTER_EVENT.bridgeCall)).toBe(true);
     expect(wsHandlers.has(WEFTER_EVENT.console)).toBe(true);
     expect(wsHandlers.has(WEFTER_EVENT.networkRequest)).toBe(true);
-    expect(routes).toEqual(["/__wefter-devtools/api/plugins", "/__wefter-devtools"]);
+    expect(routes).toEqual(["/__wefter-devtools/api/plugins", "/__wefter-devtools/api/reload", "/__wefter-devtools"]);
   });
 
-  it("registers the plugins API route before the dashboard route, since middleware matching is prefix-based", () => {
+  it("registers the API routes before the dashboard route, since middleware matching is prefix-based", () => {
     const plugin = wefterDevtools();
     const { server, routes } = createFakeServer();
 
     (plugin.configureServer as (server: ViteDevServer) => void)(server);
 
-    const apiIndex = routes.indexOf("/__wefter-devtools/api/plugins");
     const dashboardIndex = routes.indexOf("/__wefter-devtools");
-    expect(apiIndex).toBeGreaterThanOrEqual(0);
-    expect(apiIndex).toBeLessThan(dashboardIndex);
+    for (const api of ["/__wefter-devtools/api/plugins", "/__wefter-devtools/api/reload"]) {
+      expect(routes.indexOf(api)).toBeGreaterThanOrEqual(0);
+      expect(routes.indexOf(api)).toBeLessThan(dashboardIndex);
+    }
   });
 
   it("keeps separate buffer state per plugin instance, not a shared module-level singleton", () => {

@@ -1,4 +1,6 @@
-import { execFile, spawn } from "node:child_process";
+import { execFile } from "node:child_process";
+import { runProcess } from "../process/run-process.js";
+import { diagnoseSimctl } from "./ios-diagnostics.js";
 
 export interface SimctlDevice {
   udid: string;
@@ -69,14 +71,7 @@ function listSimulatorsJson(): Promise<string> {
 }
 
 function runXcrun(args: string[]): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const proc = spawn("xcrun", args, { stdio: "inherit" });
-    proc.on("exit", (code) => {
-      if (code === 0) resolve();
-      else reject(new Error(`xcrun ${args.join(" ")} failed with exit code ${code}`));
-    });
-    proc.on("error", reject);
-  });
+  return runProcess("xcrun", args, { tool: "Simulator", diagnose: diagnoseSimctl }).then(() => undefined);
 }
 
 export async function resolveSimulator(requested?: string): Promise<SimctlDevice> {
@@ -113,8 +108,34 @@ async function ensureBooted(nameOrUdid: string): Promise<SimctlDevice> {
   return device;
 }
 
+/** `simulator` may be a name or a UDID; simctl is always addressed by UDID since names are ambiguous. */
 export async function installAndLaunchIos(appPath: string, bundleId: string, simulator: string): Promise<void> {
   const device = await ensureBooted(simulator);
-  await runXcrun(["simctl", "install", device.udid, appPath]);
-  await runXcrun(["simctl", "launch", device.udid, bundleId]);
+  await installIosApp(appPath, device.udid);
+  await launchIosApp(bundleId, device.udid);
+}
+
+/** Boots the simulator if needed. Returns true when it had to be booted. */
+export async function bootSimulator(nameOrUdid: string): Promise<boolean> {
+  const json = await listSimulatorsJson();
+  const device = findSimulator(json, nameOrUdid);
+  if (!device) throw new Error(`No simulator found matching "${nameOrUdid}".`);
+  if (device.state === "Booted") return false;
+  await runXcrun(["simctl", "boot", device.udid]);
+  return true;
+}
+
+export async function installIosApp(appPath: string, udid: string): Promise<void> {
+  await runXcrun(["simctl", "install", udid, appPath]);
+}
+
+export async function launchIosApp(bundleId: string, udid: string): Promise<void> {
+  await runXcrun(["simctl", "launch", udid, bundleId]);
+}
+
+/** Kills and relaunches the app (the `r` fallback when no web view is connected to reload). */
+export async function restartIosApp(bundleId: string, udid: string): Promise<void> {
+  // terminate fails harmlessly when the app isn't running; launch is what matters.
+  await runXcrun(["simctl", "terminate", udid, bundleId]).catch(() => undefined);
+  await launchIosApp(bundleId, udid);
 }

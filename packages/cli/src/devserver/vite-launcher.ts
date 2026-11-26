@@ -1,14 +1,16 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync } from "node:fs";
 import { join } from "node:path";
-import chalk from "chalk";
 import logger from "../utils/logger.js";
+import { writeLine } from "../ui/terminal.js";
 
 export interface DevServer {
   url: string;
   devtoolsUrl: Promise<string | null>;
   process: ChildProcess;
   stop(): void;
+  /** Called if Vite exits after it was ready (crash, port taken later, killed). */
+  onExit(listener: (code: number | null) => void): void;
 }
 
 const ANSI_PATTERN = /\x1b\[[0-9;]*m/g;
@@ -56,8 +58,6 @@ export function startDevServer(projectDir: string, lanIp: string, port = 5173): 
     return Promise.reject(new Error(`vite not found at ${viteBin} — run npm install in ${projectDir} first.`));
   }
 
-  logger.info(`Starting Vite dev server on ${chalk.cyan(url)}...`);
-
   return new Promise((resolve, reject) => {
     const proc = spawn(viteBin, ["--host", "0.0.0.0", "--port", String(port), "--strictPort"], {
       cwd: projectDir,
@@ -65,6 +65,8 @@ export function startDevServer(projectDir: string, lanIp: string, port = 5173): 
     });
 
     let resolved = false;
+    let stopping = false;
+    const exitListeners: ((code: number | null) => void)[] = [];
     let stdoutBuffer = "";
     proc.stdout?.on("data", (chunk) => {
       const text = chunk.toString();
@@ -75,21 +77,34 @@ export function startDevServer(projectDir: string, lanIp: string, port = 5173): 
 
       if (!resolved && text.includes("ready")) {
         resolved = true;
-        logger.success(`Vite dev server ready at ${chalk.cyan(url)}`);
-        const devtoolsUrl = probeDevtoolsUrl(url).then((found) => {
-          if (found) logger.success(`Devtools dashboard: ${chalk.cyan(found)}`);
-          return found;
+        const devtoolsUrl = probeDevtoolsUrl(url);
+        resolve({
+          url,
+          devtoolsUrl,
+          process: proc,
+          stop: () => {
+            stopping = true;
+            proc.kill();
+          },
+          onExit: (listener) => exitListeners.push(listener),
         });
-        resolve({ url, devtoolsUrl, process: proc, stop: () => proc.kill() });
       }
     });
 
-    proc.stderr?.on("data", (chunk) => process.stderr.write(chunk.toString()));
+    let stderrBuffer = "";
+    proc.stderr?.on("data", (chunk) => {
+      stderrBuffer += chunk.toString();
+      const lines = stderrBuffer.split("\n");
+      stderrBuffer = lines.pop() ?? "";
+      for (const line of lines) if (line.trim()) writeLine(line, "err");
+    });
 
     proc.on("error", reject);
     proc.on("exit", (code) => {
       if (stdoutBuffer) forwardViteLine(stdoutBuffer);
+      if (stderrBuffer.trim()) writeLine(stderrBuffer, "err");
       if (!resolved) reject(new Error(`Vite dev server exited early with code ${code}`));
+      else if (!stopping) for (const listener of exitListeners) listener(code);
     });
   });
 }
