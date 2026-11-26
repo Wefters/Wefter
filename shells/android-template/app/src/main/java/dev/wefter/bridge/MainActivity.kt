@@ -4,6 +4,7 @@ import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
+import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
@@ -63,8 +64,12 @@ class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private lateinit var dispatcher: BridgeDispatcher
     private var splashOverlay: WebView? = null
-    private val splashStartTime = System.currentTimeMillis()
     private var splashDismissed = false
+    /** When the splash page finished loading, so its minimum duration counts from when it is on screen. */
+    private var splashShownAt: Long? = null
+
+    /** `launchBackground` from `wefter.config.json`, shown until the pages have painted. */
+    private val launchBackground by lazy { getColor(R.color.splashBackground) }
 
     private var usingDevServer = false
     private var renderProcessCrashCount = 0
@@ -198,19 +203,46 @@ class MainActivity : AppCompatActivity() {
             BuildConfig.DEBUG && BuildConfig.DEV_SERVER_URL.isNotEmpty()
 
     /**
-     * Shows the splash page over the app. It is dismissed when the app calls `hideSplash()` (or after the
-     * maximum duration), or after the minimum duration when it does not wait for the app.
+     * Shows the splash page over the app. It is dismissed when the app calls `hideSplash()`, or after the
+     * minimum duration when it does not wait for the app, and in either case after the maximum duration.
+     * Until its page has painted it shows the launch colour instead of white.
      */
     private fun setupSplash() {
         val splash =
                 WebView(this).also {
                     it.settings.javaScriptEnabled = true
+                    it.setBackgroundColor(launchBackground)
                     it.webViewClient =
                             object : WebViewClient() {
                                 override fun shouldInterceptRequest(
                                         view: WebView,
                                         request: WebResourceRequest
                                 ) = interceptWithCsp(request)
+
+                                override fun onPageFinished(view: WebView, url: String) {
+                                    splashDidAppear()
+                                }
+
+                                /** A splash page that cannot load is removed rather than left blank. */
+                                override fun onReceivedError(
+                                        view: WebView,
+                                        request: WebResourceRequest,
+                                        error: WebResourceError
+                                ) {
+                                    if (request.isForMainFrame) dismissSplash(respectingMinimum = false)
+                                }
+
+                                /** Removes the splash if its renderer crashes, instead of closing the app. */
+                                override fun onRenderProcessGone(
+                                        view: WebView,
+                                        detail: RenderProcessGoneDetail
+                                ): Boolean {
+                                    splashDismissed = true
+                                    splashOverlay = null
+                                    root.removeView(view)
+                                    view.destroy()
+                                    return true
+                                }
                             }
                     it.loadUrl(SPLASH_URL)
 
@@ -224,8 +256,21 @@ class MainActivity : AppCompatActivity() {
 
         if (BuildConfig.SPLASH_WAIT_FOR_READY) {
             dispatcher.subscribeHook("hideSplash") { dismissSplash() }
-            root.postDelayed({ dismissSplash() }, BuildConfig.SPLASH_MAX_DURATION_MS)
-        } else {
+        }
+        root.postDelayed(
+                { dismissSplash(respectingMinimum = false) },
+                BuildConfig.SPLASH_MAX_DURATION_MS
+        )
+    }
+
+    /**
+     * Starts the minimum duration once the splash page has loaded, and the timer when it does not wait for
+     * the app.
+     */
+    private fun splashDidAppear() {
+        if (splashShownAt != null || splashDismissed) return
+        splashShownAt = System.currentTimeMillis()
+        if (!BuildConfig.SPLASH_WAIT_FOR_READY) {
             root.postDelayed({ dismissSplash() }, BuildConfig.SPLASH_MIN_DURATION_MS)
         }
     }
@@ -247,6 +292,7 @@ class MainActivity : AppCompatActivity() {
     private fun createPrimaryWebView(): WebView {
         val newWebView = WebView(this)
         newWebView.settings.javaScriptEnabled = true
+        newWebView.setBackgroundColor(launchBackground)
 
         newWebView.webViewClient =
                 object : WebViewClient() {
@@ -257,9 +303,12 @@ class MainActivity : AppCompatActivity() {
 
                     /**
                      * A page finished loading: the dev server is reachable again, and plugins get the
-                     * `appReady` hook.
+                     * `appReady` hook. The web view's own background goes back to white, so pages without
+                     * a background of their own show white as in a browser.
                      */
                     override fun onPageFinished(view: WebView, url: String) {
+                        view.setBackgroundColor(Color.WHITE)
+
                         if (usingDevServer) {
                             clearDevServerWatchdog()
                             devServerRetry?.let { handler.removeCallbacks(it) }
@@ -470,6 +519,8 @@ class MainActivity : AppCompatActivity() {
                     it.text = "This app isn't working right now.\nPlease close and reopen it."
                     it.gravity = Gravity.CENTER
                     it.textSize = 16f
+                    it.setTextColor(Color.BLACK)
+                    it.setBackgroundColor(Color.WHITE)
                     it.setPadding(48, 48, 48, 48)
                 }
         root.addView(
@@ -481,13 +532,20 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
-    /** Fades the splash out once its minimum duration has passed. */
-    private fun dismissSplash() {
+    /**
+     * Fades the splash out and removes it. With `respectingMinimum`, a splash that is on screen first stays
+     * for its minimum duration; one that has not appeared yet is removed at once, since the app is ready.
+     */
+    private fun dismissSplash(respectingMinimum: Boolean = true) {
         val overlay = splashOverlay ?: return
         if (splashDismissed) return
         splashDismissed = true
-        val elapsed = System.currentTimeMillis() - splashStartTime
-        val remaining = (BuildConfig.SPLASH_MIN_DURATION_MS - elapsed).coerceAtLeast(0)
+        val shownAt = splashShownAt
+        val remaining =
+                if (respectingMinimum && shownAt != null)
+                        (BuildConfig.SPLASH_MIN_DURATION_MS - (System.currentTimeMillis() - shownAt))
+                                .coerceAtLeast(0)
+                else 0L
         val fadeMs = if (BuildConfig.SPLASH_FADE_TRANSITION) SPLASH_FADE_TRANSITION_MS else 0L
         overlay.postDelayed(
                 {
@@ -495,7 +553,8 @@ class MainActivity : AppCompatActivity() {
                             .alpha(0f)
                             .setDuration(fadeMs)
                             .withEndAction {
-                                overlay.visibility = View.GONE
+                                root.removeView(overlay)
+                                overlay.destroy()
                                 splashOverlay = null
                             }
                             .start()
