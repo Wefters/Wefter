@@ -1,3 +1,8 @@
+/**
+ * The Bridge panel: every native call with its plugin, method, status and duration, and a details pane
+ * with its arguments, result or error, and native stack trace.
+ */
+
 import type { Store } from "../store.js";
 import type { BridgeRecord } from "../../shared/events.js";
 import { clear, h } from "../dom.js";
@@ -24,22 +29,22 @@ import {
   valueView,
 } from "./shared.js";
 
+/** Statuses the "Failed" filter shows. */
 const FAILED = new Set(["error", "timeout", "cancelled"]);
 
-/**
- * Identity of one row. callId alone is not enough: records buffered before a reload (or sent by an
- * older @wefterjs/core whose ids restart at "0") can share a callId.
- */
+/** Row key. Call ids restart when the app reloads, so the timestamp keeps keys unique. */
 function recordKey(record: BridgeRecord): string {
   return `${record.callId}@${record.timestamp}`;
 }
 
+/** Whether a call was made with any arguments worth showing. */
 function hasArgs(args: unknown): boolean {
   if (args === undefined || args === null) return false;
   if (typeof args === "object") return Object.keys(args).length > 0;
   return true;
 }
 
+/** `Plugin.method` label. */
 function callName(record: BridgeRecord, className = "wd-bridge-call"): HTMLElement {
   return h(
     "span",
@@ -50,6 +55,7 @@ function callName(record: BridgeRecord, className = "wd-bridge-call"): HTMLEleme
   );
 }
 
+/** Details pane content for a call. */
 function inspectRecord(record: BridgeRecord) {
   const body: Node[] = [];
   const { nativeStack, ...errorWithoutStack } = record.error ?? {};
@@ -122,6 +128,11 @@ function inspectRecord(record: BridgeRecord) {
   return { title: callName(record), meta: statusBadge(record.status), body };
 }
 
+/**
+ * Creates the Bridge panel, with filters for plugin, status and free text, and a pause button.
+ *
+ * @param onClear Asks the server to clear the bridge history.
+ */
 export function createBridgeInspectorPanel(store: Store<BridgeRecord[]>, onClear: () => void): HTMLElement {
   let pluginFilter = "";
   let statusFilter = "";
@@ -166,7 +177,6 @@ export function createBridgeInspectorPanel(store: Store<BridgeRecord[]>, onClear
     ],
     gridTemplate: "84px minmax(150px, 1.1fr) minmax(0, 1.6fr) 128px 96px",
     keyOf: recordKey,
-    // A cancelled call (the user backed out) is not shown as a failure.
     rowClass: (r) => (r.status === "cancelled" ? "" : statusAccentClass(r.status)),
     durationOf: (r) => r.durationMs,
     cells: (record, { maxDurationMs }) => [
@@ -202,6 +212,7 @@ export function createBridgeInspectorPanel(store: Store<BridgeRecord[]>, onClear
     table.element,
   );
 
+  /** Fills the plugin filter with the plugins seen so far. */
   function renderPluginOptions(records: BridgeRecord[]): void {
     const plugins = [...new Set(records.map((r) => r.plugin))].sort();
     clear(pluginSelect);
@@ -211,12 +222,14 @@ export function createBridgeInspectorPanel(store: Store<BridgeRecord[]>, onClear
     pluginSelect.value = pluginFilter;
   }
 
+  /** Whether a call passes the status filter. */
   function matchesStatus(record: BridgeRecord): boolean {
     if (!statusFilter) return true;
     if (statusFilter === "failed") return FAILED.has(record.status);
     return record.status === statusFilter;
   }
 
+  /** Applies the filters and updates the table and filter counts. */
   function render(): void {
     const live = store.get();
     const records = snapshot ?? live;

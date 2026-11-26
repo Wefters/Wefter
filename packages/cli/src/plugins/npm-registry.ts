@@ -1,11 +1,19 @@
 const NPM_REGISTRY = "https://registry.npmjs.org";
 
+/** What the registry says about a package version. */
 export interface NpmPackageInfo {
   name: string;
   version: string;
   description?: string;
 }
 
+/**
+ * Looks up a package on the public npm registry.
+ *
+ * @param spec A name with an optional version or tag, for example `@scope/name@1.2.0`. Without one,
+ * `latest` is used.
+ * @throws {Error} When the package does not exist or the registry fails.
+ */
 export async function fetchNpmPackageInfo(spec: string): Promise<NpmPackageInfo> {
   const atIdx = spec.lastIndexOf("@");
   let pkgName: string;

@@ -1,3 +1,8 @@
+/**
+ * `wefter audit`: reports what the project's plugins add to the native app and anything that needs
+ * attention, without changing files.
+ */
+
 import {
   auditPluginPermissions,
   computeGradleMerge,
@@ -8,12 +13,14 @@ import { loadWefterConfig, pluginsDirPath } from "../config/project-paths.js";
 import { resolveRegisteredPlugins, unresolvedRegisteredPlugins } from "../plugins/registry.js";
 import { checkLockDrift } from "../plugins/lockfile.js";
 
+/** An Android component a plugin adds. */
 export interface AuditComponentInfo {
   type: string;
   name: string;
   exported: boolean;
 }
 
+/** What one plugin adds to the Android app. */
 export interface AuditPluginInfo {
   name: string;
   permissions: string[];
@@ -21,6 +28,15 @@ export interface AuditPluginInfo {
   components: AuditComponentInfo[];
 }
 
+/**
+ * The audit report.
+ *
+ * - `permissionViolations`: sensitive APIs used without the matching permission.
+ * - `lockDrift`: plugins whose version changed since the last sync.
+ * - `gradleConflicts`: dependencies requested at different major versions.
+ * - `exportedComponentWarnings`: components other apps can start.
+ * - `requiredConfigKeys`: `pluginConfig` keys that plugins need but are not set.
+ */
 export interface AuditResult {
   plugins: AuditPluginInfo[];
   unresolvedRegisteredPlugins: string[];
@@ -31,6 +47,7 @@ export interface AuditResult {
   requiredConfigKeys: string[];
 }
 
+/** Summarises a plugin's permissions, dependencies and components. */
 function describePlugin(plugin: DiscoveredPlugin): AuditPluginInfo {
   return {
     name: plugin.manifest.name,
@@ -44,6 +61,7 @@ function describePlugin(plugin: DiscoveredPlugin): AuditPluginInfo {
   };
 }
 
+/** Audits the plugins declared in `wefter.config.json`. */
 export async function audit(projectDir: string): Promise<AuditResult> {
   const config = loadWefterConfig(projectDir);
   const pluginsDir = pluginsDirPath(projectDir, config);

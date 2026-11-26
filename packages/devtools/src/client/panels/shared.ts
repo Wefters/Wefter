@@ -1,21 +1,30 @@
+/**
+ * Building blocks shared by the panels: badges, formatting, toolbar controls, inspector sections and
+ * JSON viewers.
+ */
+
 import { h } from "../dom.js";
 import { icon, type IconName } from "../icons.js";
 
+/** A coloured badge for a status such as `success` or `timeout`. */
 export function statusBadge(status: string): HTMLElement {
   return h("span", { class: `wd-badge wd-badge-${status}` }, status);
 }
 
+/** Clock time with milliseconds, for example `14:03:12.084`. */
 export function formatTime(timestamp: number): string {
   const date = new Date(timestamp);
   return `${date.toLocaleTimeString(undefined, { hour12: false })}.${String(date.getMilliseconds()).padStart(3, "0")}`;
 }
 
+/** `420 ms`, `1.25 s` or `12.4 s`; empty for an unknown duration. */
 export function formatDuration(ms: number | undefined): string {
   if (ms === undefined) return "";
   if (ms < 1000) return `${Math.round(ms)} ms`;
   return `${(ms / 1000).toFixed(ms < 10_000 ? 2 : 1)} s`;
 }
 
+/** Pretty-printed JSON, falling back to `String(value)`. */
 export function jsonPreview(value: unknown): string {
   try {
     return JSON.stringify(value, null, 2) ?? String(value);
@@ -24,6 +33,7 @@ export function jsonPreview(value: unknown): string {
   }
 }
 
+/** Parses JSON text, returning the text unchanged when it is not JSON. */
 export function tryParseJson(text: string | undefined): unknown {
   if (!text) return text;
   try {
@@ -33,18 +43,22 @@ export function tryParseJson(text: string | undefined): unknown {
   }
 }
 
+/** Row accent class for a status: success, pending, or error. */
 export function statusAccentClass(status: string): string {
   if (status === "success") return "wd-row-accent-success";
   if (status === "pending") return "wd-row-accent-pending";
   return "wd-row-accent-error";
 }
 
+/** A chevron that rotates when `isOpen`. */
 export function expandChevron(isOpen: boolean): HTMLElement {
   return h("span", { class: `wd-chevron${isOpen ? " open" : ""}` }, icon("chevron"));
 }
 
-// ── Buttons ──────────────────────────────────────────────────────────────────
-
+/**
+ * A toolbar button with an icon. Without `showLabel` the label is only used as its tooltip and
+ * accessible name.
+ */
 export function iconButton(
   name: IconName,
   label: string,
@@ -65,10 +79,12 @@ export function iconButton(
   );
 }
 
+/** The toolbar's "Clear" button. */
 export function clearButton(onClear: () => void): HTMLElement {
   return iconButton("clear", "Clear", () => onClear(), { className: "wd-clear-btn", showLabel: true });
 }
 
+/** Copies `getText()` to the clipboard and briefly shows "Copied". */
 export function copyButton(getText: () => string): HTMLElement {
   const label = h("span", { class: "wd-btn-label" }, "Copy");
   const btn = h("button", { type: "button", class: "wd-btn wd-btn-ghost wd-copy-btn" }, icon("copy"), label);
@@ -89,8 +105,7 @@ export function copyButton(getText: () => string): HTMLElement {
   return btn;
 }
 
-// ── Toolbar controls ─────────────────────────────────────────────────────────
-
+/** A filter input. Reports lower-cased, trimmed text; Esc clears it. */
 export function searchField(placeholder: string, onInput: (value: string) => void): HTMLElement {
   const input = h("input", {
     type: "search",
@@ -112,24 +127,32 @@ export function searchField(placeholder: string, onInput: (value: string) => voi
   return h("label", { class: "wd-search-field" }, icon("search"), input);
 }
 
+/** One option of a {@link chipGroup}. */
 export interface Chip {
   value: string;
   label: string;
   tone?: "error" | "warn";
 }
 
+/** A chip group and a way to update the counts on its chips. */
 export interface ChipGroup {
   element: HTMLElement;
   setCounts(counts: Record<string, number>): void;
 }
 
-/** A single-choice segmented control (radio semantics) with an optional count per option. */
+/**
+ * A single-choice row of filter chips, navigable with the arrow keys.
+ *
+ * @param label Accessible name of the group.
+ * @param onChange Called with the chosen chip's value.
+ */
 export function chipGroup(label: string, chips: Chip[], onChange: (value: string) => void): ChipGroup {
   let current = chips[0]?.value ?? "";
   const countEls = new Map<string, HTMLElement>();
   const buttons: HTMLButtonElement[] = [];
   const group = h("div", { class: "wd-chips", role: "radiogroup", "aria-label": label });
 
+  /** Marks the chip with `value` as chosen. */
   function select(value: string, focus: boolean): void {
     current = value;
     for (const btn of buttons) {
@@ -181,13 +204,17 @@ export function chipGroup(label: string, chips: Chip[], onChange: (value: string
   };
 }
 
+/** The pause button and its state. */
 export interface PauseControl {
   element: HTMLButtonElement;
   isPaused(): boolean;
   setPending(count: number): void;
 }
 
-/** Freezes the panel's view (new events keep arriving and appear on resume). */
+/**
+ * A button that freezes the live view. While paused, {@link PauseControl.setPending} shows how many
+ * new records are waiting.
+ */
 export function pauseControl(onToggle: (paused: boolean) => void): PauseControl {
   let paused = false;
   const label = h("span", { class: "wd-btn-label" }, "Pause");
@@ -219,18 +246,22 @@ export function pauseControl(onToggle: (paused: boolean) => void): PauseControl 
   };
 }
 
+/** A panel toolbar. */
 export function toolbar(...children: (Node | null)[]): HTMLElement {
   return h("div", { class: "wd-toolbar", role: "toolbar" }, ...children);
 }
 
+/** A vertical divider between toolbar groups. */
 export function toolbarDivider(): HTMLElement {
   return h("span", { class: "wd-toolbar-divider", "aria-hidden": "true" });
 }
 
+/** Pushes the following toolbar items to the right. */
 export function toolbarSpacer(): HTMLElement {
   return h("span", { class: "wd-toolbar-spacer" });
 }
 
+/** A centred message for a panel or list with nothing to show. */
 export function emptyState(title: string, hint?: string, iconName: IconName = "empty"): HTMLElement {
   return h(
     "div",
@@ -241,8 +272,7 @@ export function emptyState(title: string, hint?: string, iconName: IconName = "e
   );
 }
 
-// ── Inspector content ────────────────────────────────────────────────────────
-
+/** A titled section of the details pane, with an optional copy button and error styling. */
 export function inspectorSection(
   title: string,
   content: Node,
@@ -263,13 +293,14 @@ export function inspectorSection(
   );
 }
 
+/** A definition list of labels and values. */
 export function keyValueList(entries: [string, Node | string][]): HTMLElement {
   const dl = h("dl", { class: "wd-kv" });
   for (const [key, value] of entries) dl.append(h("dt", null, key), h("dd", null, value));
   return dl;
 }
 
-/** Duration text plus a waterfall bar scaled against the slowest visible record. */
+/** A duration with a bar showing it relative to the slowest visible record. */
 export function durationCell(durationMs: number | undefined, pending: boolean, maxDurationMs: number): HTMLElement {
   const ratio = pending || durationMs === undefined ? 0 : Math.max(0.02, Math.min(1, durationMs / maxDurationMs));
   return h(
@@ -284,16 +315,17 @@ export function durationCell(durationMs: number | undefined, pending: boolean, m
   );
 }
 
+/** Secondary text, for example "None declared". */
 export function mutedText(text: string): HTMLElement {
   return h("div", { class: "wd-muted" }, text);
 }
 
-// ── Values ───────────────────────────────────────────────────────────────────
-
+/** Whether a value is an object or array. */
 function isContainer(value: unknown): value is Record<string, unknown> | unknown[] {
   return typeof value === "object" && value !== null;
 }
 
+/** Colour class of a primitive in the JSON viewers. */
 function primitiveClass(value: unknown): string {
   if (typeof value === "string") return "wd-json-string";
   if (typeof value === "number" || typeof value === "bigint") return "wd-json-number";
@@ -301,13 +333,17 @@ function primitiveClass(value: unknown): string {
   return "wd-json-literal";
 }
 
+/** How a primitive is written in a preview: strings quoted, `undefined` spelled out. */
 function primitiveText(value: unknown): string {
   if (typeof value === "string") return JSON.stringify(value);
   if (value === undefined) return "undefined";
   return String(value);
 }
 
-/** One-line, length-capped summary of any value, e.g. `{pattern: "short", ms: 20}`. */
+/**
+ * One-line preview of a value, such as `{ id: 1, tags: […2] }`. Shows the first six entries, writes
+ * nested containers in short form, and is cut at `maxLength` characters.
+ */
 export function compactPreview(value: unknown, maxLength = 140, depth = 0): string {
   let text: string;
   if (Array.isArray(value)) {
@@ -331,10 +367,15 @@ export function compactPreview(value: unknown, maxLength = 140, depth = 0): stri
   return text.length > maxLength ? `${text.slice(0, maxLength - 1)}…` : text;
 }
 
+/** A coloured preview of a value. */
 function previewSpan(value: unknown): HTMLElement {
   return h("span", { class: isContainer(value) ? "wd-tree-preview" : primitiveClass(value) }, compactPreview(value));
 }
 
+/**
+ * One row of a JSON tree. Children are only built when a node is first opened, so large payloads stay
+ * fast; nodes shallower than `expandDepth` start open.
+ */
 function treeNode(key: string | null, value: unknown, depth: number, expandDepth: number): HTMLElement {
   const keyEl = key === null ? null : h("span", { class: "wd-json-key" }, key);
   const colon = key === null ? null : h("span", { class: "wd-tree-colon" }, ": ");
@@ -354,7 +395,6 @@ function treeNode(key: string | null, value: unknown, depth: number, expandDepth
   };
   const summary = h(
     "summary",
-    // Trees sit inside clickable rows (console); a toggle must not also toggle the row.
     { onclick: (e) => e.stopPropagation() },
     icon("chevron", "wd-icon wd-tree-caret"),
     keyEl,
@@ -375,14 +415,15 @@ function treeNode(key: string | null, value: unknown, depth: number, expandDepth
   return details;
 }
 
-/** Collapsible JSON tree. Children are built lazily on first open, so large payloads stay cheap. */
+/** An expandable JSON tree of `value`. */
 export function jsonTree(value: unknown, options: { expandDepth?: number } = {}): HTMLElement {
   return h("div", { class: "wd-tree" }, treeNode(null, value, 0, options.expandDepth ?? 1));
 }
 
+/** Matches strings (and object keys), literals and numbers in pretty-printed JSON. */
 const JSON_TOKEN = /("(?:\\.|[^"\\])*")(\s*:)?|\b(true|false|null)\b|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g;
 
-/** Syntax-highlighted, pretty-printed JSON (text nodes only, never innerHTML). */
+/** Pretty-printed JSON with syntax colouring. */
 export function jsonView(value: unknown): HTMLElement {
   const text = jsonPreview(value);
   const pre = h("pre", { class: "wd-json" });
@@ -407,7 +448,7 @@ export function jsonView(value: unknown): HTMLElement {
   return pre;
 }
 
-/** A value as the inspector shows it: a tree for objects/arrays, a coloured literal otherwise. */
+/** Shows any value: a tree for objects, a preformatted block for multi-line text, else a single line. */
 export function valueView(value: unknown, expandDepth = 2): HTMLElement {
   if (isContainer(value)) return jsonTree(value, { expandDepth });
   if (typeof value === "string" && value.includes("\n")) return h("pre", { class: "wd-pre" }, value);

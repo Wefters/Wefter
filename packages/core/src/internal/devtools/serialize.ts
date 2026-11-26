@@ -1,3 +1,4 @@
+/** Cuts `str` down to `capChars` characters and reports whether anything was removed. */
 export function truncate(str: string, capChars: number): { preview: string; truncated: boolean } {
   if (str.length <= capChars) return { preview: str, truncated: false };
   return { preview: str.slice(0, capChars), truncated: true };
@@ -5,6 +6,12 @@ export function truncate(str: string, capChars: number): { preview: string; trun
 
 const MAX_ITEMS = 50;
 
+/**
+ * Turns any value into something that survives `JSON.stringify` for display in DevTools.
+ *
+ * Functions become labels, errors and DOM nodes become tagged summaries, circular references become
+ * `"[Circular]"`, and arrays and objects are capped at {@link MAX_ITEMS} entries.
+ */
 export function safeSerialize(value: unknown, seen: WeakSet<object> = new WeakSet()): unknown {
   if (value === null || typeof value !== "object") {
     return typeof value === "function" ? `[Function: ${value.name || "anonymous"}]` : value;

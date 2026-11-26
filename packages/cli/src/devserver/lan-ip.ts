@@ -1,16 +1,25 @@
+/**
+ * Finds the address of this machine on the local network, which a phone or emulator uses to reach the
+ * dev server.
+ */
+
 import { networkInterfaces } from "node:os";
 import { createInterface } from "node:readline/promises";
 import chalk from "chalk";
 import logger from "../utils/logger.js";
 
+/** A network interface and its IPv4 address. */
 export interface LanIpCandidate {
   name: string;
   address: string;
 }
 
+/** Interfaces a phone cannot reach: containers, VMs, VPNs and tunnels. */
 const VIRTUAL_INTERFACE_PATTERN = /^(docker|br-|veth|virbr|vmnet|vboxnet|tun|tap|ppp|utun|zt|tailscale|wg)/i;
+/** Wi-Fi interfaces, preferred because phones usually share the Wi-Fi network. */
 const WIFI_INTERFACE_PATTERN = /^(wlan|wlp|wl[0-9]|wifi|airport|en0)/i;
 
+/** External IPv4 addresses of all physical interfaces. */
 export function getLanIpCandidates(): LanIpCandidate[] {
   const interfaces = networkInterfaces();
   const candidates: LanIpCandidate[] = [];
@@ -27,10 +36,16 @@ export function getLanIpCandidates(): LanIpCandidate[] {
   return candidates;
 }
 
+/** The Wi-Fi address if there is one, else the first. */
 function pickRecommended(candidates: LanIpCandidate[]): LanIpCandidate {
   return candidates.find((c) => WIFI_INTERFACE_PATTERN.test(c.name)) ?? candidates[0];
 }
 
+/**
+ * The address to use, without asking. `WEFTER_LAN_IP` overrides detection.
+ *
+ * @throws {Error} When the machine has no network address.
+ */
 export function getLanIp(): string {
   const override = process.env.WEFTER_LAN_IP;
   if (override) return override;
@@ -43,6 +58,7 @@ export function getLanIp(): string {
   return pickRecommended(candidates).address;
 }
 
+/** Asks which interface to use, by number, name or address. Enter picks the recommended one. */
 async function promptForLanIp(candidates: LanIpCandidate[]): Promise<string> {
   const recommended = pickRecommended(candidates);
   const recommendedIndex = candidates.indexOf(recommended) + 1;
@@ -77,11 +93,18 @@ async function promptForLanIp(candidates: LanIpCandidate[]): Promise<string> {
   }
 }
 
+/** Options for {@link resolveLanIp}; mainly for tests. */
 export interface ResolveLanIpOptions {
   isInteractive?: boolean;
   prompt?: (candidates: LanIpCandidate[]) => Promise<string>;
 }
 
+/**
+ * The address to use, asking the user when there are several and the terminal is interactive.
+ * `WEFTER_LAN_IP` overrides everything; without a terminal the recommended address is used with a warning.
+ *
+ * @throws {Error} When the machine has no network address.
+ */
 export async function resolveLanIp(options: ResolveLanIpOptions = {}): Promise<string> {
   const override = process.env.WEFTER_LAN_IP;
   if (override) {

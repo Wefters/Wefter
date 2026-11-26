@@ -1,3 +1,11 @@
+/**
+ * Builds the publishable CLI package.
+ *
+ * - Bundles `cli.ts` and `index.ts` with esbuild, then removes the per-file JS that `tsc` emitted.
+ * - Vendors the registry-codegen type declarations and points imports at them.
+ * - Copies the native shell templates into `dist/shells`, without build output.
+ */
+
 import { build } from "esbuild";
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -21,6 +29,7 @@ for (const entry of ["cli", "index"]) {
   });
 }
 
+/** Deletes compiled `.js` files under `dir`, keeping the bundles, shells and vendored files at the root. */
 function pruneCompiledJs(dir, isRoot) {
   for (const name of readdirSync(dir)) {
     const path = join(dir, name);
@@ -44,6 +53,7 @@ function pruneCompiledJs(dir, isRoot) {
 }
 pruneCompiledJs(join(rootDir, "dist"), true);
 
+/** Copies the `.d.ts` files of `srcDir` into `destDir`. */
 function copyDtsTree(srcDir, destDir) {
   mkdirSync(destDir, { recursive: true });
   for (const name of readdirSync(srcDir)) {
@@ -57,6 +67,7 @@ function copyDtsTree(srcDir, destDir) {
 }
 copyDtsTree(registryCodegenDistDir, vendoredTypesDir);
 
+/** Copies the Android and iOS templates into the package, skipping build and IDE folders. */
 function copyShellTemplates() {
   const repoShellsDir = join(rootDir, "../../shells");
   const distShellsDir = join(rootDir, "dist/shells");
@@ -77,6 +88,7 @@ function copyShellTemplates() {
 }
 copyShellTemplates();
 
+/** Points `@wefterjs/registry-codegen` imports in declarations at the vendored copy. */
 function rewriteVendoredImports(dir) {
   for (const name of readdirSync(dir)) {
     const path = join(dir, name);

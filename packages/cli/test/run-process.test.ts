@@ -15,7 +15,6 @@ const { configureUi, setTerminalStreams } = await import("../src/ui/terminal.js"
 
 type FakeChild = EventEmitter & { stdout: EventEmitter; stderr: EventEmitter };
 
-/** A child that writes `stdout`/`stderr` in chunks (split mid-line on purpose), then exits. */
 function fakeChild(opts: { stdout?: string[]; stderr?: string[]; code?: number | null; error?: Error }) {
   spawnMock.mockImplementationOnce(() => {
     const child = new EventEmitter() as FakeChild;

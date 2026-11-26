@@ -28,26 +28,33 @@ import androidx.core.view.WindowCompat
 import androidx.webkit.WebViewAssetLoader
 import org.json.JSONObject
 
+/** Origin the bundled web app is served from by `WebViewAssetLoader`, giving it a real HTTPS origin. */
 private const val ASSETS_ORIGIN = "appassets.androidplatform.net"
 private const val BUNDLED_URL = "https://$ASSETS_ORIGIN/assets/www/index.html"
 private const val SPLASH_URL = "https://$ASSETS_ORIGIN/assets/www/splash/index.html"
 private const val BLANK_URL = "about:blank"
+/** How often the web renderer may crash before giving up and showing a fallback message. */
 private const val MAX_RENDER_PROCESS_RETRIES = 3
 
 private const val SPLASH_FADE_TRANSITION_MS = 200L
-// Generous on purpose: the *first* dev-server load after a fresh process start can be waiting on
-// Vite's cold dependency-optimization pass (can easily run past 8s over WiFi with several
-// plugins), not just a dead connection. Firing early here aborts an in-flight-but-fine load and
-// falls back to blank, which — since retrying can hit that same cold-start cost again — was
-// turning into a loop that never let the page finish. This still catches genuinely dead
-// connections far sooner than the multi-minute OS-level TCP hang it replaces.
+/** How long to wait for the dev server before treating it as unreachable. */
 private const val DEV_SERVER_LOAD_TIMEOUT_MS = 25000L
+/** Delay between attempts to reconnect to the dev server. */
 private const val DEV_SERVER_RETRY_INTERVAL_MS = 3000L
 
+/** Only the app's own code may run; images and network requests may also use HTTPS. */
 private const val CONTENT_SECURITY_POLICY =
         "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; " +
                 "img-src 'self' data: https:; connect-src 'self' https:; font-src 'self' data:;"
 
+/**
+ * The app's only screen: a full-screen web view running the web app, an optional splash web view on top,
+ * and the bridge to native plugins.
+ *
+ * In a `--watch` debug build the page is loaded from the dev server; otherwise from the bundled assets. If
+ * the dev server cannot be reached, a message is shown and the connection is retried while the app is in
+ * the foreground.
+ */
 class MainActivity : AppCompatActivity() {
     private lateinit var root: FrameLayout
     private lateinit var assetLoader: WebViewAssetLoader
@@ -68,6 +75,11 @@ class MainActivity : AppCompatActivity() {
     private var isForeground = false
     private var devServerUnreachableNotified = false
 
+    /**
+     * Sets up edge-to-edge drawing, system bar colours that suit the launch background, the asset loader,
+     * the
+     * web view and splash, then loads the app. Back navigates inside the web view before leaving the app.
+     */
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
@@ -127,6 +139,7 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
+    /** Passes permission results to the plugin that asked. */
     override fun onRequestPermissionsResult(
             requestCode: Int,
             permissions: Array<out String>,
@@ -136,6 +149,7 @@ class MainActivity : AppCompatActivity() {
         dispatcher.handlePermissionResult(requestCode, grantResults)
     }
 
+    /** Retries the dev server when the app returns to the foreground. */
     override fun onResume() {
         super.onResume()
         isForeground = true
@@ -144,15 +158,21 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /** Pauses dev server retries in the background. */
     override fun onPause() {
         super.onPause()
         isForeground = false
         devServerRetry?.let { handler.removeCallbacks(it) }
     }
 
+    /** Whether this is a debug build pointed at a dev server. */
     private fun isDevServerBuild(): Boolean =
             BuildConfig.DEBUG && BuildConfig.DEV_SERVER_URL.isNotEmpty()
 
+    /**
+     * Shows the splash page over the app. It is dismissed when the app calls `hideSplash()` (or after the
+     * maximum duration), or after the minimum duration when it does not wait for the app.
+     */
     private fun setupSplash() {
         val splash =
                 WebView(this).also {
@@ -182,6 +202,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /** Serves a bundled file through the asset loader, adding the Content Security Policy header. */
     private fun interceptWithCsp(request: WebResourceRequest): WebResourceResponse? {
         val response = assetLoader.shouldInterceptRequest(request.url) ?: return null
         val headers =
@@ -191,6 +212,11 @@ class MainActivity : AppCompatActivity() {
         return response
     }
 
+    /**
+     * Creates the main web view and its bridge: registers the plugins and the `__system` module and exposes
+     * the
+     * dispatcher to JavaScript.
+     */
     private fun createPrimaryWebView(): WebView {
         val newWebView = WebView(this)
         newWebView.settings.javaScriptEnabled = true
@@ -202,6 +228,10 @@ class MainActivity : AppCompatActivity() {
                             request: WebResourceRequest
                     ) = interceptWithCsp(request)
 
+                    /**
+                     * A page finished loading: the dev server is reachable again, and plugins get the
+                     * `appReady` hook.
+                     */
                     override fun onPageFinished(view: WebView, url: String) {
                         if (usingDevServer) {
                             clearDevServerWatchdog()
@@ -212,6 +242,11 @@ class MainActivity : AppCompatActivity() {
                         dispatcher.dispatchHook("appReady")
                     }
 
+                    /**
+                     * Keeps navigation inside the app's own origin (bundled or dev server); other web links
+                     * open in the
+                     * browser.
+                     */
                     override fun shouldOverrideUrlLoading(
                             view: WebView,
                             request: WebResourceRequest
@@ -231,6 +266,9 @@ class MainActivity : AppCompatActivity() {
                         return true
                     }
 
+                    /**
+                     * Treats a failed main-frame load of the dev server as unreachable (debug builds only).
+                     */
                     override fun onReceivedError(
                             view: WebView,
                             request: WebResourceRequest,
@@ -245,6 +283,7 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
 
+                    /** Replaces the web view after its renderer crashes, up to a limit. */
                     override fun onRenderProcessGone(
                             view: WebView,
                             detail: RenderProcessGoneDetail
@@ -273,6 +312,10 @@ class MainActivity : AppCompatActivity() {
 
         dispatcher = BridgeDispatcher(newWebView)
         GeneratedRegistry.registerAll(this, dispatcher)
+        /**
+         * Built-in module used by `@wefterjs/core`: debug flag, device info, the app-ready and hide-splash
+         * signals, and the current orientation.
+         */
         dispatcher.register(
                 "__system",
                 object : NativeModule {
@@ -317,6 +360,10 @@ class MainActivity : AppCompatActivity() {
         return newWebView
     }
 
+    /**
+     * Loads the dev server when this build uses one, else the bundled app. A dev server build that is not
+     * connected shows a blank page instead of stale bundled assets.
+     */
     private fun loadInitialContent(preferDevServer: Boolean = true) {
         val devServerUrl = BuildConfig.DEV_SERVER_URL
         val isDevServerBuild = BuildConfig.DEBUG && devServerUrl.isNotEmpty()
@@ -337,6 +384,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    /** Treats the dev server as unreachable if the page has not loaded in time. */
     private fun armDevServerWatchdog() {
         devServerWatchdog?.let { handler.removeCallbacks(it) }
         val watchdog = Runnable { if (usingDevServer) handleDevServerUnreachable() }
@@ -344,11 +392,13 @@ class MainActivity : AppCompatActivity() {
         handler.postDelayed(watchdog, DEV_SERVER_LOAD_TIMEOUT_MS)
     }
 
+    /** Cancels the dev server load timeout. */
     private fun clearDevServerWatchdog() {
         devServerWatchdog?.let { handler.removeCallbacks(it) }
         devServerWatchdog = null
     }
 
+    /** Shows the "unreachable" message once, clears the page and schedules a retry. */
     private fun handleDevServerUnreachable() {
         clearDevServerWatchdog()
         if (!usingDevServer) return
@@ -362,6 +412,7 @@ class MainActivity : AppCompatActivity() {
         scheduleDevServerRetry()
     }
 
+    /** Tries the dev server again after a short delay, if the app is still in the foreground. */
     private fun scheduleDevServerRetry() {
         devServerRetry?.let { handler.removeCallbacks(it) }
         val retry = Runnable {
@@ -373,6 +424,7 @@ class MainActivity : AppCompatActivity() {
         handler.postDelayed(retry, DEV_SERVER_RETRY_INTERVAL_MS)
     }
 
+    /** Shown when the web renderer keeps crashing. */
     private fun showRendererDeadFallback() {
         val message =
                 TextView(this).also {
@@ -390,6 +442,7 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
+    /** Fades the splash out once its minimum duration has passed. */
     private fun dismissSplash() {
         val overlay = splashOverlay ?: return
         if (splashDismissed) return

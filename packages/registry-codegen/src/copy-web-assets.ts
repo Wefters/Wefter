@@ -1,6 +1,11 @@
 import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 
+/**
+ * Replaces `destDir` with the built web app from `webDir`.
+ *
+ * @throws {Error} When `webDir` is missing or has no `index.html` (the web app has not been built).
+ */
 export function copyWebAssets(projectDir: string, webDir: string, destDir: string): void {
   const sourceDir = join(projectDir, webDir);
   if (!existsSync(sourceDir)) {

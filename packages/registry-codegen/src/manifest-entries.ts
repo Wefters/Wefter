@@ -5,12 +5,20 @@ import type { IntentFilter, IntentFilterData, ManifestEntry, PluginManifest } fr
 const START = "<!-- WEFTER-COMPONENTS-START -->";
 const END = "<!-- WEFTER-COMPONENTS-END -->";
 
+/** The manifest tag written for each entry type. */
 const TAG_BY_TYPE: Record<ManifestEntry["type"], string> = {
   activity: "activity",
 };
 
+/** Matches `${key}` placeholders, which are filled from `pluginConfig` in `wefter.config.json`. */
 const PLACEHOLDER_PATTERN = /\$\{([^}]+)\}/g;
 
+/**
+ * Replaces every `${key}` in `value` with the matching `pluginConfig` value.
+ *
+ * @param context Describes where the value came from, for the error message.
+ * @throws {Error} When a referenced key is missing, explaining how to add it.
+ */
 export function resolvePlaceholders(value: string, pluginConfig: Record<string, string>, context: string): string {
   return value.replace(PLACEHOLDER_PATTERN, (_match, key: string) => {
     const resolved = pluginConfig[key];
@@ -24,6 +32,7 @@ export function resolvePlaceholders(value: string, pluginConfig: Record<string, 
   });
 }
 
+/** Lists the `pluginConfig` keys a plugin's intent filters reference. */
 export function extractRequiredPluginConfigKeys(manifest: PluginManifest): string[] {
   const keys = new Set<string>();
   for (const entry of manifest.android?.manifestEntries ?? []) {
@@ -38,6 +47,7 @@ export function extractRequiredPluginConfigKeys(manifest: PluginManifest): strin
   return [...keys];
 }
 
+/** Resolves placeholders in every attribute of an intent filter's `<data>` element. */
 function resolveIntentFilterData(
   data: IntentFilterData | undefined,
   pluginConfig: Record<string, string>,
@@ -52,6 +62,7 @@ function resolveIntentFilterData(
   return resolved;
 }
 
+/** Renders an `<intent-filter>` element. */
 function renderIntentFilter(filter: IntentFilter): string {
   const lines = [`            <intent-filter>`, `                <action android:name="${filter.action}" />`];
   for (const category of filter.categories) {
@@ -67,6 +78,7 @@ function renderIntentFilter(filter: IntentFilter): string {
   return lines.join("\n");
 }
 
+/** Renders one component element (for example an `<activity>`) with its intent filters. */
 function renderManifestEntry(entry: ManifestEntry): string {
   const tag = TAG_BY_TYPE[entry.type];
   const filtersBlock =
@@ -78,6 +90,7 @@ function renderManifestEntry(entry: ManifestEntry): string {
   ].join("\n");
 }
 
+/** A component a plugin added to `AndroidManifest.xml`. */
 export interface MergedManifestEntry {
   pluginName: string;
   type: ManifestEntry["type"];
@@ -85,6 +98,13 @@ export interface MergedManifestEntry {
   exported: boolean;
 }
 
+/**
+ * Writes the components (activities and their intent filters) that plugins declare into
+ * `AndroidManifest.xml`, between the `WEFTER-COMPONENTS` markers. The markers are created before
+ * `</application>` the first time.
+ *
+ * @returns The entries that were written.
+ */
 export function mergeManifestEntries(
   plugins: DiscoveredPlugin[],
   manifestPath: string,

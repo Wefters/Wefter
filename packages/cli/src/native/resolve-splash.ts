@@ -1,5 +1,6 @@
 import type { WefterConfig } from "../config/wefter-config-schema.js";
 
+/** Splash settings used when the config leaves them out. */
 export const SPLASH_DEFAULTS = {
   minDuration: 0,
   maxDuration: 5000,
@@ -7,6 +8,7 @@ export const SPLASH_DEFAULTS = {
   transition: "fade" as const,
 };
 
+/** The splash configuration with defaults applied, or disabled. */
 export type ResolvedSplash =
   | { enabled: false }
   | {
@@ -18,6 +20,7 @@ export type ResolvedSplash =
       transition: "fade" | "none";
     };
 
+/** Reads the splash configuration from `wefter.config.json`. */
 export function resolveSplash(config: WefterConfig): ResolvedSplash {
   const s = config.splash;
   if (!s) return { enabled: false };

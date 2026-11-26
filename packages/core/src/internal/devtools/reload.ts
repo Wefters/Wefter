@@ -1,8 +1,12 @@
 import { onDevtoolsEvent } from "./emit.js";
 import { claimOnce } from "./claim-once.js";
 
-// The devtools dashboard's "Reload device" button asks the dev server to broadcast
-// `wefter:reload`; every connected app webview picks it up here and reloads itself.
+/**
+ * Reloads the page when the dev server asks for it (the CLI's `r` shortcut and the dashboard's reload
+ * button).
+ *
+ * @param reload What to do on a reload request; defaults to `location.reload()`.
+ */
 export function installReloadListener(reload: () => void = () => location.reload()): void {
   onDevtoolsEvent("wefter:reload", () => {
     reload();

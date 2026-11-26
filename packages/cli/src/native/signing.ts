@@ -1,6 +1,11 @@
 import { resolve } from "node:path";
 import type { WefterConfig } from "../config/wefter-config-schema.js";
 
+/**
+ * The keystore password from `WEFTER_KEYSTORE_PASSWORD`. It is never stored in the config.
+ *
+ * @throws {Error} When the variable is not set.
+ */
 export function getSigningPassword(): string {
   const pw = process.env.WEFTER_KEYSTORE_PASSWORD;
   if (!pw) {
@@ -9,6 +14,7 @@ export function getSigningPassword(): string {
   return pw;
 }
 
+/** Environment variables Gradle reads to sign release builds. Empty when no signing is configured. */
 export function buildSigningEnv(projectDir: string, config: WefterConfig): NodeJS.ProcessEnv {
   if (!config.signing) return {};
   return {

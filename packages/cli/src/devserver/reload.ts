@@ -1,11 +1,16 @@
-/** Served by @wefterjs/devtools inside the Vite dev server. */
+/** Route of the DevTools reload API. */
+/**
+ * The `r` shortcut: reload the app's web view through the dev server, or restart the app when no web view
+ * is connected.
+ */
+
 export const DEVTOOLS_RELOAD_ROUTE = "/__wefter-devtools/api/reload";
 const RELOAD_TIMEOUT_MS = 1500;
 
 /**
- * Asks the dev server to reload every connected app web view. Resolves to the number of apps
- * that received the reload, or null when it couldn't be asked (devtools not installed, older
- * devtools without the endpoint, dev server down).
+ * Asks the DevTools server to reload every connected web view.
+ *
+ * @returns How many were connected, or `null` when the request failed (for example without DevTools).
  */
 export async function requestWebViewReload(devServerUrl: string): Promise<number | null> {
   try {
@@ -21,12 +26,10 @@ export async function requestWebViewReload(devServerUrl: string): Promise<number
   }
 }
 
+/** Whether the web view was reloaded or the app restarted. */
 export type ReloadOutcome = { kind: "reloaded"; clients: number } | { kind: "restarted" };
 
-/**
- * `r`: reload the app's web view through the dev server when an app is connected to it (instant,
- * keeps native state); otherwise restart the app natively so the shortcut always does something.
- */
+/** Reloads the web view when at least one is connected; otherwise restarts the app with `restartApp`. */
 export async function reloadApp(
   devServerUrl: string | null,
   restartApp: () => Promise<void>,

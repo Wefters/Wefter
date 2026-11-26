@@ -2,15 +2,18 @@ import type { DiscoveredPlugin } from "./scan-plugins.js";
 import type { ExtractedHook, ExtractedMethod } from "./extract-wefter-plugin-swift.js";
 import { classNameFor } from "./codegen-android.js";
 
+/** The methods and hooks found in one plugin's Swift source. */
 export interface PluginExtractionSwift {
   methods: ExtractedMethod[];
   hooks: ExtractedHook[];
 }
 
+/** Lower-cases the first character, for variable names. */
 function lowerFirst(s: string): string {
   return s.charAt(0).toLowerCase() + s.slice(1);
 }
 
+/** Swift source for a `NativeModule` that routes each method name to the plugin's function. */
 function generateMethodDispatch(className: string, methods: ExtractedMethod[]): string {
   const cases = methods
     .map((m) => `        case "${m.name}":\n            try plugin.${m.name}(payload: payload, callback: callback)`)
@@ -31,6 +34,10 @@ function generateMethodDispatch(className: string, methods: ExtractedMethod[]): 
   ].join("\n");
 }
 
+/**
+ * Generates `GeneratedRegistry.swift`, which creates every plugin, registers it with the bridge
+ * dispatcher and subscribes its lifecycle hooks. Plugins without extracted Swift source are left out.
+ */
 export function generateRegistrySwift(
   plugins: DiscoveredPlugin[],
   extraction: Map<string, PluginExtractionSwift> = new Map(),

@@ -1,5 +1,6 @@
 import type { WefterConfig } from "../config/wefter-config-schema.js";
 
+/** iOS signing values as environment variables, for hooks and scripts. */
 export function buildIosSigningEnv(config: WefterConfig): NodeJS.ProcessEnv {
   if (!config.iosSigning) return {};
 
@@ -17,6 +18,10 @@ export function buildIosSigningEnv(config: WefterConfig): NodeJS.ProcessEnv {
   return env;
 }
 
+/**
+ * xcodebuild settings for release signing: the team, a manual provisioning profile when one is configured,
+ * and the identity from `WEFTER_IOS_SIGNING_IDENTITY`.
+ */
 export function iosSigningBuildSettings(config: WefterConfig): string[] {
   if (!config.iosSigning) return [];
 

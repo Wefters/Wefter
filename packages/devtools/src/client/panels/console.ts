@@ -1,3 +1,8 @@
+/**
+ * The Console panel: console output and uncaught errors from the app, in order, with repeated messages
+ * grouped.
+ */
+
 import type { Store } from "../store.js";
 import type { ConsoleEvent } from "../../shared/events.js";
 import { h } from "../dom.js";
@@ -18,8 +23,10 @@ import {
   toolbarSpacer,
 } from "./shared.js";
 
+/** Levels shown as errors. */
 const ERROR_LEVELS = new Set(["error", "uncaught"]);
 
+/** What each level filter chip lets through. */
 const LEVEL_GROUPS: Record<string, (level: string) => boolean> = {
   "": () => true,
   errors: (level) => ERROR_LEVELS.has(level),
@@ -29,6 +36,7 @@ const LEVEL_GROUPS: Record<string, (level: string) => boolean> = {
   debug: (level) => level === "debug",
 };
 
+/** Icon shown next to entries of a level. */
 const LEVEL_ICON: Partial<Record<string, IconName>> = {
   error: "error",
   uncaught: "error",
@@ -36,10 +44,12 @@ const LEVEL_ICON: Partial<Record<string, IconName>> = {
   info: "info",
 };
 
+/** Plain-text form of an entry's arguments, used for searching, grouping and copying. */
 function argsToText(args: unknown[]): string {
   return args.map((arg) => (typeof arg === "string" ? arg : jsonPreview(arg))).join(" ");
 }
 
+/** Renders one argument: text as is, objects as a collapsed tree. */
 function renderArg(arg: unknown): Node {
   if (typeof arg === "string") return document.createTextNode(arg);
   if (typeof arg === "object" && arg !== null) {
@@ -51,18 +61,22 @@ function renderArg(arg: unknown): Node {
   return h("span", { class: cls }, String(arg));
 }
 
+/** Consecutive identical entries shown as one row with a count. */
 interface Group {
   entry: ConsoleEvent;
   count: number;
   text: string;
 }
 
+/**
+ * Creates the Console panel, with level filters, a text filter and a pause button.
+ *
+ * @param onClear Asks the server to clear the console history.
+ */
 export function createConsolePanel(store: Store<ConsoleEvent[]>, onClear: () => void): HTMLElement {
   let levelFilter = "";
   let search = "";
   let snapshot: ConsoleEvent[] | null = null;
-  // Rows are reused across renders (entries are immutable), so expanded trees and stacks stay open
-  // while new output streams in.
   const rowCache = new WeakMap<ConsoleEvent, { el: HTMLElement; count: HTMLElement }>();
   const openStacks = new WeakSet<ConsoleEvent>();
 
@@ -106,6 +120,7 @@ export function createConsolePanel(store: Store<ConsoleEvent[]>, onClear: () => 
     listEl,
   );
 
+  /** Shows or hides an entry's stack trace. */
   function toggleStack(entry: ConsoleEvent): void {
     if (openStacks.has(entry)) openStacks.delete(entry);
     else openStacks.add(entry);
@@ -115,6 +130,7 @@ export function createConsolePanel(store: Store<ConsoleEvent[]>, onClear: () => 
     row?.focus();
   }
 
+  /** Builds the row for a group. Rows are cached per entry so live updates only build new ones. */
   function buildRow(group: Group): { el: HTMLElement; count: HTMLElement } {
     const { entry } = group;
     const hasStack = Boolean(entry.stack);
@@ -174,6 +190,7 @@ export function createConsolePanel(store: Store<ConsoleEvent[]>, onClear: () => 
     return { el, count };
   }
 
+  /** Applies the filters, groups repeats and updates the list. */
   function render(): void {
     const live = store.get();
     const entries = snapshot ?? live;
@@ -196,7 +213,6 @@ export function createConsolePanel(store: Store<ConsoleEvent[]>, onClear: () => 
       (errors ? ` · ${errors} error${errors === 1 ? "" : "s"}` : "") +
       (warnings ? ` · ${warnings} warning${warnings === 1 ? "" : "s"}` : "");
 
-    // Collapse consecutive identical messages into one row with a repeat count.
     const groups: Group[] = [];
     for (const entry of filtered) {
       const text = argsToText(entry.args);
@@ -209,7 +225,6 @@ export function createConsolePanel(store: Store<ConsoleEvent[]>, onClear: () => 
     }
 
     const stick = listEl.scrollHeight - listEl.scrollTop - listEl.clientHeight < 32;
-    // Re-inserting rows blurs them; remember what had focus so streaming output doesn't steal it.
     const active = listEl.ownerDocument.activeElement;
     const focusedEl = active instanceof HTMLElement && listEl.contains(active) ? active : null;
     if (groups.length === 0) {

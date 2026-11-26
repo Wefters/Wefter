@@ -5,6 +5,10 @@ import { checkReleaseSecurity } from "../native/release-security-check.js";
 import { checkReleaseSecurityIos } from "../native/release-security-check-ios.js";
 import type { CheckResult } from "./checks.js";
 
+/**
+ * Checks behind `wefter doctor --release`: the release security lint for both platforms, and that signing
+ * is configured and its secrets are available in the environment.
+ */
 export async function runReleaseReadinessChecks(projectDir: string): Promise<CheckResult[]> {
   const config = loadWefterConfig(projectDir);
   const results: CheckResult[] = [];

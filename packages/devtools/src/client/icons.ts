@@ -1,6 +1,8 @@
+/** Inline SVG icons and the Wefter logo used by the dashboard. */
+
 const SVG_NS = "http://www.w3.org/2000/svg";
 
-/** 24×24 line icons, drawn with currentColor so they follow the text colour of their container. */
+/** Path data of each icon, drawn on a 24×24 grid with strokes. */
 const ICON_PATHS = {
   bridge: ["M4 8h14", "M15 5l3 3-3 3", "M20 16H6", "M9 13l-3 3 3 3"],
   console: [
@@ -37,8 +39,10 @@ const ICON_PATHS = {
   empty: ["M4 13.5l2.5-8h11l2.5 8", "M4 13.5V19h16v-5.5", "M4 13.5h4.5l1 2h5l1-2H20"],
 } as const;
 
+/** Name of an available icon. */
 export type IconName = keyof typeof ICON_PATHS;
 
+/** Creates an icon as an inline SVG that inherits the text colour. */
 export function icon(name: IconName, className = "wd-icon"): SVGSVGElement {
   const svg = document.createElementNS(SVG_NS, "svg");
   svg.setAttribute("viewBox", "0 0 24 24");
@@ -53,10 +57,7 @@ export function icon(name: IconName, className = "wd-icon"): SVGSVGElement {
   return svg;
 }
 
-/**
- * The full Wefter logo (mark + wordmark), path data copied from Docs/Logo/{Dark,Light}/Logo.svg.
- * The gradient stops are themed in CSS: the Dark file's colours on dark, the Light file's on light.
- */
+/** Shapes of the full Wefter logo, taken from `Docs/Logo/Dark/Logo.svg`. */
 const LOGO_GROUPS: { transform: string; paths: { d: string; evenOdd: boolean }[] }[] = [
   {
     transform: "translate(-270 -97)",
@@ -106,9 +107,9 @@ const LOGO_GROUPS: { transform: string; paths: { d: string; evenOdd: boolean }[]
   },
 ];
 
+/** Creates the full Wefter logo. Its gradient colours come from CSS, so it follows the theme. */
 export function wefterLogo(): SVGSVGElement {
   const svg = document.createElementNS(SVG_NS, "svg");
-  // Tight bounding box of the artwork inside the original 2360×620 canvas.
   svg.setAttribute("viewBox", "131 92 2086 437");
   svg.setAttribute("class", "wd-logo");
   svg.setAttribute("role", "img");

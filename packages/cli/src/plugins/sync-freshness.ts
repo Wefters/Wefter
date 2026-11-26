@@ -1,23 +1,35 @@
+/**
+ * Detects a stale native project. `wefter sync` leaves a marker with a hash of `wefter.config.json` and the
+ * CLI version; builds compare against it.
+ */
+
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { CLI_VERSION } from "../internal/version.js";
 
+/** Path of the sync marker. */
 function syncMarkerPath(projectDir: string): string {
   return join(projectDir, ".wefter", ".sync-marker");
 }
 
+/** SHA-256 of `wefter.config.json`. */
 function configHash(projectDir: string): string {
   const configPath = join(projectDir, "wefter.config.json");
   const contents = existsSync(configPath) ? readFileSync(configPath) : Buffer.alloc(0);
   return createHash("sha256").update(contents).digest("hex");
 }
 
+/** Whether the native project is up to date, and why not. */
 export interface SyncFreshness {
   fresh: boolean;
   reason?: string;
 }
 
+/**
+ * Compares the project with the last sync: never synced, config changed, or synced by another CLI version
+ * all count as stale.
+ */
 export function checkSyncFreshness(projectDir: string): SyncFreshness {
   const markerPath = syncMarkerPath(projectDir);
   if (!existsSync(markerPath)) {
@@ -44,6 +56,7 @@ export function checkSyncFreshness(projectDir: string): SyncFreshness {
   return { fresh: true };
 }
 
+/** Records the current config and CLI version as synced. */
 export function writeSyncMarker(projectDir: string): void {
   const markerPath = syncMarkerPath(projectDir);
   mkdirSync(join(projectDir, ".wefter"), { recursive: true });

@@ -1,32 +1,40 @@
+/**
+ * Runs build tools (Gradle, xcodebuild, adb, simctl) quietly: their output is captured and logged rather
+ * than printed, and a failure is turned into a short diagnosis.
+ */
+
 import { spawn } from "node:child_process";
 import chalk from "chalk";
 import { activeRunLog } from "./run-log.js";
 import { logOnly, uiSettings, writeLine } from "../ui/terminal.js";
 
-/** What went wrong, in a form a person can act on. */
+/** What went wrong, as found in a tool's output: the error lines and suggestions for fixing them. */
 export interface Diagnosis {
-  /** The actual error lines from the tool's output (compiler errors, install failures, …). */
   errors: string[];
-  /** One-line fixes for problems we recognise. */
   hints: string[];
 }
 
+/** Reads a tool's full output and picks out its errors and hints. */
 export type Diagnose = (lines: string[]) => Diagnosis;
 
+/**
+ * Options for {@link runProcess}.
+ *
+ * - `tool`: name shown to the user, for example "Gradle".
+ * - `onLine`: receives each line in quiet mode, for progress reporting.
+ * - `diagnose`: explains a failure from the output.
+ * - `failureMessage`: headline for a failure with the given exit code.
+ */
 export interface RunProcessOptions {
   cwd?: string;
   env?: NodeJS.ProcessEnv;
-  /** Name used in failure summaries, e.g. "Xcode", "Gradle", "adb". */
   tool: string;
-  /** Called for every output line while output is captured quietly (drives spinner detail). */
   onLine?: (line: string) => void;
-  /** Extracts the real errors from the output when the command fails. */
   diagnose?: Diagnose;
-  /** Error message for a non-zero exit (defaults to "<command> <args> failed with exit code N"). */
   failureMessage?: (exitCode: number | null) => string;
 }
 
-/** A tool exited non-zero (or could not start). Carries enough to explain the failure. */
+/** A tool that failed or could not be started, with what went wrong. */
 export class ProcessFailure extends Error {
   readonly tool: string;
   readonly exitCode: number | null;
@@ -41,25 +49,28 @@ export class ProcessFailure extends Error {
   }
 }
 
-/** Kept in memory for diagnosis; the full output is always in the run log. */
+/** Most lines kept in memory for diagnosis; the log file has everything. */
 const MAX_CAPTURED_LINES = 50_000;
 const FALLBACK_TAIL_LINES = 20;
 
+/** The last `count` non-blank lines, used when nothing specific was recognised. */
 export function tailLines(lines: string[], count = FALLBACK_TAIL_LINES): string[] {
   return lines.filter((line) => line.trim() !== "").slice(-count);
 }
 
+/** A command as it would be typed, quoting arguments that need it. */
 function describeCommand(command: string, args: string[]): string {
   return [command, ...args].map((part) => (/[\s"']/.test(part) ? JSON.stringify(part) : part)).join(" ");
 }
 
 /**
- * Runs a tool with its output captured.
+ * Runs a command to completion.
  *
- * Default mode: output goes to the run log only, and each line is handed to `onLine` (so a
- * spinner can show what the tool is doing). `--debug`: every line is also printed live, above any
- * status line. On failure the promise rejects with a `ProcessFailure` whose diagnosis lists the
- * real errors (via `diagnose`), falling back to the last lines of output.
+ * In quiet mode each line goes to the log and to `onLine`; with `--debug` it is printed as it arrives. The
+ * command and its exit status are logged either way.
+ *
+ * @returns Every line of output.
+ * @throws {ProcessFailure} When the command exits with a non-zero code or cannot be started.
  */
 export function runProcess(command: string, args: string[], options: RunProcessOptions): Promise<string[]> {
   const debug = uiSettings().debug;
@@ -150,8 +161,6 @@ export function runProcess(command: string, args: string[], options: RunProcessO
       );
     });
 
-    // Real child processes emit "close" once their output streams have drained; finish there so no
-    // trailing output is lost. A process without piped streams only ever emits "exit".
     proc.on("exit", (code: number | null) => {
       exitCode = code;
       if (!proc.stdout && !proc.stderr) finish(code);

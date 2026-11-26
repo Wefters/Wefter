@@ -110,4 +110,3 @@ To test your monorepo changes in a realistic mobile application:
 ## License
 
 By contributing to Wefter, you agree that your contributions will be licensed under the [MIT License](LICENSE).
-

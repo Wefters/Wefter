@@ -2,11 +2,16 @@ import { existsSync, readFileSync } from "node:fs";
 import type { DiscoveredPlugin } from "@wefterjs/registry-codegen";
 import { iosInfoPlistPath } from "../config/project-paths.js";
 
+/** Result of {@link checkInfoPlistPermissionKeys}. */
 export interface PlistPermissionCheckResult {
   passed: boolean;
   issues: string[];
 }
 
+/**
+ * Checks that `Info.plist` has the usage description of every iOS permission the plugins declare. iOS
+ * terminates an app that uses such an API without one, so this runs before iOS builds.
+ */
 export function checkInfoPlistPermissionKeys(
   projectDir: string,
   declaredPlugins: DiscoveredPlugin[],

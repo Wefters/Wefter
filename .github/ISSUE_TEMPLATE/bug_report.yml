@@ -80,4 +80,3 @@ body:
           required: true
         - label: I provided the complete output of 'wefter doctor'.
           required: true
-

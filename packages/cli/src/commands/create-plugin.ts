@@ -1,6 +1,12 @@
+/**
+ * `wefter plugin create`: scaffolds a new plugin package with a TypeScript API, an Android and an iOS
+ * implementation, and a `plugin.json`.
+ */
+
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
+/** `my-plugin` → `MyPlugin`. */
 function toPascalCase(name: string): string {
   return name
     .split(/[-_]/)
@@ -9,6 +15,11 @@ function toPascalCase(name: string): string {
     .join("");
 }
 
+/**
+ * Creates the plugin in `<targetDir>/<name>`.
+ *
+ * @returns The new plugin's folder.
+ */
 export function createPlugin(targetDir: string, name: string): string {
   const pascalName = toPascalCase(name);
   const dir = join(targetDir, name);

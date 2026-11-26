@@ -1,5 +1,6 @@
 import UIKit
 
+/// Creates the app's window with the web view controller as its root.
 final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     var window: UIWindow?
 

@@ -21,6 +21,10 @@ import { auditPermissionHandling } from "./audit-permission-handling.js";
 import type { PluginExtraction } from "./codegen-android.js";
 import type { PluginExtractionSwift } from "./codegen-ios.js";
 
+/**
+ * Outcome of {@link validatePluginDirectory}. On success it also carries the parsed manifest and the
+ * methods and hooks found in each platform's source.
+ */
 export interface PluginValidationResult {
   valid: boolean;
   issues: string[];
@@ -29,11 +33,13 @@ export interface PluginValidationResult {
   iosExtraction?: PluginExtractionSwift;
 }
 
+/** The last segment of a class reference such as `.auth.LoginActivity`. */
 function simpleClassName(name: string): string {
   const segments = name.replace(/^\.+/, "").split(".");
   return segments[segments.length - 1];
 }
 
+/** Checks that every Android component a plugin declares exists as a declared type in its Kotlin source. */
 function validateManifestEntries(manifest: PluginManifest, hasAndroid: boolean, androidSource: string): string[] {
   const entries = manifest.android?.manifestEntries ?? [];
   if (entries.length === 0) return [];
@@ -51,8 +57,10 @@ function validateManifestEntries(manifest: PluginManifest, hasAndroid: boolean, 
     );
 }
 
+/** A `group:artifact:version` Gradle coordinate. */
 const GRADLE_COORDINATE_PATTERN = /^[\w.-]+:[\w.-]+:[\w.+-]+$/;
 
+/** Reports Gradle dependencies that are not `group:artifact:version` coordinates. */
 function validateGradleCoordinates(manifest: PluginManifest): string[] {
   const coordinates = manifest.nativeDependencies?.android?.gradle ?? [];
   return coordinates
@@ -63,6 +71,18 @@ function validateGradleCoordinates(manifest: PluginManifest): string[] {
     );
 }
 
+/**
+ * Checks that a folder is a valid Wefter plugin. In order, it checks that:
+ *
+ * - `plugin.json` exists and matches the schema;
+ * - there is native source for at least one platform;
+ * - every annotated method and hook has the required signature;
+ * - manifest entries and Gradle coordinates are valid;
+ * - the declared methods and hooks match the source;
+ * - dangerous Android permissions can be reported as denied.
+ *
+ * It stops at the first group of issues it finds.
+ */
 export function validatePluginDirectory(pluginDir: string): PluginValidationResult {
   const manifestPath = join(pluginDir, "plugin.json");
   if (!existsSync(manifestPath)) {

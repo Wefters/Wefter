@@ -12,7 +12,6 @@ const { configureUi, setTerminalStreams } = await import("../src/ui/terminal.js"
 
 const target = { serial: "R58N12ABC", appId: "dev.wefter.demo", namespace: "dev.wefter" };
 
-/** Queues an `adb` invocation that prints `output` and exits with `code`. */
 function adbResponds(output: string, code = 0) {
   spawnMock.mockImplementationOnce(() => {
     const child = Object.assign(new EventEmitter(), { stdout: new EventEmitter(), stderr: new EventEmitter() });

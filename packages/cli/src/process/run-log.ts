@@ -1,28 +1,32 @@
+/**
+ * Each `run` and `build` writes everything (commands, full tool output and CLI messages) to a log file in
+ * `.wefter/logs`, so a quiet run can still be investigated.
+ */
+
 import { appendFileSync, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { setLogSink } from "../ui/terminal.js";
 
-/**
- * A plain-text log of one CLI command: every line the CLI printed, every tool it ran (command,
- * working directory, exit code, duration) and all of that tool's output. Written synchronously so
- * the file is complete even if the process is killed mid-build.
- */
+/** An open run log. */
 export interface RunLog {
   path: string;
-  /** Path relative to the project, for printing. */
   displayPath: string;
   append(line: string): void;
 }
 
+/** Folder for run logs, relative to the project. */
 export const RUN_LOG_DIR = ".wefter/logs";
+/** How many logs are kept; older ones are deleted. */
 export const RUN_LOGS_KEPT = 10;
 
 let active: RunLog | null = null;
 
+/** The log of the current command, if one is open. */
 export function activeRunLog(): RunLog | null {
   return active;
 }
 
+/** A file-name-safe timestamp, such as `2026-11-25T14-03-12`. */
 function timestamp(date: Date): string {
   return date
     .toISOString()
@@ -30,7 +34,7 @@ function timestamp(date: Date): string {
     .replace(/:/g, "-");
 }
 
-/** Deletes the oldest `.log` files so at most `keep` remain. */
+/** Deletes all but the newest `keep` logs in `dir`. */
 export function pruneRunLogs(dir: string, keep = RUN_LOGS_KEPT): void {
   let entries: { path: string; mtime: number }[];
   try {
@@ -48,9 +52,9 @@ export function pruneRunLogs(dir: string, keep = RUN_LOGS_KEPT): void {
 }
 
 /**
- * Opens `.wefter/logs/<name>-<time>.log`, makes it the active log (so printed lines and tool
- * output are copied into it) and prunes old logs. Returns null if the directory can't be written;
- * logging is a convenience and must never stop a build.
+ * Starts a log named `<name>-<timestamp>.log` and routes all output into it.
+ *
+ * @returns The log, or `null` when it cannot be written (logging is then skipped, not fatal).
  */
 export function openRunLog(projectDir: string, name: string, now = new Date()): RunLog | null {
   const dir = join(projectDir, RUN_LOG_DIR);
@@ -81,6 +85,7 @@ export function openRunLog(projectDir: string, name: string, now = new Date()): 
   return log;
 }
 
+/** Stops writing to the current log. */
 export function closeRunLog(): void {
   active = null;
   setLogSink(null);

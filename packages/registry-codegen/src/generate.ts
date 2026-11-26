@@ -1,3 +1,9 @@
+/**
+ * Regenerates the `GeneratedRegistry` files of both shell templates from the plugins in this repository's
+ * `plugins/` folder. Run with `pnpm generate` during framework development; apps get their registry
+ * from `wefter sync` instead.
+ */
+
 import { existsSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";

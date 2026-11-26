@@ -1,5 +1,11 @@
+/** Schema of `plugin.json`, the manifest every Wefter plugin ships next to its `package.json`. */
+
 import { z } from "zod";
 
+/**
+ * Attributes of an intent filter's `<data>` element. Values may contain `${key}` placeholders filled from
+ * `pluginConfig`.
+ */
 const IntentFilterDataSchema = z.object({
   scheme: z.string().optional(),
   host: z.string().optional(),
@@ -9,12 +15,17 @@ const IntentFilterDataSchema = z.object({
   mimeType: z.string().optional(),
 });
 
+/** An Android intent filter: one action, its categories and optional data. */
 const IntentFilterSchema = z.object({
   action: z.string().min(1),
   categories: z.array(z.string()).default([]),
   data: IntentFilterDataSchema.optional(),
 });
 
+/**
+ * An Android component a plugin adds to the app's manifest, such as an activity that receives an OAuth
+ * redirect.
+ */
 const ManifestEntrySchema = z.object({
   type: z.enum(["activity"]),
   name: z
@@ -28,10 +39,23 @@ const ManifestEntrySchema = z.object({
   intentFilters: z.array(IntentFilterSchema).default([]),
 });
 
+/** An Android component declared by a plugin. */
 export type ManifestEntry = z.infer<typeof ManifestEntrySchema>;
+/** An Android intent filter declared by a plugin. */
 export type IntentFilter = z.infer<typeof IntentFilterSchema>;
+/** The `<data>` attributes of an intent filter. */
 export type IntentFilterData = z.infer<typeof IntentFilterDataSchema>;
 
+/**
+ * The whole `plugin.json`.
+ *
+ * - `name`: the bridge name, which also gives the native class name (see `classNameFor`).
+ * - `permissions.android`: Android permissions to add to the manifest.
+ * - `permissions.ios`: `Info.plist` usage descriptions, by key.
+ * - `nativeDependencies`: Gradle coordinates, ProGuard rules and Swift packages the plugin needs.
+ * - `android.manifestEntries`: components to add to the Android manifest.
+ * - `methods`, `hooks`, `events`: what the plugin exposes; checked against its native source.
+ */
 export const PluginManifestSchema = z.object({
   name: z.string().min(1),
   permissions: z
@@ -74,4 +98,5 @@ export const PluginManifestSchema = z.object({
   events: z.array(z.string()).default([]),
 });
 
+/** A parsed `plugin.json`. */
 export type PluginManifest = z.infer<typeof PluginManifestSchema>;

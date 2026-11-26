@@ -1,6 +1,10 @@
 import type { DiscoveredPlugin } from "./scan-plugins.js";
 import type { ExtractedHook, ExtractedMethod } from "./extract-wefter-plugin.js";
 
+/**
+ * Compares the names a manifest declares with the names found in source. An empty declaration is not
+ * checked.
+ */
 function checkField(pluginName: string, fieldLabel: string, declared: string[], extracted: string[]): string[] {
   if (declared.length === 0) return [];
 
@@ -14,6 +18,12 @@ function checkField(pluginName: string, fieldLabel: string, declared: string[], 
   ];
 }
 
+/**
+ * Makes sure the `methods` and `hooks` listed in `plugin.json` match the annotated methods and hooks in
+ * the plugin's native source.
+ *
+ * @throws {Error} Listing every missing and undeclared name.
+ */
 export function auditPluginConsistency(
   plugin: DiscoveredPlugin,
   methods: ExtractedMethod[],

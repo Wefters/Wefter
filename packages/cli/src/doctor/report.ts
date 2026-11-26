@@ -1,6 +1,7 @@
 import type { ColoredSegment } from "../utils/logger.js";
 import type { CheckResult } from "./checks.js";
 
+/** Formats check results as coloured lines, with a "Fix:" line under each failure. */
 export function buildReportLines(results: CheckResult[]): ColoredSegment[][] {
   const lines: ColoredSegment[][] = [];
 
@@ -23,6 +24,7 @@ export function buildReportLines(results: CheckResult[]): ColoredSegment[][] {
   return lines;
 }
 
+/** Whether every check passed. */
 export function allPassed(results: CheckResult[]): boolean {
   return results.every((result) => result.passed);
 }

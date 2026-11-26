@@ -1,7 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
 
-// Apps often bundle several copies of @wefterjs/core (one per plugin). vi.resetModules() + a fresh
-// dynamic import gives us a second, independent module instance — exactly like a second copy.
 async function loadCopy() {
   vi.resetModules();
   return import("../src/internal/native-bridge.js");
@@ -21,7 +19,6 @@ describe("multiple copies of core in one page", () => {
     expect(calls).toHaveLength(2);
     expect(calls[0]!.callId).not.toBe(calls[1]!.callId);
 
-    // Answer in reverse order: each answer must land on its own promise.
     window.__wefterNative.resolve(calls[1]!.callId, JSON.stringify({ from: "device" }));
     window.__wefterNative.resolve(calls[0]!.callId, JSON.stringify({ from: "scanner" }));
 

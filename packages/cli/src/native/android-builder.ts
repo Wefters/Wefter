@@ -7,20 +7,28 @@ import { runProcess } from "../process/run-process.js";
 import { diagnoseGradle } from "./android-diagnostics.js";
 import { createGradleProgress } from "./build-progress.js";
 
+/** The built APK and its size. */
 export interface AndroidBuildResult {
   apkPath: string;
   sizeBytes: number;
 }
 
+/** Upper-cases the first character, for Gradle task names. */
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+/** Options for {@link buildAndroid}. */
 export interface AndroidBuildOptions {
-  /** Receives short "what Gradle is doing" texts for a spinner. */
   onProgress?: (detail: string) => void;
 }
 
+/**
+ * Builds the APK for an environment with Gradle (`assemble<Env><Debug|Release>`). Release builds get the
+ * signing secrets in their environment. Progress is reported through `onProgress`.
+ *
+ * @throws {ProcessFailure} When Gradle fails, with the compiler errors and hints.
+ */
 export async function buildAndroid(
   projectDir: string,
   config: WefterConfig,
@@ -34,8 +42,6 @@ export async function buildAndroid(
   const signingEnv = release ? buildSigningEnv(projectDir, config) : {};
 
   const progress = createGradleProgress(`${capitalize(env)}${buildType}`);
-  // --console=plain prints one "> Task :module:task" line per task, which is what the progress
-  // tracker reads (and what the run log stores); Gradle's rich console is only for a terminal.
   await runProcess("./gradlew", [task, "--console=plain"], {
     cwd: projectRoot,
     env: { ...process.env, ...signingEnv },
@@ -52,6 +58,7 @@ export async function buildAndroid(
   return { apkPath, sizeBytes: statSync(apkPath).size };
 }
 
+/** Finds the APK Gradle wrote for this variant. */
 function resolveApkPath(projectRoot: string, env: string, release: boolean): string {
   const buildType = release ? "release" : "debug";
   const outDir = join(projectRoot, "app/build/outputs/apk", env, buildType);

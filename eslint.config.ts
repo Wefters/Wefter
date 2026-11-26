@@ -35,6 +35,7 @@ export default tseslint.config(
       "no-var": "error",
       "prefer-const": "error",
       "no-eval": "error",
+      "no-empty": ["error", { allowEmptyCatch: true }],
     },
   },
 );

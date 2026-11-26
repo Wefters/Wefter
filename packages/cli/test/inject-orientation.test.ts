@@ -70,11 +70,9 @@ describe("injectOrientationAndroid", () => {
   });
 
   it("removes screenOrientation and sets LANDSCAPE to false when landscape is false", () => {
-    // First enable
     injectOrientationAndroid(manifestPath, buildGradlePath, true);
     expect(readFileSync(manifestPath, "utf-8")).toContain('android:screenOrientation="sensorLandscape"');
 
-    // Then disable
     injectOrientationAndroid(manifestPath, buildGradlePath, false);
     const manifest = readFileSync(manifestPath, "utf-8");
     expect(manifest).not.toContain("android:screenOrientation");
@@ -143,9 +141,7 @@ describe("injectOrientationIos", () => {
   });
 
   it("restores portrait orientations and sets BuildConfig.landscape = false when landscape is false", () => {
-    // First set landscape
     injectOrientationIos(infoPlistPath, buildConfigPath, true);
-    // Then set false
     injectOrientationIos(infoPlistPath, buildConfigPath, false);
 
     const plist = readFileSync(infoPlistPath, "utf-8");

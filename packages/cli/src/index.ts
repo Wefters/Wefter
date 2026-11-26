@@ -1,3 +1,8 @@
+/**
+ * Programmatic API of `@wefterjs/cli`: the same operations the `wefter` command runs, for scripts and
+ * tests.
+ */
+
 export { runAllChecks, type CheckResult } from "./doctor/checks.js";
 export { allPassed, buildReportLines } from "./doctor/report.js";
 export { REQUIREMENTS } from "./config/requirements.js";

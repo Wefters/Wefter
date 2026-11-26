@@ -1,7 +1,8 @@
 /**
- * Page-wide "first one wins" guard. A bundle can contain several copies of @wefterjs/core (e.g.
- * one per plugin); each copy's module-level flags are separate, so without this every copy would
- * patch console/fetch again and every log or request would reach devtools once per copy.
+ * Returns `true` the first time it is called with `name` in this JavaScript realm and `false` after that.
+ *
+ * The flag lives on `globalThis` under a registered symbol, so it survives hot module reloads and
+ * duplicate copies of this package. It keeps each DevTools patch from being installed twice.
  */
 export function claimOnce(name: string): boolean {
   const key = Symbol.for(`wefter.devtools.installed.${name}`);

@@ -1,14 +1,24 @@
+/** A bridge method found in native source, with the line it starts on. */
+/**
+ * Finds the methods and hooks a plugin exposes in its Swift source. A method is a `func` directly below
+ * a `// @WefterMethod` comment that takes
+ * `(payload: [String: Any], callback: @escaping (Result<Any, Error>) -> Void) throws`; a hook is a
+ * no-argument `func` below `// @WefterHook("name")`.
+ */
+
 export interface ExtractedMethod {
   name: string;
   lineNumber: number;
 }
 
+/** A lifecycle hook found in native source: the hook it listens to and the function that handles it. */
 export interface ExtractedHook {
   hookName: string;
   methodName: string;
   lineNumber: number;
 }
 
+/** 1-based line number of a character offset. */
 function lineNumberAt(source: string, index: number): number {
   let line = 1;
   for (let i = 0; i < index; i++) {
@@ -21,6 +31,7 @@ const METHOD_PATTERN_SOURCE = String.raw`\/\/ @WefterMethod\s*\n\s*func\s+(\w+)\
 
 const METHOD_ANNOTATION_PATTERN = /\/\/ @WefterMethod\s*\n\s*func\s+\w+\s*\(/g;
 
+/** Every correctly declared bridge method in Swift source. */
 export function extractWefterMethodsSwift(source: string): ExtractedMethod[] {
   const pattern = new RegExp(METHOD_PATTERN_SOURCE, "g");
   const results: ExtractedMethod[] = [];
@@ -30,6 +41,7 @@ export function extractWefterMethodsSwift(source: string): ExtractedMethod[] {
   return results;
 }
 
+/** Line numbers of marked methods whose signature does not match the required one. */
 export function findMalformedWefterMethodsSwift(source: string): number[] {
   const strictPattern = new RegExp(`^${METHOD_PATTERN_SOURCE}`);
   const malformed: number[] = [];
@@ -46,6 +58,7 @@ const HOOK_PATTERN_SOURCE = String.raw`\/\/ @WefterHook\("(\w+)"\)\s*\n\s*func\s
 
 const HOOK_ANNOTATION_PATTERN = /\/\/ @WefterHook\([^)]*\)\s*\n\s*func\s+\w+\s*\([^)]*\)/g;
 
+/** Every correctly declared lifecycle hook in Swift source. */
 export function extractWefterHooksSwift(source: string): ExtractedHook[] {
   const pattern = new RegExp(HOOK_PATTERN_SOURCE, "g");
   const results: ExtractedHook[] = [];
@@ -55,6 +68,7 @@ export function extractWefterHooksSwift(source: string): ExtractedHook[] {
   return results;
 }
 
+/** Line numbers of marked hooks whose signature does not match the required one. */
 export function findMalformedWefterHooksSwift(source: string): number[] {
   const strictPattern = new RegExp(`^${HOOK_PATTERN_SOURCE}`);
   const malformed: number[] = [];

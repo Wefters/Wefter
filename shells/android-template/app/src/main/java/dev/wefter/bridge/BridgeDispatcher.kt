@@ -7,12 +7,20 @@ import android.webkit.WebView
 import androidx.core.app.ActivityCompat
 import org.json.JSONObject
 
+/** A module JavaScript can call through the bridge. Generated dispatch wrappers adapt plugins to it. */
 interface NativeModule {
+    /** Runs [method] with [payload] and reports the result through [callback], on any thread. */
     fun invoke(method: String, payload: JSONObject, callback: (Result<Any>) -> Unit)
 
+    /** Gives the module a way to send events to JavaScript. Optional. */
     fun attachEmitter(emit: (String, JSONObject) -> Unit) {}
 }
 
+/**
+ * Receives calls from JavaScript (exposed to the page as `window.AndroidBridge`), routes them to the
+ * registered modules and sends results, errors and events back to the web view. It also tracks runtime
+ * permission requests made by plugins.
+ */
 class BridgeDispatcher(private val webView: WebView) {
     private val modules = mutableMapOf<String, NativeModule>()
     private val hookSubscribers = mutableMapOf<String, MutableList<() -> Unit>>()
@@ -20,19 +28,23 @@ class BridgeDispatcher(private val webView: WebView) {
     private val pendingPermissionRequests = mutableMapOf<Int, (Boolean) -> Unit>()
     private var nextPermissionRequestCode = 1000
 
+    /** Registers a module under the name JavaScript uses. */
     fun register(name: String, module: NativeModule) {
         modules[name] = module
         module.attachEmitter { hookName, data -> emit(hookName, data) }
     }
 
+    /** Runs [callback] whenever a lifecycle hook (such as `appReady`) fires. */
     fun subscribeHook(hookName: String, callback: () -> Unit) {
         hookSubscribers.getOrPut(hookName) { mutableListOf() }.add(callback)
     }
 
+    /** Fires a lifecycle hook. */
     fun dispatchHook(hookName: String) {
         hookSubscribers[hookName]?.forEach { it() }
     }
 
+    /** Requests [permission] from the user; [onResult] receives whether it was granted. */
     fun requestPermission(
             activity: Activity,
             permission: String,
@@ -43,6 +55,7 @@ class BridgeDispatcher(private val webView: WebView) {
         ActivityCompat.requestPermissions(activity, arrayOf(permission), requestCode)
     }
 
+    /** Delivers a permission result from the activity to the plugin that asked for it. */
     fun handlePermissionResult(requestCode: Int, grantResults: IntArray) {
         val callback = pendingPermissionRequests.remove(requestCode) ?: return
         val granted =
@@ -50,6 +63,10 @@ class BridgeDispatcher(private val webView: WebView) {
         callback(granted)
     }
 
+    /**
+     * Handles a call from JavaScript. Unknown plugins and invalid payloads are rejected; errors returned or
+     * thrown by the module are sent back with their code and, in debug builds, the native stack trace.
+     */
     @JavascriptInterface
     fun invoke(callId: String, plugin: String, method: String, payloadJson: String) {
         val module = modules[plugin]
@@ -88,8 +105,10 @@ class BridgeDispatcher(private val webView: WebView) {
         }
     }
 
+    /** Name of the build flavor (environment), reported to `getPlatformInfo()`. */
     @JavascriptInterface fun getEnvironment(): String = BuildConfig.FLAVOR
 
+    /** Sends an event to JavaScript listeners. */
     fun emit(hookName: String, data: JSONObject) {
         webView.post {
             val js = "window.__wefterNative.emit('$hookName', ${JSONObject.quote(data.toString())})"
@@ -97,6 +116,7 @@ class BridgeDispatcher(private val webView: WebView) {
         }
     }
 
+    /** Resolves a pending JavaScript call. Must run on the main thread. */
     private fun sendResolve(callId: String, result: Any) {
         val json =
                 if (result is JSONObject) result.toString() else JSONObject.quote(result.toString())
@@ -106,6 +126,7 @@ class BridgeDispatcher(private val webView: WebView) {
         )
     }
 
+    /** Rejects a pending JavaScript call. Must run on the main thread. */
     private fun sendReject(callId: String, code: String, message: String, nativeStack: String? = null) {
         val errorBody = JSONObject().put("code", code).put("message", message)
         if (BuildConfig.DEBUG && nativeStack != null) {

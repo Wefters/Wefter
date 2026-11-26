@@ -1,11 +1,18 @@
 import type { DiscoveredPlugin } from "./scan-plugins.js";
 import { readPluginKotlinSource } from "./read-kotlin-source.js";
 
+/** Android APIs that need a permission, mapped to the permission they need. */
 const SENSITIVE_API_PATTERNS: Record<string, string> = {
   CameraX: "android.permission.CAMERA",
   LocationManager: "android.permission.ACCESS_FINE_LOCATION",
 };
 
+/**
+ * Flags plugins whose Kotlin source uses a sensitive API without declaring its permission in
+ * `plugin.json`.
+ *
+ * @returns One message per missing permission.
+ */
 export function auditPluginPermissions(plugins: DiscoveredPlugin[]): string[] {
   const violations: string[] = [];
 

@@ -2,11 +2,13 @@ import { existsSync, readFileSync } from "node:fs";
 import { iosAppDir, iosBuildConfigPath, iosInfoPlistPath } from "../config/project-paths.js";
 import type { WefterConfig } from "../config/wefter-config-schema.js";
 
+/** Result of {@link checkReleaseSecurityIos}. */
 export interface ReleaseSecurityResultIos {
   passed: boolean;
   issues: string[];
 }
 
+/** The release `devServerURL` value in `BuildConfig.swift`, found by its marker comment. */
 function readReleaseDevServerUrl(buildConfigPath: string): string | null {
   if (!existsSync(buildConfigPath)) return null;
   const contents = readFileSync(buildConfigPath, "utf-8");
@@ -14,6 +16,7 @@ function readReleaseDevServerUrl(buildConfigPath: string): string | null {
   return match ? match[1] : null;
 }
 
+/** How many ATS exception domains `--watch` left in `Info.plist`. */
 function ansExceptionDomainCount(infoPlistPath: string): number {
   if (!existsSync(infoPlistPath)) return 0;
   const contents = readFileSync(infoPlistPath, "utf-8");
@@ -22,6 +25,10 @@ function ansExceptionDomainCount(infoPlistPath: string): number {
   return [...blockMatch[1].matchAll(/<key>([\d.]+)<\/key>/g)].length;
 }
 
+/**
+ * Checks that an iOS release build cannot reach a dev server: no release dev server URL, no ATS exceptions,
+ * an existing native project and a signing config.
+ */
 export function checkReleaseSecurityIos(projectDir: string, config: WefterConfig): ReleaseSecurityResultIos {
   const issues: string[] = [];
 

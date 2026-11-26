@@ -154,7 +154,6 @@ describe("mountShell", () => {
     document.dispatchEvent(new KeyboardEvent("keydown", { key: "/", bubbles: true }));
     expect(document.activeElement).toBe(search);
 
-    // Typing a digit inside the filter must not switch panels.
     search.dispatchEvent(new KeyboardEvent("keydown", { key: "1", bubbles: true }));
     expect(panels[1]!.element.classList.contains("active")).toBe(true);
     root.remove();
@@ -204,7 +203,6 @@ describe("mountShell", () => {
 
     const logo = root.querySelector(".wd-header .wd-logo")!;
     expect(logo.getAttribute("aria-label")).toBe("Wefter");
-    // Mark (4 paths) + E, F, T, E, R wordmark (5 paths).
     expect(logo.querySelectorAll("path").length).toBe(9);
   });
 });

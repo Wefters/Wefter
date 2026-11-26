@@ -1,3 +1,8 @@
+/**
+ * The Plugins panel: the project's plugins with their platforms, methods, hooks, events and permissions,
+ * and how often the app has called each one.
+ */
+
 import type { Store } from "../store.js";
 import type { BridgeRecord, PluginInfo } from "../../shared/events.js";
 import { h } from "../dom.js";
@@ -13,13 +18,16 @@ import {
   toolbarSpacer,
 } from "./shared.js";
 
+/** Calls made to one plugin this session. */
 interface CallStats {
   total: number;
   failed: number;
 }
 
+/** Progress of loading the plugin list. */
 type LoadState = "loading" | "ready" | "failed";
 
+/** A list of names, or `emptyText` when there are none. */
 function nameList(items: string[], emptyText: string): HTMLElement {
   if (items.length === 0) return mutedText(emptyText);
   return h(
@@ -29,6 +37,7 @@ function nameList(items: string[], emptyText: string): HTMLElement {
   );
 }
 
+/** Badges for the platforms a plugin has native source for. */
 function platforms(plugin: PluginInfo): HTMLElement {
   return h(
     "span",
@@ -38,6 +47,7 @@ function platforms(plugin: PluginInfo): HTMLElement {
   );
 }
 
+/** Call count cell, highlighting failures. */
 function callsText(stats: CallStats | undefined): HTMLElement {
   if (!stats) return h("span", { class: "wd-cell wd-cell-num" }, "—");
   return h(
@@ -48,6 +58,11 @@ function callsText(stats: CallStats | undefined): HTMLElement {
   );
 }
 
+/**
+ * Creates the Plugins panel. The list is fetched from the dev server once.
+ *
+ * @param bridgeStore Bridge history, used for the call counts.
+ */
 export function createPluginsPanel(bridgeStore?: Store<BridgeRecord[]>): HTMLElement {
   let plugins: PluginInfo[] = [];
   let state: LoadState = "loading";
@@ -56,6 +71,7 @@ export function createPluginsPanel(bridgeStore?: Store<BridgeRecord[]>): HTMLEle
 
   const summaryEl = h("span", { class: "wd-summary" });
 
+  /** Permission rows for each platform the plugin supports. */
   function permissionsOf(plugin: PluginInfo): [string, Node][] {
     const rows: [string, Node][] = [];
     if (plugin.hasIosSource) rows.push(["iOS", nameList(plugin.iosPermissions, "None declared")]);
@@ -141,6 +157,7 @@ export function createPluginsPanel(bridgeStore?: Store<BridgeRecord[]>): HTMLEle
     table.element,
   );
 
+  /** Counts calls and failures per plugin from the bridge history. */
   function computeStats(): void {
     stats = new Map();
     for (const record of bridgeStore?.get() ?? []) {
@@ -151,6 +168,7 @@ export function createPluginsPanel(bridgeStore?: Store<BridgeRecord[]>): HTMLEle
     }
   }
 
+  /** Applies the filter and updates the table. */
   function render(): void {
     computeStats();
     const visible = plugins.filter(

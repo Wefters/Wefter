@@ -1,5 +1,8 @@
+/** Applies the `landscape` option from `wefter.config.json` to both native projects. */
+
 import { readFileSync, writeFileSync } from "node:fs";
 
+/** Markers around the generated orientation settings in each native file. */
 export const ANDROID_ORIENTATION_START = "// WEFTER-ORIENTATION-CONFIG-START";
 export const ANDROID_ORIENTATION_END = "// WEFTER-ORIENTATION-CONFIG-END";
 
@@ -9,6 +12,7 @@ export const IOS_ORIENTATION_PLIST_END = "<!-- WEFTER-ORIENTATIONS-END -->";
 export const IOS_ORIENTATION_CONFIG_START = "// WEFTER-ORIENTATION-CONFIG-START";
 export const IOS_ORIENTATION_CONFIG_END = "// WEFTER-ORIENTATION-CONFIG-END";
 
+/** `Info.plist` orientations for a landscape-only app. */
 const IOS_LANDSCAPE_ORIENTATIONS = `\t<key>UISupportedInterfaceOrientations</key>
 \t<array>
 \t\t<string>UIInterfaceOrientationLandscapeLeft</string>
@@ -20,6 +24,7 @@ const IOS_LANDSCAPE_ORIENTATIONS = `\t<key>UISupportedInterfaceOrientations</key
 \t\t<string>UIInterfaceOrientationLandscapeRight</string>
 \t</array>`;
 
+/** `Info.plist` orientations when landscape is off: the iOS defaults for iPhone and iPad. */
 const IOS_DEFAULT_ORIENTATIONS = `\t<key>UISupportedInterfaceOrientations</key>
 \t<array>
 \t\t<string>UIInterfaceOrientationPortrait</string>
@@ -34,8 +39,11 @@ const IOS_DEFAULT_ORIENTATIONS = `\t<key>UISupportedInterfaceOrientations</key>
 \t\t<string>UIInterfaceOrientationLandscapeRight</string>
 \t</array>`;
 
+/**
+ * Locks `MainActivity` to landscape (or removes the lock) in the manifest, and sets the `LANDSCAPE` build
+ * config field. Projects that predate the markers get them added after the splash config.
+ */
 export function injectOrientationAndroid(manifestPath: string, buildGradlePath: string, landscape: boolean): void {
-  // 1. Update AndroidManifest.xml for MainActivity
   let manifest = readFileSync(manifestPath, "utf-8");
   const activityRegex = /(<activity\b[^>]*android:name="\.MainActivity"[^>]*>)/s;
   const match = manifest.match(activityRegex);
@@ -64,7 +72,6 @@ export function injectOrientationAndroid(manifestPath: string, buildGradlePath: 
     writeFileSync(manifestPath, manifest, "utf-8");
   }
 
-  // 2. Update build.gradle.kts
   let gradle = readFileSync(buildGradlePath, "utf-8");
   const gradleLine = `        buildConfigField("boolean", "LANDSCAPE", "${landscape}")`;
   const markerPattern = new RegExp(`(${ANDROID_ORIENTATION_START})[\\s\\S]*?(${ANDROID_ORIENTATION_END})`);
@@ -72,7 +79,6 @@ export function injectOrientationAndroid(manifestPath: string, buildGradlePath: 
   if (markerPattern.test(gradle)) {
     gradle = gradle.replace(markerPattern, `$1\n${gradleLine}\n        $2`);
   } else {
-    // If markers don't exist yet, place inside defaultConfig
     const splashEndPattern = /(\/\/ WEFTER-SPLASH-CONFIG-END)/;
     if (splashEndPattern.test(gradle)) {
       gradle = gradle.replace(
@@ -90,8 +96,11 @@ export function injectOrientationAndroid(manifestPath: string, buildGradlePath: 
   writeFileSync(buildGradlePath, gradle, "utf-8");
 }
 
+/**
+ * Writes the supported orientations into `Info.plist` and the `landscape` constant into
+ * `BuildConfig.swift`. Projects that predate the markers get them added.
+ */
 export function injectOrientationIos(infoPlistPath: string, buildConfigPath: string, landscape: boolean): void {
-  // 1. Update Info.plist
   let plist = readFileSync(infoPlistPath, "utf-8");
   const orientationsBlock = landscape ? IOS_LANDSCAPE_ORIENTATIONS : IOS_DEFAULT_ORIENTATIONS;
   const replacement = `${IOS_ORIENTATION_PLIST_START}\n${orientationsBlock}\n\t${IOS_ORIENTATION_PLIST_END}`;
@@ -105,14 +114,12 @@ export function injectOrientationIos(infoPlistPath: string, buildConfigPath: str
     if (rawOrientationsPattern.test(plist)) {
       plist = plist.replace(rawOrientationsPattern, replacement);
     } else {
-      // Fallback: inject right after <dict>
       plist = plist.replace(/(<dict>)/, `$1\n${replacement}`);
     }
   }
 
   writeFileSync(infoPlistPath, plist, "utf-8");
 
-  // 2. Update BuildConfig.swift
   let buildConfig = readFileSync(buildConfigPath, "utf-8");
   const configLine = `    static let landscape = ${landscape}`;
   const configPattern = new RegExp(`${IOS_ORIENTATION_CONFIG_START}[\\s\\S]*?${IOS_ORIENTATION_CONFIG_END}`);

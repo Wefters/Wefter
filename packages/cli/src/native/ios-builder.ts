@@ -7,23 +7,32 @@ import { runProcess } from "../process/run-process.js";
 import { diagnoseXcode } from "./ios-diagnostics.js";
 import { createXcodeProgress } from "./build-progress.js";
 
+/** The built `.app` bundle and its size. */
 export interface IosBuildResult {
   appPath: string;
   sizeBytes: number;
 }
 
+/** Options for {@link buildIos}. `simulator` is a simulator name or UDID to build for. */
 export interface IosBuildOptions {
   simulator?: string;
-  /** Receives short "what Xcode is doing" texts for a spinner. */
   onProgress?: (detail: string) => void;
 }
 
+/** Upper-cases the first character, for configuration names. */
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
+/** A simulator UDID, as opposed to a simulator name. */
 const SIMULATOR_UDID_PATTERN = /^[0-9A-F]{8}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{4}-[0-9A-F]{12}$/i;
 
+/**
+ * Builds the app for the iOS simulator with xcodebuild, using the `<Debug|Release>-<Env>` configuration.
+ * Release builds get the signing settings. Progress is reported through `onProgress`.
+ *
+ * @throws {ProcessFailure} When the build fails, with the compiler errors and hints.
+ */
 export async function buildIos(
   projectDir: string,
   config: WefterConfig,
@@ -74,6 +83,7 @@ export async function buildIos(
   return { appPath, sizeBytes: directorySize(appPath) };
 }
 
+/** Finds the `.app` bundle xcodebuild produced. */
 function resolveAppPath(derivedDataPath: string, configuration: string): string {
   const productsDir = join(derivedDataPath, "Build/Products", `${configuration}-iphonesimulator`);
   if (!existsSync(productsDir)) {
@@ -84,6 +94,7 @@ function resolveAppPath(derivedDataPath: string, configuration: string): string 
   return join(productsDir, appBundle);
 }
 
+/** Total size of the files in a folder, recursively. */
 function directorySize(dirPath: string): number {
   let total = 0;
   for (const entry of readdirSync(dirPath, { withFileTypes: true })) {
@@ -93,6 +104,7 @@ function directorySize(dirPath: string): number {
   return total;
 }
 
+/** Size of one file. */
 function statSizeOf(filePath: string): number {
   return statSync(filePath).size;
 }

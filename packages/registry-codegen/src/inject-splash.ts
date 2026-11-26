@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 const START = "// WEFTER-SPLASH-CONFIG-START";
 const END = "// WEFTER-SPLASH-CONFIG-END";
 
+/** Splash screen settings from `wefter.config.json`. */
 export interface SplashConfigValues {
   enabled: boolean;
   minDuration: number;
@@ -11,6 +12,12 @@ export interface SplashConfigValues {
   transition: "fade" | "none";
 }
 
+/**
+ * Writes the splash settings as `BuildConfig` fields into `build.gradle.kts`, between the
+ * `WEFTER-SPLASH-CONFIG` markers.
+ *
+ * @throws {Error} When the markers are missing.
+ */
 export function injectSplashConfig(buildGradlePath: string, values: SplashConfigValues): void {
   const current = readFileSync(buildGradlePath, "utf-8");
   const pattern = new RegExp(`(${START})[\\s\\S]*?(${END})`);

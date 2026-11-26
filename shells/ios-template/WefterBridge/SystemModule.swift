@@ -1,6 +1,8 @@
 import Foundation
 import UIKit
 
+/// Built-in `__system` module used by `@wefterjs/core`: debug flag, device info, the app-ready and
+/// hide-splash signals, and the current orientation.
 final class SystemModule: NativeModule {
     private weak var viewController: ViewController?
 

@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+/** One build environment, such as `development` or `production`. Each is installed as a separate app. */
 const EnvironmentSchema = z.object({
   appId: z.string().regex(/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/, "Invalid Android application ID"),
   appName: z.string(),
@@ -7,6 +8,17 @@ const EnvironmentSchema = z.object({
   iosBundleId: z.string().optional(),
 });
 
+/**
+ * Schema of `wefter.config.json`.
+ *
+ * - `plugins`: package names of the plugins to include.
+ * - `pluginsDir`: where those packages are installed.
+ * - `webDir`: the web app's build output.
+ * - `pluginConfig`: values for `${key}` placeholders in plugin manifests.
+ * - `environments`: app id, name and optional iOS bundle id per environment.
+ * - `icon`, `launchBackground`, `splash`, `landscape`: app look and orientation.
+ * - `signing`, `iosSigning`: release signing for Android and iOS.
+ */
 export const WefterConfigSchema = z.object({
   plugins: z.array(z.string()).default([]),
   pluginsDir: z.string().default("node_modules"),
@@ -55,4 +67,5 @@ export const WefterConfigSchema = z.object({
     .optional(),
 });
 
+/** A parsed `wefter.config.json`, with defaults applied. */
 export type WefterConfig = z.infer<typeof WefterConfigSchema>;

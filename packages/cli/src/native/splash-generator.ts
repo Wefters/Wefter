@@ -1,10 +1,14 @@
+/** Copies the HTML splash screen into the native app's web assets. */
+
 import { cpSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import type { ResolvedSplash } from "./resolve-splash.js";
 import logger from "../utils/logger.js";
 
+/** `src` and `href` attributes. */
 const REF_PATTERN = /(?:src|href)\s*=\s*["']([^"']+)["']/g;
 
+/** Whether a reference points at a file in the splash folder rather than a URL or anchor. */
 function isLocalRef(ref: string): boolean {
   if (ref.startsWith("#")) return false;
   if (ref.startsWith("//")) return false;
@@ -12,6 +16,7 @@ function isLocalRef(ref: string): boolean {
   return true;
 }
 
+/** Every HTML file under `dir`. */
 function listHtmlFiles(dir: string): string[] {
   const out: string[] = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -22,6 +27,7 @@ function listHtmlFiles(dir: string): string[] {
   return out;
 }
 
+/** Warns about splash pages that reference files missing from the splash folder. */
 function warnBrokenReferences(sourceDir: string): void {
   for (const htmlFile of listHtmlFiles(sourceDir)) {
     const html = readFileSync(htmlFile, "utf-8");
@@ -38,6 +44,11 @@ function warnBrokenReferences(sourceDir: string): void {
   }
 }
 
+/**
+ * Copies the splash folder to `<webAssetsDir>/splash`. Does nothing when the splash is disabled.
+ *
+ * @throws {Error} When the folder or its `index.html` is missing.
+ */
 export function generateSplash(projectDir: string, resolved: ResolvedSplash, webAssetsDir: string): void {
   if (!resolved.enabled) return;
 

@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 
+/** Starter splash page: a pulsing mark on a coloured background. */
 const EXAMPLE_INDEX_HTML = `<!DOCTYPE html>
 <html>
 <head>
@@ -34,6 +35,12 @@ const EXAMPLE_STYLES_CSS = `body {
 }
 `;
 
+/**
+ * `wefter splash`: creates a starter splash folder to customise.
+ *
+ * @returns The new folder.
+ * @throws {Error} When the folder already exists.
+ */
 export function splashGenerate(projectDir: string, targetPath = "splash"): string {
   const dest = resolve(projectDir, targetPath);
   if (existsSync(dest)) {

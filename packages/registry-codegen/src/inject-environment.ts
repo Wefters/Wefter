@@ -3,11 +3,18 @@ import { readFileSync, writeFileSync } from "node:fs";
 const START = "// WEFTER-ENV-CONFIG-START";
 const END = "// WEFTER-ENV-CONFIG-END";
 
+/** The per-environment values written into a Gradle product flavor. */
 export interface EnvironmentValues {
   appId: string;
   appName: string;
 }
 
+/**
+ * Writes the application id and app name of one environment into its product flavor in
+ * `build.gradle.kts`, between the `WEFTER-ENV-CONFIG` markers.
+ *
+ * @throws {Error} When the flavor for `env` does not exist.
+ */
 export function injectEnvironmentConfig(buildGradlePath: string, env: string, values: EnvironmentValues): void {
   const current = readFileSync(buildGradlePath, "utf-8");
   const pattern = new RegExp(`(create\\("${env}"\\)\\s*\\{[\\s\\S]*?${START})[\\s\\S]*?(${END})`);

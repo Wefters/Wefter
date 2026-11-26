@@ -2,11 +2,13 @@ import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import type { PluginInfo } from "../shared/events.js";
 
+/** The fields of `wefter.config.json` this module reads. */
 interface WefterConfigShape {
   plugins?: string[];
   pluginsDir?: string;
 }
 
+/** The fields of `plugin.json` this module reads. */
 interface PluginManifestShape {
   methods?: string[];
   hooks?: string[];
@@ -14,6 +16,7 @@ interface PluginManifestShape {
   permissions?: { android?: string[]; ios?: Record<string, string> | string[] };
 }
 
+/** Parses a JSON file, or returns `undefined` when it is missing or invalid. */
 function readJson<T>(path: string): T | undefined {
   try {
     return JSON.parse(readFileSync(path, "utf-8")) as T;
@@ -22,6 +25,11 @@ function readJson<T>(path: string): T | undefined {
   }
 }
 
+/**
+ * Describes every plugin listed in the project's `wefter.config.json`: its methods, hooks, events,
+ * permissions and which platforms it has native source for. Unreadable manifests produce empty lists
+ * rather than errors.
+ */
 export function collectPluginInfo(projectRoot: string): PluginInfo[] {
   const config = readJson<WefterConfigShape>(join(projectRoot, "wefter.config.json"));
   const pluginIds = config?.plugins ?? [];

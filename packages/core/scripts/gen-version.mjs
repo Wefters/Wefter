@@ -1,3 +1,8 @@
+/**
+ * Writes `src/internal/version.ts` from the version in this package's `package.json`, so the runtime can
+ * report which core release it is without reading the manifest. Runs before every build.
+ */
+
 import { readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";

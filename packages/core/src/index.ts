@@ -1,3 +1,11 @@
+/**
+ * Public entry point of `@wefterjs/core`: the bridge to native code, platform helpers and `definePlugin`.
+ *
+ * The side-effect imports at the bottom install the DevTools instrumentation (console, uncaught errors,
+ * network, presence and remote reload). Each of them only activates under the Vite dev server
+ * (`import.meta.hot`), so production bundles carry no DevTools behaviour.
+ */
+
 export { invokeNative, registerHook, onBridgeReady, isNativeBridgeAvailable } from "./internal/native-bridge.js";
 export { WefterBridgeError, type WefterErrorCode } from "./internal/errors.js";
 export { getPlatformInfo, CORE_PROTOCOL_VERSION, type PlatformInfo } from "./internal/platform-info.js";

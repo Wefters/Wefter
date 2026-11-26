@@ -1,6 +1,12 @@
+/**
+ * Tagged, coloured CLI messages (`[INFO] → …`). Everything is written through the terminal module, so
+ * messages do not break the spinner and are logged. Warnings and errors go to stderr.
+ */
+
 import chalk from "chalk";
 import { writeLine } from "../ui/terminal.js";
 
+/** A piece of text and its style, for {@link logger.segmentColor}. */
 export interface ColoredSegment {
   text: string;
   color?: keyof typeof chalk;
@@ -11,6 +17,7 @@ export interface ColoredSegment {
 
 type LogArgs = unknown[];
 
+/** The CLI's logger. */
 const logger = {
   info: (...args: LogArgs) => {
     writeLine(`${chalk.blue(chalk.bold("[INFO]"))} → ${chalk.cyan(...args)}`);

@@ -1,5 +1,6 @@
 import chalk from "chalk";
 
+/** The Wefter ASCII-art banner. */
 export function renderBanner(): string {
   const lines = [
     chalk.cyan.bold("   _       __ _____ _____ _____ _____ ____  "),
@@ -11,6 +12,7 @@ export function renderBanner(): string {
   return lines.join("\n");
 }
 
+/** What {@link printInitSuccessSummary} reports. */
 export interface InitSuccessInfo {
   appId: string;
   webDir: string;
@@ -20,6 +22,7 @@ export interface InitSuccessInfo {
   cliVersion: string;
 }
 
+/** Prints the banner, what `wefter init` changed and the next steps. */
 export function printInitSuccessSummary(info: InitSuccessInfo): void {
   console.log("\n" + renderBanner() + "\n");
   console.log(chalk.green.bold("  🚀 Project successfully initialized with Wefter!\n"));

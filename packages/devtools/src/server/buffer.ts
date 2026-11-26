@@ -1,3 +1,4 @@
+/** Keeps the most recent `cap` items; pushing beyond that drops the oldest. */
 export class RingBuffer<T> {
   private items: T[] = [];
 
@@ -16,6 +17,11 @@ export class RingBuffer<T> {
     this.items = [];
   }
 
+  /**
+   * Replaces the newest item that matches `pred` with `update(item)`.
+   *
+   * @returns `false` when no item matched.
+   */
   updateLast(pred: (item: T) => boolean, update: (item: T) => T): boolean {
     for (let i = this.items.length - 1; i >= 0; i--) {
       if (pred(this.items[i])) {

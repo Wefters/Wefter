@@ -1,21 +1,25 @@
+/** A table of records with a resizable details pane, shared by the Bridge, Network and Plugins panels. */
+
 import { h } from "../dom.js";
 import { icon } from "../icons.js";
 
+/** A column header. */
 export interface TableColumn {
   label: string;
   className?: string;
 }
 
+/** What the details pane shows for a record. */
 export interface InspectorContent {
   title: Node | string;
   meta?: Node | null;
   body: Node[];
 }
 
+/** How the table reads and renders its records. */
 export interface RecordTableOptions<T> {
   ariaLabel: string;
   columns: TableColumn[];
-  /** CSS grid-template-columns shared by the header and every row. */
   gridTemplate: string;
   keyOf(record: T): string;
   rowClass?(record: T): string;
@@ -25,15 +29,18 @@ export interface RecordTableOptions<T> {
   emptyState(): HTMLElement;
 }
 
+/** A mounted table. */
 export interface RecordTable<T> {
   element: HTMLElement;
   setRecords(records: T[]): void;
   selectedKey(): string | null;
 }
 
+/** `localStorage` key of the details pane width. */
 const INSPECTOR_WIDTH_KEY = "wefter-devtools:inspector-width";
 const MIN_INSPECTOR = 280;
 
+/** The saved details pane width, or the default. */
 function storedWidth(): number {
   try {
     const n = Number(localStorage.getItem(INSPECTOR_WIDTH_KEY));
@@ -44,11 +51,12 @@ function storedWidth(): number {
 }
 
 /**
- * A chronological table (oldest first, follows the tail like a real log) with a single selected
- * row whose details open in a resizable inspector on the right — the Network-panel layout.
+ * Creates a table whose rows can be selected to show their details beside it.
  *
- * Keyboard: ↑/↓/Home/End move between rows (the inspector follows when open), Enter/Space opens or
- * closes the inspector, Escape closes it. Only one row is ever tabbable (roving tabindex).
+ * - Arrow keys, Home and End move between rows; Enter or Space opens the details; Esc closes them.
+ * - Selection and keyboard focus survive live updates.
+ * - The list stays scrolled to the newest record while the user is at the bottom.
+ * - The details pane is only rebuilt when the selected record changes.
  */
 export function createRecordTable<T>(options: RecordTableOptions<T>): RecordTable<T> {
   let records: T[] = [];
@@ -77,15 +85,16 @@ export function createRecordTable<T>(options: RecordTableOptions<T>): RecordTabl
   element.style.setProperty("--cols", options.gridTemplate);
   element.style.setProperty("--inspector-w", `${inspectorWidth}px`);
 
+  /**
+   * Sets the details pane width, kept between the minimum and what leaves room for the table, and saves it.
+   */
   function setWidth(px: number): void {
     const max = Math.max(MIN_INSPECTOR, element.clientWidth - 320);
     inspectorWidth = Math.round(Math.min(Math.max(px, MIN_INSPECTOR), max || px));
     element.style.setProperty("--inspector-w", `${inspectorWidth}px`);
     try {
       localStorage.setItem(INSPECTOR_WIDTH_KEY, String(inspectorWidth));
-    } catch {
-      /* storage unavailable */
-    }
+    } catch {}
   }
 
   resizer.addEventListener("pointerdown", (event) => {
@@ -111,6 +120,7 @@ export function createRecordTable<T>(options: RecordTableOptions<T>): RecordTabl
     return records.map(options.keyOf);
   }
 
+  /** Selects a row (or none) and re-renders. */
   function setSelected(key: string | null, focusRow: boolean): void {
     selected = key;
     if (key) focused = key;
@@ -118,6 +128,7 @@ export function createRecordTable<T>(options: RecordTableOptions<T>): RecordTabl
     render();
   }
 
+  /** Keyboard navigation inside the table. */
   function onRowKey(event: KeyboardEvent, key: string): void {
     const all = keys();
     const index = all.indexOf(key);
@@ -158,6 +169,10 @@ export function createRecordTable<T>(options: RecordTableOptions<T>): RecordTabl
     render();
   }
 
+  /**
+   * Fills the details pane for the selected record, keeping its scroll position when the same record is
+   * updated.
+   */
   function renderInspector(): void {
     const record = selected === null ? undefined : records.find((r) => options.keyOf(r) === selected);
     if (!record) {
@@ -167,7 +182,6 @@ export function createRecordTable<T>(options: RecordTableOptions<T>): RecordTabl
       return;
     }
     element.classList.add("has-inspector");
-    // Rebuild only when the record object changed, so open tree nodes and scroll survive live updates.
     if (inspected && inspected.key === selected && inspected.record === record) return;
     const scrollTop = inspected?.key === selected ? inspector.scrollTop : 0;
     inspected = { key: selected!, record };
@@ -195,13 +209,13 @@ export function createRecordTable<T>(options: RecordTableOptions<T>): RecordTabl
     inspector.scrollTop = scrollTop;
   }
 
+  /** Re-renders the rows and the details pane, restoring focus and scroll position. */
   function render(): void {
     const all = keys();
     if (selected !== null && !all.includes(selected)) selected = null;
     if (focused === null || !all.includes(focused)) focused = selected ?? all[all.length - 1] ?? null;
 
     const stick = body.scrollHeight - body.scrollTop - body.clientHeight < 32;
-    // Live updates rebuild the rows; keep keyboard focus on the same row instead of dropping to <body>.
     const active = body.ownerDocument.activeElement;
     const rowHadFocus = active instanceof HTMLElement && active.classList.contains("wd-trow") && body.contains(active);
     const maxDurationMs = Math.max(1, ...records.map((r) => options.durationOf?.(r) ?? 0));

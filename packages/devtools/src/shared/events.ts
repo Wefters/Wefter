@@ -1,5 +1,12 @@
+/** How a bridge call ended. */
+/**
+ * Event names and payloads exchanged between apps, the dev server and the dashboard. Shared by the
+ * server and the browser bundle.
+ */
+
 export type BridgeStatus = "success" | "error" | "timeout" | "cancelled";
 
+/** Sent by an app when it calls a native method. */
 export interface BridgeCallEvent {
   callId: string;
   method: string;
@@ -8,6 +15,7 @@ export interface BridgeCallEvent {
   timestamp: number;
 }
 
+/** Sent by an app when a native call settles. */
 export interface BridgeResponseEvent {
   callId: string;
   status: BridgeStatus;
@@ -16,8 +24,10 @@ export interface BridgeResponseEvent {
   durationMs: number;
 }
 
+/** Console method that produced an entry. `uncaught` marks errors nothing caught. */
 export type ConsoleLevel = "log" | "warn" | "error" | "info" | "debug" | "uncaught";
 
+/** A console call or uncaught error. `args` are already serialised for display. */
 export interface ConsoleEvent {
   level: ConsoleLevel;
   args: unknown[];
@@ -25,6 +35,7 @@ export interface ConsoleEvent {
   timestamp: number;
 }
 
+/** Sent by an app when a `fetch` or `XMLHttpRequest` starts. */
 export interface NetworkRequestEvent {
   requestId: string;
   url: string;
@@ -33,6 +44,7 @@ export interface NetworkRequestEvent {
   timestamp: number;
 }
 
+/** Sent by an app when a request finishes. Status `0` means it failed before a response arrived. */
 export interface NetworkResponseEvent {
   requestId: string;
   status: number;
@@ -41,12 +53,14 @@ export interface NetworkResponseEvent {
   bodyTruncated?: boolean;
 }
 
+/** Sent by an app when it connects, so the server can count it. */
 export interface ClientHelloEvent {
   clientId: string;
   url: string;
   timestamp: number;
 }
 
+/** The history a dashboard receives when it connects. */
 export interface ReplayPayload {
   bridge: BridgeRecord[];
   console: ConsoleEvent[];
@@ -54,6 +68,7 @@ export interface ReplayPayload {
   presence: ClientHelloEvent[];
 }
 
+/** A plugin as shown in the Plugins panel. */
 export interface PluginInfo {
   id: string;
   methods: string[];
@@ -65,13 +80,17 @@ export interface PluginInfo {
   hasIosSource: boolean;
 }
 
+/** A history the dashboard can clear. */
 export type BufferChannel = "bridge" | "console" | "network";
 
+/** A bridge call with its response merged in once it arrives. */
 export type BridgeRecord = BridgeCallEvent &
   Partial<Omit<BridgeResponseEvent, "status">> & { status: BridgeStatus | "pending" };
+/** A request with its response merged in once it arrives. */
 export type NetworkRecord = NetworkRequestEvent &
   Partial<Omit<NetworkResponseEvent, "status">> & { status: number | "pending" };
 
+/** Socket event names. Names starting with `__` are only used between the server and the dashboard. */
 export const WEFTER_EVENT = {
   bridgeCall: "wefter:bridge_call",
   bridgeResponse: "wefter:bridge_response",

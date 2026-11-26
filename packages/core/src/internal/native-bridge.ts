@@ -1,8 +1,18 @@
+/**
+ * The JavaScript half of the bridge between the web app and native plugins.
+ *
+ * Calls go out through `window.AndroidBridge.invoke` on Android or the `WefterBridge` script message
+ * handler on iOS. Native code answers by calling `window.__wefterNative.resolve` / `reject` with the
+ * call id, and pushes events with `window.__wefterNative.emit`.
+ */
+
 import { WefterBridgeError } from "./errors.js";
 import { tapBridgeCall, tapBridgeSettle, statusFromError } from "./devtools/bridge-tap.js";
 
+/** Settles the promise of a call that is waiting for native code. */
 type PendingCall = { resolve: (v: unknown) => void; reject: (r: unknown) => void };
 
+/** Bridge state shared by every copy of this module in the page. */
 interface BridgeState {
   pending: Map<string, PendingCall>;
   hooks: Map<string, Set<(data: unknown) => void>>;
@@ -10,8 +20,13 @@ interface BridgeState {
   sessionId: string;
 }
 
+/**
+ * Global key of the shared {@link BridgeState}. Keeping state on `globalThis` means two bundled copies
+ * of core (or a hot-reloaded one) still resolve each other's calls.
+ */
 const BRIDGE_STATE_KEY = Symbol.for("wefter.bridge.state.v1");
 
+/** Returns the shared bridge state, creating it on first use. */
 function getBridgeState(): BridgeState {
   const holder = globalThis as unknown as Record<symbol, BridgeState | undefined>;
   return (holder[BRIDGE_STATE_KEY] ??= {
@@ -24,14 +39,17 @@ function getBridgeState(): BridgeState {
 
 const { pending, hooks } = getBridgeState();
 
+/** A call id unique to this page load: a random session prefix plus a counter. */
 function nextCallId(): string {
   const state = getBridgeState();
   return `${state.sessionId}-${state.nextCallId++}`;
 }
 
+/** How long a call waits for native code before failing with `TIMEOUT`. */
 const DEFAULT_TIMEOUT_MS = 10000;
 
 declare global {
+  /** Globals the native shells inject into the web view, and the callbacks they call back into. */
   interface Window {
     AndroidBridge?: {
       invoke(callId: string, plugin: string, method: string, payloadJson: string): void;
@@ -54,6 +72,10 @@ declare global {
   }
 }
 
+/**
+ * The callbacks native code uses to settle calls and deliver hook events. Native errors arrive as JSON
+ * and are turned into {@link WefterBridgeError}s.
+ */
 if (typeof window !== "undefined") {
   window.__wefterNative = {
     resolve(callId, resultJson) {
@@ -86,10 +108,15 @@ if (typeof window !== "undefined") {
   };
 }
 
+/** Whether the page is running inside a Wefter native shell. */
 export function isNativeBridgeAvailable(): boolean {
   return typeof window !== "undefined" && (!!window.AndroidBridge || !!window.webkit?.messageHandlers?.WefterBridge);
 }
 
+/**
+ * Resolves once the native bridge has been injected. Resolves immediately when it already is; in a
+ * plain browser it never resolves.
+ */
 export function onBridgeReady(): Promise<void> {
   if (isNativeBridgeAvailable()) return Promise.resolve();
   return new Promise((resolve) => {
@@ -101,6 +128,16 @@ export function onBridgeReady(): Promise<void> {
   });
 }
 
+/**
+ * Calls a method of a native plugin and resolves with its result.
+ *
+ * @param plugin Name of the native plugin.
+ * @param method Name of the method on that plugin.
+ * @param payload JSON-serialisable argument passed to the method.
+ * @param options `signal` cancels the call; `timeoutMs` overrides the 10 second default.
+ * @throws {WefterBridgeError} When the call times out, is aborted, no bridge is present, or native code
+ * reports an error.
+ */
 export function invokeNative<T = unknown>(
   plugin: string,
   method: string,
@@ -171,6 +208,12 @@ export function invokeNative<T = unknown>(
   });
 }
 
+/**
+ * Subscribes to events a native plugin pushes to JavaScript (for example a scan result or a network
+ * change).
+ *
+ * @returns A handle whose `remove()` unsubscribes the callback.
+ */
 export function registerHook(hookName: string, callback: (data: unknown) => void) {
   if (!hooks.has(hookName)) hooks.set(hookName, new Set());
   hooks.get(hookName)!.add(callback);

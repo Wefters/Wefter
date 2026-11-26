@@ -1,4 +1,9 @@
 #!/usr/bin/env node
+/**
+ * The `wefter` command. Defines every subcommand with Commander, loads `.env`, and turns failures into
+ * readable reports and exit codes.
+ */
+
 import { resolve } from "node:path";
 import { config as loadDotenv } from "dotenv";
 import { Command, type Help } from "commander";
@@ -27,11 +32,15 @@ import logger from "./utils/logger.js";
 
 loadDotenv({ quiet: true });
 
+/** Size in megabytes, such as `12.4 MB`. */
 function formatBytes(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-/** Flags to repeat in a suggested command (only those the user passed or that differ from defaults). */
+/**
+ * The arguments needed to repeat a `run` or `build` command, used for the `--debug` retry suggestion.
+ * Defaults (the current folder and the `development` environment) are left out.
+ */
 function commonFlags(projectDir: string, env: string, simulator: string | undefined, leading: string[]): string[] {
   const flags: string[] = [];
   if (resolve(projectDir) !== process.cwd()) flags.push(JSON.stringify(projectDir));
@@ -41,20 +50,21 @@ function commonFlags(projectDir: string, env: string, simulator: string | undefi
   return flags;
 }
 
+/** Work to do before exiting on Ctrl+C, such as stopping the dev server. */
 let activeCleanup: (() => void | Promise<void>) | null = null;
 
+/** Sets (or clears, with `null`) the work to do before exiting on Ctrl+C. */
 export function registerCleanup(fn: (() => void | Promise<void>) | null): void {
   activeCleanup = fn;
 }
 
+/** Runs the registered cleanup on Ctrl+C and exits with code 130. */
 process.on("SIGINT", async () => {
   console.log("");
   if (activeCleanup) {
     try {
       await activeCleanup();
-    } catch {
-      // Ignore errors during emergency exit cleanup
-    }
+    } catch {}
   }
   logger.warn("Operation cancelled by user (Ctrl+C).");
   process.exit(130);
@@ -152,6 +162,10 @@ program
     }
   });
 
+/**
+ * `wefter build <platform>`: builds the app, logging everything to `.wefter/logs`, and prints where the result
+ * is. When it fails, the report suggests the same command with `--debug`.
+ */
 program
   .command("build")
   .description("Sync and build the native app")
@@ -206,6 +220,11 @@ program
     },
   );
 
+/**
+ * `wefter run <platform>`: runs the app, logging everything to `.wefter/logs`. When it succeeds, the run session
+ * takes over (summary and, with `--watch`, keyboard shortcuts); when it fails, the report suggests
+ * the same command with `--debug`.
+ */
 program
   .command("run")
   .description("Sync, build, install and launch the app — optionally with hot reload")
@@ -424,6 +443,7 @@ pluginCommand
     process.exitCode = 0;
   });
 
+/** Uses the coloured help renderer for `cmd` and all its subcommands. */
 function applyHelpStyle(cmd: Command): void {
   cmd.configureHelp({
     formatHelp: (targetCmd: Command, helper: Help) => {
@@ -436,6 +456,7 @@ function applyHelpStyle(cmd: Command): void {
 
 applyHelpStyle(program);
 
+/** Running `wefter` without arguments shows the help instead of an error. */
 if (process.argv.length <= 2) {
   program.outputHelp();
   process.exitCode = 0;

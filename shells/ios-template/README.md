@@ -30,7 +30,7 @@ When plugins declare native iOS dependencies, `wefter sync` writes a `Package.sw
 To configure dependencies in Xcode:
 
 1. Open `WefterBridge.xcodeproj` in Xcode 16 or later.
-2. Select *File > Add Package Dependencies > Add Local...*
+2. Select _File > Add Package Dependencies > Add Local..._
 3. Choose the `NativeDependencies` directory in the project.
 4. Add the package to the `WefterBridge` target.
 

@@ -1,29 +1,30 @@
+/** Turns Gradle and adb output into a short list of errors and fix suggestions. */
+
 import { basename } from "node:path";
 import type { Diagnosis } from "../process/run-process.js";
 
+/** Most error lines shown; the run log has the rest. */
 const MAX_ERRORS = 15;
 
+/** Adds a trimmed line unless it is empty, already listed or over the limit. */
 function addUnique(list: string[], value: string): void {
   const trimmed = value.trim();
   if (trimmed && !list.includes(trimmed) && list.length < MAX_ERRORS) list.push(trimmed);
 }
 
-/** "file:///Users/me/app/src/main/Foo.kt" or "/Users/me/app/Foo.kt" → "Foo.kt" */
+/** File name without its folder or `file://` prefix. */
 function shortFile(path: string): string {
   return basename(path.replace(/^file:\/\//, ""));
 }
 
-// Kotlin (K2): "e: file:///path/Foo.kt:41:17 Unresolved reference 'x'."
+/** Compiler and resource error formats: Kotlin (current and older style), Java and AAPT. */
 const KOTLIN_ERROR = /^e:\s+(?:file:\/\/)?(\S+?\.kts?):(\d+):(\d+)\s+(.+)$/;
-// Kotlin (K1): "e: /path/Foo.kt: (41, 17): Unresolved reference: x"
 const KOTLIN_ERROR_LEGACY = /^e:\s+(\S+?\.kts?):\s*\((\d+),\s*(\d+)\):\s*(.+)$/;
-// javac: "/path/Foo.java:12: error: cannot find symbol"
 const JAVA_ERROR = /^(\S+?\.java):(\d+):\s+error:\s+(.+)$/;
-// AAPT2: "ERROR: /path/res/layout/main.xml:7: AAPT: error: attribute android:foo not found."
 const AAPT_ERROR = /(?:^|\s)(?:ERROR:\s*)?(\S+?):(\d+):\s*AAPT:\s*error:\s*(.+)$/;
 const AAPT_ERROR_BARE = /AAPT:\s*error:\s*(.+)$/;
 
-/** Gradle's "* What went wrong:" block, up to the "* Try:" block (or the next section). */
+/** The lines under Gradle's `* What went wrong:` heading. */
 function whatWentWrong(lines: string[]): string[] {
   const out: string[] = [];
   const start = lines.findIndex((line) => line.trim() === "* What went wrong:");
@@ -38,9 +39,9 @@ function whatWentWrong(lines: string[]): string[] {
 }
 
 /**
- * Pulls the real errors out of a failed Gradle build and adds fixes for problems we recognise.
- * Compiler errors come first (they are what the developer has to fix); Gradle's own summary is
- * used when there are none (configuration, dependency and environment failures).
+ * Finds compile errors in Gradle output (falling back to Gradle's own summary) and adds hints for common
+ * setup problems: missing SDK, wrong JDK, unaccepted licences, failed downloads, a stale plugin registry,
+ * Gradle locks and running out of memory.
  */
 export function diagnoseGradle(lines: string[]): Diagnosis {
   const errors: string[] = [];
@@ -92,7 +93,6 @@ export function diagnoseGradle(lines: string[]): Diagnosis {
   ) {
     hints.push("Gradle couldn't download dependencies. Check your internet connection or proxy, then run again.");
   }
-  // Only when the error is *in* the generated registry (it is compiled in every build).
   if (/GeneratedRegistry\.kt(?::\d+:\d+|: \(\d+, \d+\):) .*Unresolved reference/i.test(text)) {
     hints.push("The generated plugin registry is out of date. Run `wefter sync` and try again.");
   }
@@ -112,13 +112,16 @@ export function diagnoseGradle(lines: string[]): Diagnosis {
   return { errors, hints };
 }
 
+/** Device and app details used in adb hints. */
 export interface AdbContext {
   serial?: string;
   appId?: string;
 }
 
+/** An `INSTALL_FAILED_*` or `INSTALL_PARSE_FAILED_*` code and its message. */
 const INSTALL_FAILURE = /(INSTALL_(?:FAILED|PARSE_FAILED)_[A-Z_]+)(?::\s*(.*?))?\]?$/;
 
+/** How to fix each install failure code. */
 const INSTALL_HINTS: Record<string, (ctx: AdbContext) => string> = {
   INSTALL_FAILED_UPDATE_INCOMPATIBLE: (ctx) =>
     `The installed app was signed with a different key. Uninstall it first: adb${ctx.serial ? ` -s ${ctx.serial}` : ""} uninstall ${ctx.appId ?? "<appId>"}`,
@@ -135,7 +138,10 @@ const INSTALL_HINTS: Record<string, (ctx: AdbContext) => string> = {
   INSTALL_PARSE_FAILED_NO_CERTIFICATES: () => "The APK isn't signed. Rebuild it; release builds need a signing config.",
 };
 
-/** Explains a failed `adb install` / `adb shell am start`, using the app and device when known. */
+/**
+ * Finds install and launch errors in adb output and explains them, including offline, unauthorised or
+ * disconnected devices and a missing launch activity.
+ */
 export function diagnoseAdb(lines: string[], context: AdbContext = {}): Diagnosis {
   const errors: string[] = [];
   const hints: string[] = [];

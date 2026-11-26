@@ -48,4 +48,3 @@ Release signing can be configured using environment variables:
 - Android SDK with compileSdk 36 and minSdk 24
 - JDK 17
 - Android Gradle Plugin 8.9 or later
-

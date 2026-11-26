@@ -2,11 +2,16 @@ import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 
+/** A backup of files that can be put back or thrown away. */
 interface Snapshot {
   restore(): void;
   discard(): void;
 }
 
+/**
+ * Copies `paths` (files or folders) to a temporary folder. Missing paths are remembered too, so a restore
+ * deletes anything created there since.
+ */
 function snapshotFiles(paths: string[]): Snapshot {
   const backupDir = join(tmpdir(), `wefter-sync-backup-${Date.now()}-${process.pid}`);
   const backups: { original: string; backup: string; existed: boolean }[] = [];
@@ -35,6 +40,10 @@ function snapshotFiles(paths: string[]): Snapshot {
   };
 }
 
+/**
+ * Runs `syncFn` and restores `filesToProtect` if it throws, so a failed sync never leaves the native
+ * project half-written.
+ */
 export async function runTransactionalSync<T>(filesToProtect: string[], syncFn: () => T | Promise<T>): Promise<T> {
   const snapshot = snapshotFiles(filesToProtect);
   try {

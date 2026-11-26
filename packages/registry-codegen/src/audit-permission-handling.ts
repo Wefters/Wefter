@@ -1,5 +1,9 @@
 import type { PluginManifest } from "./schema/plugin-schema.js";
 
+/**
+ * Android runtime ("dangerous") permissions. The user can deny these, so a plugin that requests one has
+ * to handle the denial.
+ */
 const DANGEROUS_ANDROID_PERMISSIONS = new Set([
   "android.permission.READ_CALENDAR",
   "android.permission.WRITE_CALENDAR",
@@ -39,6 +43,13 @@ const DANGEROUS_ANDROID_PERMISSIONS = new Set([
   "android.permission.NEARBY_WIFI_DEVICES",
 ]);
 
+/**
+ * Checks that a plugin requesting a dangerous Android permission can report a denial, by looking for a
+ * `PERMISSION_DENIED` rejection in its Kotlin source. This is a text search, not proof the handling is
+ * correct.
+ *
+ * @returns One message per problem; empty when the plugin passes.
+ */
 export function auditPermissionHandling(manifest: PluginManifest, androidSource: string): string[] {
   const declared = (manifest.permissions?.android ?? []).filter((permission) =>
     DANGEROUS_ANDROID_PERMISSIONS.has(permission),

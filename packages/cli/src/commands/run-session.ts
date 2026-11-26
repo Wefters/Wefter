@@ -1,30 +1,37 @@
+/**
+ * Keyboard shortcuts while `wefter run --watch` is running. The terminal is put in raw mode so single key
+ * presses arrive immediately.
+ */
+
 import chalk from "chalk";
 import { writeLine } from "../ui/terminal.js";
 
-/** What each shortcut does. The session only decides *when*; these decide *how*. */
+/**
+ * What each shortcut does. Errors from `reload` and `rebuild` go to `reportError` instead of ending the
+ * session.
+ */
 export interface SessionActions {
-  /** `r`: reload the app (web view reload, or a native restart as fallback). */
   reload(): Promise<void>;
-  /** `Ctrl+R`: rebuild the native app, reinstall and relaunch it. */
   rebuild(): Promise<void>;
-  /** `o`: open the DevTools dashboard. */
   openDevtools(): Promise<void> | void;
-  /** `c`: clear the screen and show the summary again. */
   clear(): void;
-  /** `h`: list the shortcuts. */
   help(): void;
-  /** `q`, `Ctrl+C`, `Ctrl+D`: stop the dev server and exit. */
   quit(): Promise<void> | void;
-  /** A reload/rebuild failed; report it and keep the session running. */
   reportError(action: "reload" | "rebuild", error: unknown): void;
 }
 
+/** Control characters as they arrive in raw mode. */
 const CTRL_C = "\x03";
 const CTRL_D = "\x04";
 const CTRL_R = "\x12";
 
+/** An action a key can trigger. */
 export type SessionKey = "reload" | "rebuild" | "open" | "clear" | "help" | "quit";
 
+/**
+ * Maps a key to its action: `r` reload, Ctrl+R rebuild, `o` open DevTools, `c` clear, `h`/`?` help, and
+ * `q`, Ctrl+C or Ctrl+D quit.
+ */
 export function keyToAction(key: string): SessionKey | null {
   switch (key) {
     case "r":
@@ -52,11 +59,7 @@ export function keyToAction(key: string): SessionKey | null {
   }
 }
 
-/**
- * Turns key presses into actions. A rebuild can't start while one is running (extra Ctrl+R presses
- * are ignored with a note) and a failed reload/rebuild never ends the session — fix the code and
- * press the key again.
- */
+/** Turns key presses into actions. A reload or rebuild that is already running is not started twice. */
 export function createKeyHandler(actions: SessionActions): (key: string) => Promise<void> {
   let rebuilding = false;
   let reloading = false;
@@ -107,12 +110,13 @@ export function createKeyHandler(actions: SessionActions): (key: string) => Prom
   };
 }
 
-/** Splits a raw-mode chunk into key presses; escape sequences (arrow keys, etc.) are ignored. */
+/** Splits input into single keys. Escape sequences (arrow keys and the like) are ignored. */
 export function splitKeys(chunk: string): string[] {
   if (chunk.startsWith("\x1b")) return [];
   return [...chunk];
 }
 
+/** The parts of `process.stdin` the session uses. Tests pass a fake. */
 export interface KeyInput {
   isTTY?: boolean;
   setRawMode?(mode: boolean): unknown;
@@ -124,9 +128,9 @@ export interface KeyInput {
 }
 
 /**
- * Listens for single key presses on a terminal. Returns a `stop` function that restores the
- * terminal; it also runs automatically when the process exits, so a crash never leaves the
- * terminal in raw mode.
+ * Starts reading shortcuts from `input`. Does nothing when `input` is not a terminal.
+ *
+ * @returns A function that stops reading and restores the terminal. It also runs when the process exits.
  */
 export function startKeySession(actions: SessionActions, input: KeyInput = process.stdin): () => void {
   if (!input.isTTY || !input.setRawMode) return () => {};

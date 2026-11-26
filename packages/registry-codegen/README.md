@@ -80,4 +80,3 @@ pnpm test    # runs unit tests and fixture comparisons via Vitest
 ## License
 
 [MIT](../../LICENSE) © 2026 Sandip Ghimire
-

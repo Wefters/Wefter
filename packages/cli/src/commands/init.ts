@@ -1,3 +1,9 @@
+/**
+ * `wefter init`: adds Wefter to an existing web project. It asks for the app id, name and build folder,
+ * then writes `wefter.config.json`, adds the Wefter packages to `package.json`, records the answers in
+ * `.env` and ignores `.wefter/` in git.
+ */
+
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { createInterface } from "node:readline";
@@ -7,15 +13,19 @@ import { WefterConfigSchema } from "../config/wefter-config-schema.js";
 import { runTransactionalSync } from "../utils/transactional-sync.js";
 import { CLI_VERSION, CORE_VERSION } from "../internal/version.js";
 
+/** Package managers `init` can detect. */
 export type PackageManager = "npm" | "yarn" | "pnpm";
 
+/** Asks a question and resolves with the answer, or `defaultValue` when the answer is empty. */
 export type PromptFn = (question: string, defaultValue: string) => Promise<string>;
 
+/** Versions of the Wefter packages to add; default to the versions this CLI was built with. */
 export interface InitVersions {
   coreVersion?: string;
   cliVersion?: string;
 }
 
+/** What `init` wrote and the answers it used. */
 export interface InitResult {
   configPath: string;
   packageManager: PackageManager;
@@ -26,20 +36,24 @@ export interface InitResult {
   webDir: string;
 }
 
+/** Lockfiles that identify each package manager. */
 const LOCKFILES: { file: string; packageManager: PackageManager }[] = [
   { file: "package-lock.json", packageManager: "npm" },
   { file: "yarn.lock", packageManager: "yarn" },
   { file: "pnpm-lock.yaml", packageManager: "pnpm" },
 ];
 
+/** Variables `init` writes to `.env`, between {@link ENV_START_MARKER} and {@link ENV_END_MARKER}. */
 const ENV_KEYS = ["WEFTER_APP_ID", "WEFTER_APP_NAME", "WEFTER_WEB_DIR"] as const;
 const ENV_START_MARKER = "# --- wefter ---";
 const ENV_END_MARKER = "# --- end wefter ---";
 
+/** Package name without its `@scope/`. */
 function unscopedName(pkgName: string): string {
   return pkgName.replace(/^@[^/]+\//, "");
 }
 
+/** Suggested app id from the package name, such as `dev.local.my_app`. */
 function deriveAppIdDefault(pkgName: string): string {
   const sanitized = unscopedName(pkgName)
     .toLowerCase()
@@ -49,6 +63,7 @@ function deriveAppIdDefault(pkgName: string): string {
   return `dev.local.${sanitized || "app"}`;
 }
 
+/** Suggested app name from the package name, such as `My App`. */
 function deriveAppNameDefault(pkgName: string): string {
   const words = unscopedName(pkgName)
     .split(/[-_\s]+/)
@@ -57,6 +72,11 @@ function deriveAppNameDefault(pkgName: string): string {
   return words.length > 0 ? words.join(" ") : "App";
 }
 
+/**
+ * The project's package manager, from its lockfile; npm when there is none.
+ *
+ * @throws {Error} When several lockfiles exist.
+ */
 function detectPackageManager(projectDir: string): PackageManager {
   const found = LOCKFILES.filter(({ file }) => existsSync(join(projectDir, file)));
   if (found.length > 1) {
@@ -67,6 +87,7 @@ function detectPackageManager(projectDir: string): PackageManager {
   return found.length === 1 ? found[0].packageManager : "npm";
 }
 
+/** Runs `run` with a terminal prompt. Ctrl+C cancels `init` with exit code 130. */
 async function withRealPrompt<T>(run: (ask: PromptFn) => Promise<T>): Promise<T> {
   const rl = createInterface({ input: stdin, output: stdout });
 
@@ -108,16 +129,19 @@ async function withRealPrompt<T>(run: (ask: PromptFn) => Promise<T>): Promise<T>
   }
 }
 
+/** The project's `package.json`. */
 function readPackageJson(projectDir: string): Record<string, unknown> {
   return JSON.parse(readFileSync(join(projectDir, "package.json"), "utf-8"));
 }
 
+/** Wefter packages already listed in `package.json`. */
 function findExistingWefterDeps(pkg: Record<string, unknown>): string[] {
   const deps = (pkg.dependencies as Record<string, string> | undefined) ?? {};
   const devDeps = (pkg.devDependencies as Record<string, string> | undefined) ?? {};
   return ["@wefterjs/core", "@wefterjs/cli"].filter((name) => deps[name] !== undefined || devDeps[name] !== undefined);
 }
 
+/** Variables `init` would write that `.env` already defines. */
 function findEnvKeyConflicts(projectDir: string): string[] {
   const envPath = join(projectDir, ".env");
   if (!existsSync(envPath)) return [];
@@ -125,6 +149,7 @@ function findEnvKeyConflicts(projectDir: string): string[] {
   return ENV_KEYS.filter((key) => new RegExp(`^${key}=`, "m").test(content));
 }
 
+/** Adds core as a dependency and the CLI as a dev dependency. */
 function updatePackageJson(projectDir: string, versions: { coreVersion: string; cliVersion: string }): void {
   const pkgPath = join(projectDir, "package.json");
   const pkg = readPackageJson(projectDir);
@@ -139,6 +164,7 @@ function updatePackageJson(projectDir: string, versions: { coreVersion: string; 
   writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
 }
 
+/** Appends the Wefter variables to `.env`, creating it if needed. */
 function writeEnvBlock(projectDir: string, values: { appId: string; appName: string; webDir: string }): void {
   const envPath = join(projectDir, ".env");
   const block = [
@@ -159,6 +185,11 @@ function writeEnvBlock(projectDir: string, values: { appId: string; appName: str
   }
 }
 
+/**
+ * Adds `.wefter/` to `.gitignore` if it exists and does not list it yet.
+ *
+ * @returns Whether `.gitignore` was changed.
+ */
 function appendGitignore(projectDir: string): boolean {
   const gitignorePath = join(projectDir, ".gitignore");
   if (!existsSync(gitignorePath)) return false;
@@ -169,6 +200,17 @@ function appendGitignore(projectDir: string): boolean {
   return true;
 }
 
+/**
+ * Sets up Wefter in `projectDir`.
+ *
+ * Everything is checked before anything is written: the project must have a `package.json`, no
+ * `wefter.config.json`, no Wefter packages and no conflicting `.env` variables. The writes are
+ * transactional, so a failure leaves the project as it was.
+ *
+ * @param versions Versions to add, or one version used for both packages.
+ * @param promptFn Replaces the terminal prompt, for tests.
+ * @throws {Error} When a precondition fails or the answers are invalid.
+ */
 export async function init(
   projectDir: string,
   versions: InitVersions | string = { coreVersion: CORE_VERSION, cliVersion: CLI_VERSION },

@@ -4,6 +4,7 @@ import type { DiscoveredPlugin } from "./scan-plugins.js";
 const START = "<!-- WEFTER-PERMISSIONS-START -->";
 const END = "<!-- WEFTER-PERMISSIONS-END -->";
 
+/** Escapes text for use inside a plist element. */
 function escapeXml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -13,6 +14,12 @@ function escapeXml(value: string): string {
     .replace(/'/g, "&apos;");
 }
 
+/**
+ * Writes the iOS permission usage descriptions of all plugins into `Info.plist`, between the
+ * `WEFTER-PERMISSIONS` markers. When two plugins set the same key, the later one wins.
+ *
+ * @returns The keys and descriptions that were written.
+ */
 export function mergeInfoPlist(plugins: DiscoveredPlugin[], infoPlistPath: string): Record<string, string> {
   const merged: Record<string, string> = {};
   for (const plugin of plugins) {

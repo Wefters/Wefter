@@ -1,13 +1,20 @@
+/** Mirrors `console.*` calls to the DevTools Console panel while the dev server is running. */
+
 import { emitDevtoolsEvent } from "./emit.js";
 import { safeSerialize } from "./serialize.js";
 import { claimOnce } from "./claim-once.js";
 
+/** The console methods that are forwarded. */
 const LEVELS = ["log", "info", "warn", "error", "debug"] as const;
 type ConsoleLevel = (typeof LEVELS)[number];
 
 let installed = false;
 const originals: Partial<Record<ConsoleLevel, Console[ConsoleLevel]>> = {};
 
+/**
+ * Wraps each console method so it still logs normally and also sends a serialised copy of its arguments
+ * to DevTools. Warnings and errors include the stack of the call site. Safe to call more than once.
+ */
 export function installConsolePatch(): void {
   if (installed) return;
   installed = true;
@@ -25,15 +32,14 @@ export function installConsolePatch(): void {
           stack: stack ?? null,
           timestamp: Date.now(),
         });
-      } catch {
-        // best-effort devtools telemetry — never let a serialization failure affect app console output
-      }
+      } catch {}
     };
   }
 }
 
 export type { ConsoleLevel };
 
+/** Restores the original console methods. Test-only. */
 export function __resetConsolePatchForTest(): void {
   for (const level of LEVELS) {
     const original = originals[level];

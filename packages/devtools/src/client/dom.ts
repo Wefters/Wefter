@@ -1,6 +1,13 @@
+/** Something {@link h} can append: a node, text, or nothing. */
 type Child = Node | string | null | undefined | false;
+/** Attributes, plus `on*` event listeners and `class`. */
 type Props = Record<string, string | ((event: Event) => void) | undefined>;
 
+/**
+ * Creates an element with attributes, listeners and children.
+ *
+ * @example h("button", { class: "wd-btn", onclick: save }, icon("copy"), "Copy")
+ */
 export function h<K extends keyof HTMLElementTagNameMap>(
   tag: K,
   props?: Props | null,
@@ -26,6 +33,7 @@ export function h<K extends keyof HTMLElementTagNameMap>(
   return el;
 }
 
+/** Removes every child of `el`. */
 export function clear(el: Element): void {
   while (el.firstChild) el.removeChild(el.firstChild);
 }

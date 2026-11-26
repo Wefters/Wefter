@@ -1,13 +1,11 @@
+/** Reads build tool output line by line and turns it into a short progress message for the spinner. */
+
 import { basename } from "node:path";
 
-/**
- * Turns a build tool's raw output into a short "what is it doing right now" text for the spinner.
- * Each tracker is fed every output line and returns new detail text, or null when the line isn't
- * interesting (most aren't).
- */
+/** Takes one line of output and returns a new progress message, or `null` when the line says nothing new. */
 export type ProgressTracker = (line: string) => string | null;
 
-/** "compileDevelopmentDebugKotlin" → "Compiling Kotlin"; unknown tasks → null. */
+/** A readable name for a Gradle task, or `null` for tasks with no clear meaning. */
 function describeGradleTask(task: string): string | null {
   if (/^compile.*Kotlin$/.test(task)) return "Compiling Kotlin";
   if (/^compile.*JavaWithJavac$/.test(task)) return "Compiling Java";
@@ -26,9 +24,10 @@ function describeGradleTask(task: string): string | null {
 }
 
 /**
- * Tracks Gradle running with `--console=plain` (one `> Task :module:task` line per task).
- * `variant` (e.g. "DevelopmentDebug") is removed from task names that have no friendlier
- * description, so "generateDevelopmentDebugBuildConfig" reads as "generateBuildConfig".
+ * Progress for Gradle's `--console=plain` output: daemon start-up, downloads, configuration, then each task
+ * with a running count.
+ *
+ * @param variant Variant name (such as `DevelopmentDebug`) removed from task names for display.
  */
 export function createGradleProgress(variant = ""): ProgressTracker {
   let tasks = 0;
@@ -50,11 +49,15 @@ export function createGradleProgress(variant = ""): ProgressTracker {
   };
 }
 
+/** Removes the backslash escapes xcodebuild puts in paths. */
 function unescapeXcode(path: string): string {
   return path.replace(/\\(.)/g, "$1");
 }
 
-/** Tracks plain `xcodebuild` output (one line per build action). */
+/**
+ * Progress for xcodebuild output: package resolution, each compiled file with a running count, then
+ * linking, signing and bundling.
+ */
 export function createXcodeProgress(): ProgressTracker {
   const compiled = new Set<string>();
   return (raw) => {
@@ -62,8 +65,6 @@ export function createXcodeProgress(): ProgressTracker {
     if (/^(Resolve Package Graph|Resolved source packages|Fetching from|Computing version for)/.test(line)) {
       return "Resolving Swift packages";
     }
-    // Xcode 15+: "SwiftCompile normal arm64 Compiling\ ViewController.swift /path/ViewController.swift (in target…)"
-    // Older:     "CompileSwift normal arm64 /path/ViewController.swift (in target…)"
     const swift = /^(?:SwiftCompile|CompileSwift)\s+\S+\s+\S+\s+(?:Compiling\\ (.+?\.swift)\s|(\S+?\.swift))/.exec(
       line,
     );

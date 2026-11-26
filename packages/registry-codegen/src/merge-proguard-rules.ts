@@ -4,6 +4,12 @@ import type { DiscoveredPlugin } from "./scan-plugins.js";
 const START = "# WEFTER-PROGUARD-RULES-START";
 const END = "# WEFTER-PROGUARD-RULES-END";
 
+/**
+ * Writes the ProGuard/R8 rules of all plugins into `proguard-rules.pro`, between the
+ * `WEFTER-PROGUARD-RULES` markers, so release builds keep the classes plugins need.
+ *
+ * @returns The rule blocks that were written.
+ */
 export function mergeProguardRules(plugins: DiscoveredPlugin[], proguardRulesPath: string): string[] {
   const ruleList = plugins
     .map((p) => p.manifest.nativeDependencies?.android?.proguardRules)

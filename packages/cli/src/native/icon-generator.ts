@@ -3,6 +3,7 @@ import { join, resolve } from "node:path";
 import sharp from "sharp";
 import { assertIconSourceSize } from "./icon-source.js";
 
+/** Legacy launcher icon size for each screen density. */
 const DENSITIES: Record<string, number> = {
   mdpi: 48,
   hdpi: 72,
@@ -11,6 +12,7 @@ const DENSITIES: Record<string, number> = {
   xxxhdpi: 192,
 };
 
+/** Adaptive icon foreground size for each screen density. */
 const ADAPTIVE_FOREGROUND_SIZES: Record<string, number> = {
   mdpi: 108,
   hdpi: 162,
@@ -19,6 +21,7 @@ const ADAPTIVE_FOREGROUND_SIZES: Record<string, number> = {
   xxxhdpi: 432,
 };
 
+/** Colour of the top-left pixel, used as the adaptive icon background. Transparent pixels give white. */
 async function sampleCornerColor(source: string): Promise<string> {
   const pixel = await sharp(source).extract({ left: 0, top: 0, width: 1, height: 1 }).ensureAlpha().raw().toBuffer();
   const [r, g, b, a] = pixel;
@@ -26,6 +29,7 @@ async function sampleCornerColor(source: string): Promise<string> {
   return `#${[r, g, b].map((c) => c.toString(16).padStart(2, "0")).join("")}`;
 }
 
+/** Adaptive icon definition (Android 8 and later). */
 const ADAPTIVE_ICON_XML = `<?xml version="1.0" encoding="utf-8"?>
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
     <background android:drawable="@color/ic_launcher_background"/>
@@ -33,6 +37,7 @@ const ADAPTIVE_ICON_XML = `<?xml version="1.0" encoding="utf-8"?>
 </adaptive-icon>
 `;
 
+/** Colour resource for the adaptive icon background. */
 function backgroundColorXml(backgroundColor: string): string {
   return `<?xml version="1.0" encoding="utf-8"?>
 <resources>
@@ -41,6 +46,11 @@ function backgroundColorXml(backgroundColor: string): string {
 `;
 }
 
+/**
+ * Writes legacy and adaptive launcher icons for every density from `iconSourcePath`.
+ *
+ * @throws {Error} When the source image is smaller than 1024×1024.
+ */
 export async function generateAndroidIcons(projectDir: string, iconSourcePath: string, resDir: string): Promise<void> {
   const source = resolve(projectDir, iconSourcePath);
   await assertIconSourceSize(source);

@@ -1,16 +1,23 @@
 import type { DiscoveredPlugin } from "./scan-plugins.js";
 
+/** A Swift package a plugin depends on, as declared in `plugin.json`. */
 interface SpmDependency {
   url: string;
   from: string;
   product: string;
 }
 
+/** The identity Swift Package Manager gives a package URL: its last path segment without `.git`. */
 function packageIdentity(url: string): string {
   const lastSegment = url.replace(/\/+$/, "").split("/").pop() ?? url;
   return lastSegment.replace(/\.git$/, "");
 }
 
+/**
+ * Generates the `Package.swift` of the shell's `NativeDependencies` package, which pulls in every
+ * Swift package the plugins depend on. Packages are de-duplicated by URL and products by package and
+ * name.
+ */
 export function generateNativeDependenciesPackage(plugins: DiscoveredPlugin[]): string {
   const deps: SpmDependency[] = [];
   for (const plugin of plugins) {

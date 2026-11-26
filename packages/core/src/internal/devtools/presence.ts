@@ -1,3 +1,8 @@
+/**
+ * Tells the DevTools server which app instances are connected, so the CLI knows whether a reload can
+ * reach a web view.
+ */
+
 import { emitDevtoolsEvent, onDevtoolsEvent } from "./emit.js";
 import { claimOnce } from "./claim-once.js";
 
@@ -12,6 +17,7 @@ let clientId: string | undefined;
 let announced = false;
 let retryTimer: ReturnType<typeof setInterval> | undefined;
 
+/** Sends this page's client id and URL to the dev server. */
 function sendHello(): void {
   clientId ??= crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   emitDevtoolsEvent("wefter:client_hello", { clientId, url: location.href, timestamp: Date.now() });
@@ -24,12 +30,10 @@ function stopRetrying(): void {
   }
 }
 
-// Vite dispatches `vite:ws:connect` the instant the HMR socket opens — which is routinely
-// *before* this side-effect import has even executed — and it no longer buffers sends made
-// before the socket is open (they throw). A single eager hello plus a connect listener
-// therefore loses the race on a cold load and the devtools dashboard shows the app as absent.
-// Re-announce on a short interval until the server echoes our id back in a client list, and
-// again from scratch on every reconnect.
+/**
+ * Says hello and keeps repeating it every {@link HELLO_RETRY_MS} until the server lists this client
+ * or {@link HELLO_MAX_ATTEMPTS} is reached, since the socket may not be ready on the first try.
+ */
 function announce(): void {
   announced = false;
   stopRetrying();
@@ -44,6 +48,7 @@ function announce(): void {
   }, HELLO_RETRY_MS);
 }
 
+/** Starts announcing this client, and announces again after every reconnect to the dev server. */
 export function installPresence(): void {
   onDevtoolsEvent("wefter:client_list", (list) => {
     if (Array.isArray(list) && list.some((entry) => (entry as ClientListEntry)?.clientId === clientId)) {
@@ -55,6 +60,7 @@ export function installPresence(): void {
   announce();
 }
 
+/** Forgets the client id and stops retrying. Test-only. */
 export function __resetPresenceForTest(): void {
   stopRetrying();
   clientId = undefined;

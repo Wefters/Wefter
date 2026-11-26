@@ -1,14 +1,23 @@
 import UIKit
 import WebKit
 
+/// The app's only screen: a full-screen web view running the web app, an optional splash web view on top,
+/// and the bridge to native plugins.
+///
+/// In a `--watch` debug build the page is loaded from the dev server; otherwise from the bundled assets. If
+/// the dev server cannot be reached, a message is shown and the connection is retried whenever the app is in
+/// the foreground.
 final class ViewController: UIViewController {
     private static let bundledURL = URL(string: "\(AssetSchemeHandler.scheme)://\(AssetSchemeHandler.host)/index.html")!
     private static let splashURL = URL(string: "\(AssetSchemeHandler.scheme)://\(AssetSchemeHandler.host)/splash/index.html")!
     private static let blankURL = URL(string: "about:blank")!
+    /// How often the web content process may crash before giving up and showing a fallback message.
     private static let maxRenderProcessRetries = 3
 
     private static let splashFadeTransitionSeconds: TimeInterval = 0.2
+    /// How long to wait for the dev server before treating it as unreachable.
     private static let devServerLoadTimeoutSeconds: TimeInterval = 25
+    /// Delay between attempts to reconnect to the dev server.
     private static let devServerRetryIntervalSeconds: TimeInterval = 3
 
     private static let devServerUnreachableMessage = "Dev server unreachable"
@@ -27,11 +36,13 @@ final class ViewController: UIViewController {
     private var isForeground = false
     private var devServerUnreachableNotified = false
 
+    /// Host of the dev server, whose pages are allowed to load in the web view.
     private let devServerHost: String? = {
         guard !BuildConfig.devServerURL.isEmpty, let url = URL(string: BuildConfig.devServerURL) else { return nil }
         return url.host
     }()
 
+    /// Environment name reported to `getPlatformInfo()`.
     private var environmentName: String {
         #if DEBUG
         return "development"
@@ -40,6 +51,7 @@ final class ViewController: UIViewController {
         #endif
     }
 
+    /// Locks the screen to landscape when `landscape` is set in `wefter.config.json`.
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
         if BuildConfig.landscape {
             return .landscape
@@ -74,16 +86,19 @@ final class ViewController: UIViewController {
         NotificationCenter.default.removeObserver(self)
     }
 
+    /// Retries the dev server when the app returns to the foreground.
     @objc private func appDidBecomeActive() {
         isForeground = true
         retryDevServerIfNeeded()
     }
 
+    /// Pauses dev server retries in the background.
     @objc private func appWillResignActive() {
         isForeground = false
         devServerRetry?.cancel()
     }
 
+    /// Whether this is a debug build pointed at a dev server.
     private func isDevServerBuild() -> Bool {
         #if DEBUG
         return !BuildConfig.devServerURL.isEmpty
@@ -92,11 +107,14 @@ final class ViewController: UIViewController {
         #endif
     }
 
+    /// Tries the dev server again if it is not connected and the app is visible.
     private func retryDevServerIfNeeded() {
         guard isForeground, isDevServerBuild(), !usingDevServer else { return }
         loadInitialContent(preferDevServer: true)
     }
 
+    /// Stops the web view's scroll view from bouncing or adding safe-area insets, so the page stays fixed and
+    /// handles scrolling and safe areas itself (`env(safe-area-inset-*)`).
     private static func pinPageToScreen(_ webView: WKWebView) {
         let scrollView = webView.scrollView
         scrollView.contentInsetAdjustmentBehavior = .never
@@ -105,6 +123,7 @@ final class ViewController: UIViewController {
         scrollView.alwaysBounceHorizontal = false
     }
 
+    /// Adds a view at `index` that fills the whole screen.
     private func installFullBleed(_ subview: UIView, at index: Int) {
         subview.translatesAutoresizingMaskIntoConstraints = false
         view.insertSubview(subview, at: index)
@@ -116,12 +135,15 @@ final class ViewController: UIViewController {
         ])
     }
 
+    /// A web view configuration that serves `app://local/` from the bundle.
     private func makeSchemeAwareConfiguration() -> WKWebViewConfiguration {
         let config = WKWebViewConfiguration()
         config.setURLSchemeHandler(AssetSchemeHandler(), forURLScheme: AssetSchemeHandler.scheme)
         return config
     }
 
+    /// Creates the main web view: injects the environment name, registers the plugins and the `__system`
+    /// module, and enables Safari inspection in debug builds.
     private func makePrimaryWebView() -> WKWebView {
         let config = makeSchemeAwareConfiguration()
 
@@ -157,6 +179,8 @@ final class ViewController: UIViewController {
         return webView
     }
 
+    /// Shows the splash page over the app. It is dismissed when the app calls `hideSplash()` (or after the
+    /// maximum duration), or after the minimum duration when it does not wait for the app.
     private func setupSplash() {
         let config = makeSchemeAwareConfiguration()
         let splash = WKWebView(frame: .zero, configuration: config)
@@ -178,6 +202,7 @@ final class ViewController: UIViewController {
         }
     }
 
+    /// Fades the splash out once its minimum duration has passed.
     private func dismissSplash() {
         guard let splash = splashWebView, !splashDismissed else { return }
         splashDismissed = true
@@ -197,6 +222,8 @@ final class ViewController: UIViewController {
         }
     }
 
+    /// Loads the dev server when this build uses one, else the bundled app. A dev server build that is not
+    /// connected shows a blank page instead of stale bundled assets.
     private func loadInitialContent(preferDevServer: Bool = true) {
         #if DEBUG
         let isDevServerBuild = !BuildConfig.devServerURL.isEmpty
@@ -217,6 +244,7 @@ final class ViewController: UIViewController {
         }
     }
 
+    /// Treats the dev server as unreachable if the page has not loaded in time.
     private func armDevServerWatchdog() {
         devServerWatchdog?.cancel()
         let watchdog = DispatchWorkItem { [weak self] in
@@ -227,11 +255,13 @@ final class ViewController: UIViewController {
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.devServerLoadTimeoutSeconds, execute: watchdog)
     }
 
+    /// Cancels the dev server load timeout.
     private func clearDevServerWatchdog() {
         devServerWatchdog?.cancel()
         devServerWatchdog = nil
     }
 
+    /// Shows the "unreachable" message once, clears the page and schedules a retry.
     private func handleDevServerUnreachable() {
         clearDevServerWatchdog()
         guard usingDevServer else { return }
@@ -245,6 +275,7 @@ final class ViewController: UIViewController {
         scheduleDevServerRetry()
     }
 
+    /// Tries the dev server again after a short delay.
     private func scheduleDevServerRetry() {
         devServerRetry?.cancel()
         let retry = DispatchWorkItem { [weak self] in self?.retryDevServerIfNeeded() }
@@ -252,12 +283,14 @@ final class ViewController: UIViewController {
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.devServerRetryIntervalSeconds, execute: retry)
     }
 
+    /// Alerts the developer that the dev server could not be reached.
     private func showDevServerUnreachableMessage() {
         let alert = UIAlertController(title: nil, message: Self.devServerUnreachableMessage, preferredStyle: .alert)
         alert.addAction(UIAlertAction(title: "OK", style: .default))
         present(alert, animated: true)
     }
 
+    /// Shown when the web content keeps crashing.
     private func showRendererDeadFallback() {
         let label = UILabel()
         label.text = "This app isn't working right now.\nPlease close and reopen it."
@@ -267,6 +300,7 @@ final class ViewController: UIViewController {
         installFullBleed(label, at: view.subviews.count)
     }
 
+    /// A string as a quoted JavaScript literal.
     private static func jsStringLiteral(_ value: String) -> String {
         guard let data = try? JSONSerialization.data(withJSONObject: value, options: [.fragmentsAllowed]) else {
             return "\"\""
@@ -276,6 +310,7 @@ final class ViewController: UIViewController {
 }
 
 extension ViewController: WKNavigationDelegate {
+    /// A page finished loading: the dev server is reachable again, and plugins get the `appReady` hook.
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         if usingDevServer {
             clearDevServerWatchdog()
@@ -286,6 +321,7 @@ extension ViewController: WKNavigationDelegate {
         dispatcher.dispatchHook("appReady")
     }
 
+    /// Keeps navigation inside the app's own origin (bundled or dev server); other web links open in Safari.
     func webView(
         _ webView: WKWebView,
         decidePolicyFor navigationAction: WKNavigationAction,
@@ -310,6 +346,7 @@ extension ViewController: WKNavigationDelegate {
         decisionHandler(.cancel)
     }
 
+    /// Treats a failed load of the dev server as unreachable (debug builds only).
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
         #if DEBUG
         let nsError = error as NSError
@@ -322,6 +359,7 @@ extension ViewController: WKNavigationDelegate {
         #endif
     }
 
+    /// Recreates the web view after its content process crashes, up to a limit.
     func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
         webView.removeFromSuperview()
 

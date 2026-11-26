@@ -1,3 +1,8 @@
+/**
+ * The Network panel: `fetch` and `XMLHttpRequest` traffic from the app, with headers and a response
+ * preview.
+ */
+
 import type { Store } from "../store.js";
 import type { NetworkRecord } from "../../shared/events.js";
 import { h } from "../dom.js";
@@ -22,14 +27,17 @@ import {
   valueView,
 } from "./shared.js";
 
+/** Outcome of a request for filtering and colouring. */
 type Category = "success" | "error" | "pending";
 
+/** 2xx and 3xx are successes; everything else that finished is an error. */
 function categorize(status: NetworkRecord["status"]): Category {
   if (status === "pending") return "pending";
   if (typeof status === "number" && status >= 200 && status < 400) return "success";
   return "error";
 }
 
+/** Splits a URL into its path and, for other origins, its host. */
 function splitUrl(url: string): { path: string; host: string } {
   try {
     const parsed = new URL(url, typeof location !== "undefined" ? location.href : "http://localhost/");
@@ -40,6 +48,7 @@ function splitUrl(url: string): { path: string; host: string } {
   }
 }
 
+/** Details pane content for a request. */
 function inspectRecord(record: NetworkRecord) {
   const category = categorize(record.status);
   const headers = Object.entries(record.headers ?? {}).sort(([a], [b]) => a.localeCompare(b));
@@ -98,6 +107,11 @@ function inspectRecord(record: NetworkRecord) {
   };
 }
 
+/**
+ * Creates the Network panel, with status filters, a text filter and a pause button.
+ *
+ * @param onClear Asks the server to clear the network history.
+ */
 export function createNetworkPanel(store: Store<NetworkRecord[]>, onClear: () => void): HTMLElement {
   let search = "";
   let statusFilter = "";
@@ -175,6 +189,7 @@ export function createNetworkPanel(store: Store<NetworkRecord[]>, onClear: () =>
     table.element,
   );
 
+  /** Applies the filters and updates the table and filter counts. */
   function render(): void {
     const live = store.get();
     const records = snapshot ?? live;

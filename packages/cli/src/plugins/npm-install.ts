@@ -1,5 +1,10 @@
 import { spawn } from "node:child_process";
 
+/**
+ * Runs `npm install <packageSpec>` in the project, showing npm's output.
+ *
+ * @throws {Error} When npm fails.
+ */
 export function runNpmInstall(projectDir: string, packageSpec: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const proc = spawn("npm", ["install", packageSpec], { cwd: projectDir, stdio: "inherit" });

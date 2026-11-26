@@ -1,3 +1,8 @@
+/**
+ * Entry point of the DevTools dashboard. Connects to the dev server's socket, keeps the bridge, console,
+ * network and presence data in stores, and mounts the panels inside the shell.
+ */
+
 import {
   WEFTER_EVENT,
   type BridgeCallEvent,
@@ -20,30 +25,43 @@ import { createNetworkPanel } from "./panels/network.js";
 import { createPluginsPanel } from "./panels/plugins.js";
 import cssText from "./styles.css";
 
+/** The part of Vite's HMR client the dashboard needs. Tests pass a fake. */
 export interface MinimalHotContext {
   send(event: string, payload?: unknown): void;
   on(event: string, cb: (data: unknown) => void): void;
 }
 
-// Match the dev server's ring buffers so a long session can't grow the dashboard without bound.
+/** How many records each panel keeps; older ones are dropped. */
 const BRIDGE_CAP = 500;
 const CONSOLE_CAP = 1000;
 const NETWORK_CAP = 500;
 
+/** A store whose value is computed from another store and follows its changes. */
 function derive<S, T>(source: Store<S>, fn: (state: S) => T): Store<T> {
   const out = createStore(fn(source.get()));
   source.subscribe((state) => out.set(() => fn(state)));
   return out;
 }
 
+/** `1 call`, `2 calls`. */
 function plural(n: number, word: string): string {
   return `${n} ${word}${n === 1 ? "" : "s"}`;
 }
 
+/** Errors, timeouts and cancellations count as failed calls. */
 const isFailedCall = (r: BridgeRecord) => r.status !== "success" && r.status !== "pending";
+/** Anything outside 2xx/3xx, including network failures, counts as a failed request. */
 const isFailedRequest = (r: NetworkRecord) => r.status !== "pending" && !(r.status >= 200 && r.status < 400);
+/** Errors and uncaught errors. */
 const isErrorLog = (e: ConsoleEvent) => e.level === "error" || e.level === "uncaught";
 
+/**
+ * Builds the dashboard inside `app`.
+ *
+ * It asks the server for the history on start and after every reconnect, applies live events to the
+ * stores, and derives the tab badges (failed counts, or totals when nothing failed) and the status bar
+ * statistics.
+ */
 export function mountDevtoolsApp(app: HTMLElement, hot: MinimalHotContext): void {
   const bridgeStore = createStore<BridgeRecord[]>([]);
   const consoleStore = createStore<ConsoleEvent[]>([]);
@@ -183,6 +201,10 @@ export function mountDevtoolsApp(app: HTMLElement, hot: MinimalHotContext): void
   );
 }
 
+/**
+ * Bootstraps the page: injects the styles and mounts the app, or explains that the dashboard only works
+ * through the dev server.
+ */
 document.title = "Wefter DevTools";
 const styleTag = document.createElement("style");
 styleTag.textContent = cssText;

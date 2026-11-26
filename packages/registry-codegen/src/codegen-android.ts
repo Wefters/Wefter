@@ -1,11 +1,17 @@
 import type { DiscoveredPlugin } from "./scan-plugins.js";
 import type { ExtractedHook, ExtractedMethod } from "./extract-wefter-plugin.js";
 
+/** The methods and hooks found in one plugin's native source. */
 export interface PluginExtraction {
   methods: ExtractedMethod[];
   hooks: ExtractedHook[];
 }
 
+/**
+ * The native class name a plugin must use: its name in PascalCase plus `Plugin`.
+ *
+ * @example classNameFor("secure-storage") // "SecureStoragePlugin"
+ */
 export function classNameFor(pluginName: string): string {
   const pascal = pluginName
     .split(/[-_]+/)
@@ -16,10 +22,12 @@ export function classNameFor(pluginName: string): string {
   return `${pascal}Plugin`;
 }
 
+/** Lower-cases the first character, for variable names. */
 function lowerFirst(s: string): string {
   return s.charAt(0).toLowerCase() + s.slice(1);
 }
 
+/** Kotlin source for a `NativeModule` that routes each method name to the plugin's function. */
 function generateMethodDispatch(className: string, methods: ExtractedMethod[]): string {
   const cases = methods.map((m) => `            "${m.name}" -> plugin.${m.name}(payload, callback)`).join("\n");
   return [
@@ -34,6 +42,15 @@ function generateMethodDispatch(className: string, methods: ExtractedMethod[]): 
   ].join("\n");
 }
 
+/**
+ * Generates `GeneratedRegistry.kt`, which creates every plugin, registers it with the bridge
+ * dispatcher and subscribes its lifecycle hooks.
+ *
+ * @param plugins The plugins to register.
+ * @param packageName The Kotlin package of the app.
+ * @param extraction Methods and hooks found in each plugin's source, by plugin name. A plugin without
+ * methods is registered directly.
+ */
 export function generateRegistryKotlin(
   plugins: DiscoveredPlugin[],
   packageName: string,

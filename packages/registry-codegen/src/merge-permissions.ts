@@ -4,6 +4,12 @@ import type { DiscoveredPlugin } from "./scan-plugins.js";
 const START = "<!-- WEFTER-PERMISSIONS-START -->";
 const END = "<!-- WEFTER-PERMISSIONS-END -->";
 
+/**
+ * Writes a `<uses-permission>` for every Android permission the plugins declare into
+ * `AndroidManifest.xml`, between the `WEFTER-PERMISSIONS` markers.
+ *
+ * @returns The permissions that were written.
+ */
 export function mergePermissions(plugins: DiscoveredPlugin[], manifestPath: string): string[] {
   const permissions = new Set<string>();
   for (const plugin of plugins) {

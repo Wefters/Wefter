@@ -50,7 +50,6 @@ const { run } = await import("../src/commands/run.js");
 const { writeSyncMarker } = await import("../src/plugins/sync-freshness.js");
 const { configureUi, setTerminalStreams, stripAnsi } = await import("../src/ui/terminal.js");
 
-/** Every adb call succeeds and prints what adb prints on success. */
 function adbSucceeds() {
   spawnMock.mockImplementation((_cmd: string, args: string[]) => {
     const child = Object.assign(new EventEmitter(), { stdout: new EventEmitter(), stderr: new EventEmitter() });

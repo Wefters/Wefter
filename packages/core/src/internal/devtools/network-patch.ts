@@ -1,7 +1,14 @@
+/**
+ * Mirrors `fetch` and `XMLHttpRequest` traffic to the DevTools Network panel while the dev server is
+ * running. Requests and responses are reported as separate events linked by a request id; response
+ * bodies are previewed up to {@link BODY_PREVIEW_CAP} characters.
+ */
+
 import { emitDevtoolsEvent } from "./emit.js";
 import { truncate } from "./serialize.js";
 import { claimOnce } from "./claim-once.js";
 
+/** Longest response body preview sent to DevTools, in characters. */
 const BODY_PREVIEW_CAP = 2048;
 
 let counter = 0;
@@ -17,6 +24,10 @@ function headersToRecord(headers: Headers): Record<string, string> {
   return out;
 }
 
+/**
+ * Wraps `window.fetch`. The response is cloned so the app still receives an unread body; network
+ * failures are reported with status 0 and then rethrown unchanged.
+ */
 export function installFetchPatch(): void {
   if (fetchInstalled || typeof window === "undefined" || typeof window.fetch !== "function") return;
   fetchInstalled = true;
@@ -50,6 +61,7 @@ export function installFetchPatch(): void {
   }) as typeof fetch;
 }
 
+/** Reads a cloned response and reports it, falling back to an empty preview when the body is not text. */
 async function previewFetchBody(clone: Response, requestId: string, startedAt: number): Promise<void> {
   try {
     const text = await clone.text();
@@ -72,6 +84,7 @@ async function previewFetchBody(clone: Response, requestId: string, startedAt: n
   }
 }
 
+/** What is remembered about an `XMLHttpRequest` between `open()` and its response. */
 interface XhrMeta {
   requestId: string;
   method: string;
@@ -82,6 +95,10 @@ interface XhrMeta {
 
 const xhrMeta = new WeakMap<XMLHttpRequest, XhrMeta>();
 
+/**
+ * Wraps `XMLHttpRequest.prototype.open`, `setRequestHeader` and `send` to report each request and, on
+ * `loadend`, its response. Only text responses are previewed.
+ */
 export function installXhrPatch(): void {
   if (xhrInstalled || typeof window === "undefined" || typeof window.XMLHttpRequest === "undefined") return;
   xhrInstalled = true;
@@ -127,9 +144,7 @@ export function installXhrPatch(): void {
             const result = truncate(this.responseText ?? "", BODY_PREVIEW_CAP);
             bodyPreview = result.preview;
             bodyTruncated = result.truncated;
-          } catch {
-            // not accessible for this responseType — emit without a preview
-          }
+          } catch {}
         }
         emitDevtoolsEvent("wefter:network_response", {
           requestId: meta.requestId,

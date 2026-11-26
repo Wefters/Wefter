@@ -1,3 +1,5 @@
+/** `wefter build`: builds an installable Android APK or iOS simulator app for an environment. */
+
 import { buildAndroid, type AndroidBuildResult } from "../native/android-builder.js";
 import { buildIos, type IosBuildResult } from "../native/ios-builder.js";
 import { checkReleaseSecurity } from "../native/release-security-check.js";
@@ -9,21 +11,33 @@ import { resolveRegisteredPlugins, unresolvedRegisteredPlugins } from "../plugin
 import { runHook } from "../hooks/run-hook.js";
 import { step } from "../ui/steps.js";
 
+/** The built APK and what went into it. */
 export interface BuildResult extends AndroidBuildResult {
   appName: string;
   syncedPlugins: string[];
   unresolvedRegisteredPlugins: string[];
 }
 
+/** Which environment to build, and whether as a release. */
 export interface BuildOptions {
   release: boolean;
   env: string;
 }
 
+/** `development, debug` and the like, for progress messages. */
 function buildLabel(options: BuildOptions): string {
   return `${options.env}, ${options.release ? "release" : "debug"}`;
 }
 
+/**
+ * Builds the Android app.
+ *
+ * Requires an up-to-date sync, runs the `wefter:build` hooks around the build, and for release builds first
+ * runs the release security check.
+ *
+ * @throws {Error} When the project needs a sync or the release check fails.
+ * @throws {ProcessFailure} When Gradle fails.
+ */
 export async function build(projectDir: string, options: BuildOptions): Promise<BuildResult> {
   const freshness = checkSyncFreshness(projectDir);
   if (!freshness.fresh) {
@@ -60,16 +74,28 @@ export async function build(projectDir: string, options: BuildOptions): Promise<
   };
 }
 
+/** The built iOS app and what went into it. */
 export interface IosBuildCommandResult extends IosBuildResult {
   appName: string;
   syncedPlugins: string[];
   unresolvedRegisteredPlugins: string[];
 }
 
+/** iOS build options; `simulator` picks the simulator to build for. */
 export interface IosBuildCommandOptions extends BuildOptions {
   simulator?: string;
 }
 
+/**
+ * Builds the iOS app.
+ *
+ * Requires an up-to-date sync, runs the `wefter:build` hooks around the build, checks that `Info.plist`
+ * has every permission description the plugins need, and for release builds first runs the release
+ * security check.
+ *
+ * @throws {Error} When the project needs a sync or a check fails.
+ * @throws {ProcessFailure} When xcodebuild fails.
+ */
 export async function buildIosCommand(
   projectDir: string,
   options: IosBuildCommandOptions,

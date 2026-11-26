@@ -1,9 +1,14 @@
+/** A small observable value. */
 export interface Store<T> {
   get(): T;
   set(updater: (state: T) => T): void;
   subscribe(listener: (state: T) => void): () => void;
 }
 
+/**
+ * Creates a store. Listeners run at most once per animation frame, after any number of updates, so a
+ * burst of events renders once.
+ */
 export function createStore<T>(initial: T): Store<T> {
   let state = initial;
   const listeners = new Set<(state: T) => void>();

@@ -1,3 +1,8 @@
+/**
+ * What `wefter run` does once the app is running: prints the summary and, while watching in a terminal,
+ * handles the keyboard shortcuts until the user quits.
+ */
+
 import chalk from "chalk";
 import type { RunSession } from "./run.js";
 import { startKeySession, type KeyInput } from "./run-session.js";
@@ -8,14 +13,14 @@ import { openUrl } from "../utils/open-url.js";
 import { formatElapsed, step, symbols } from "../ui/steps.js";
 import { activeRunLog } from "../process/run-log.js";
 
+/** Options for {@link attachRunSession}. `input` and `exit` are replaced in tests. */
 export interface AttachOptions {
-  /** The command to suggest after a failure, already ending in --debug. */
   retryWithDebug: string;
   input?: KeyInput;
-  /** Called once the session has ended (after `q`, Ctrl+C or a dev server crash). */
   exit?: (code: number) => void;
 }
 
+/** Prints the run summary. */
 function showSummary(session: RunSession, shortcuts: boolean): void {
   printRunSummary({
     appName: session.appName,
@@ -28,9 +33,15 @@ function showSummary(session: RunSession, shortcuts: boolean): void {
 }
 
 /**
- * After a successful `wefter run`: prints the summary and, for `--watch` in a real terminal,
- * starts the keyboard shortcuts. Without a terminal it keeps the old behaviour (Ctrl+C to stop).
- * Returns a function that stops the dev server and restores the terminal.
+ * Takes over after a successful run.
+ *
+ * - Without `--watch` it only prints the summary.
+ * - Without an interactive terminal it prints the dev server URL and keeps running until Ctrl+C.
+ * - Otherwise it handles the shortcuts. A failed reload or rebuild is reported and the session keeps
+ *   running; if the dev server stops on its own, the CLI exits with code 1.
+ *
+ * @param options `retryWithDebug` is the command suggested after a failure.
+ * @returns A function that stops the session and the dev server.
  */
 export function attachRunSession(session: RunSession, options: AttachOptions): () => void {
   const input = options.input ?? process.stdin;
@@ -48,6 +59,7 @@ export function attachRunSession(session: RunSession, options: AttachOptions): (
 
   let stopKeys: () => void = () => {};
   let ended = false;
+  /** Stops reading keys and the dev server, then exits with `code`. Runs once. */
   const shutdown = (code: number) => {
     if (ended) return;
     ended = true;

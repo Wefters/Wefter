@@ -1,5 +1,7 @@
 import Foundation
 
+/// Settings the CLI writes at sync and run time: the dev server URL (debug only), the splash screen and
+/// the orientation. Edit `wefter.config.json` instead of this file.
 enum BuildConfig {
     #if DEBUG
     static let devServerURL = "" // WEFTER overridden per-run by the CLI

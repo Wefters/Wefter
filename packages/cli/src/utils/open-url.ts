@@ -1,12 +1,17 @@
 import { spawn } from "node:child_process";
 
+/** The command that opens a URL in the default browser on `platform`. */
 export function openCommandFor(platform: NodeJS.Platform, url: string): [string, string[]] {
   if (platform === "darwin") return ["open", [url]];
   if (platform === "win32") return ["cmd", ["/c", "start", '""', url]];
   return ["xdg-open", [url]];
 }
 
-/** Opens a URL in the default browser. Resolves false if no opener could be started. */
+/**
+ * Opens a URL in the default browser without waiting for it.
+ *
+ * @returns Whether the browser could be launched.
+ */
 export function openUrl(url: string, platform: NodeJS.Platform = process.platform): Promise<boolean> {
   const [command, args] = openCommandFor(platform, url);
   return new Promise((resolve) => {

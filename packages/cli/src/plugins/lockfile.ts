@@ -1,24 +1,34 @@
+/**
+ * `wefter.lock.json` records the version and a content hash of each synced plugin, so changes to plugins
+ * between syncs can be detected.
+ */
+
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import type { DiscoveredPlugin } from "@wefterjs/registry-codegen";
 
+/** Name of the lockfile in the project root. */
 const LOCKFILE_NAME = "wefter.lock.json";
 
+/** A plugin's locked version and content hash. */
 interface LockEntry {
   resolved: string;
   integrity: string;
 }
 
+/** Contents of the lockfile. */
 interface WefterLock {
   plugins: Record<string, LockEntry>;
   syncedAt: string;
 }
 
+/** Path of the lockfile. */
 function lockfilePath(projectDir: string): string {
   return join(projectDir, LOCKFILE_NAME);
 }
 
+/** Version of an installed package, or `0.0.0` when it cannot be read. */
 export function readInstalledVersion(packageDir: string): string {
   const packageJsonPath = join(packageDir, "package.json");
   if (!existsSync(packageJsonPath)) return "0.0.0";
@@ -30,6 +40,7 @@ export function readInstalledVersion(packageDir: string): string {
   }
 }
 
+/** SHA-256 over a plugin's `plugin.json`, version and native sources, in a stable order. */
 export function computeIntegrityHash(packageDir: string): string {
   const hash = createHash("sha256");
 
@@ -61,12 +72,14 @@ export function computeIntegrityHash(packageDir: string): string {
   return `sha256-${hash.digest("hex")}`;
 }
 
+/** The parsed lockfile, or `null` when there is none. */
 export function readLockfileIfExists(projectDir: string): WefterLock | null {
   const path = lockfilePath(projectDir);
   if (!existsSync(path)) return null;
   return JSON.parse(readFileSync(path, "utf-8")) as WefterLock;
 }
 
+/** Writes the lockfile for the synced plugins. */
 export function writeLockfile(projectDir: string, plugins: DiscoveredPlugin[]): void {
   const lock: WefterLock = {
     plugins: Object.fromEntries(
@@ -80,6 +93,7 @@ export function writeLockfile(projectDir: string, plugins: DiscoveredPlugin[]): 
   writeFileSync(lockfilePath(projectDir), JSON.stringify(lock, null, 2) + "\n", "utf-8");
 }
 
+/** Plugins whose installed version differs from the locked one. Plugins not in the lockfile are ignored. */
 export function checkLockDrift(projectDir: string, plugins: DiscoveredPlugin[]): string[] {
   const lock = readLockfileIfExists(projectDir);
   if (!lock) return [];

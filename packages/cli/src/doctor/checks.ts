@@ -1,6 +1,12 @@
+/**
+ * The environment checks behind `wefter doctor`. Each returns a {@link CheckResult} instead of throwing,
+ * so one failing tool never hides the others.
+ */
+
 import { exec } from "node:child_process";
 import { REQUIREMENTS } from "../config/requirements.js";
 
+/** Runs a shell command and resolves with its output. */
 function execAsync(command: string): Promise<{ stdout: string; stderr: string }> {
   return new Promise((resolve, reject) => {
     exec(command, (error, stdout, stderr) => {
@@ -10,6 +16,7 @@ function execAsync(command: string): Promise<{ stdout: string; stderr: string }>
   });
 }
 
+/** Outcome of one check: what was found, and how to fix it when it failed. */
 export interface CheckResult {
   name: string;
   passed: boolean;
@@ -17,6 +24,7 @@ export interface CheckResult {
   fix?: string;
 }
 
+/** Node.js is at least the required major version. */
 export async function checkNodeVersion(): Promise<CheckResult> {
   const version = process.version;
   const major = Number(version.replace(/^v/, "").split(".")[0]);
@@ -41,6 +49,7 @@ export async function checkNodeVersion(): Promise<CheckResult> {
   };
 }
 
+/** `ANDROID_HOME` or `ANDROID_SDK_ROOT` is set. */
 export async function checkAndroidHome(): Promise<CheckResult> {
   const value = process.env.ANDROID_HOME || process.env.ANDROID_SDK_ROOT;
 
@@ -55,6 +64,7 @@ export async function checkAndroidHome(): Promise<CheckResult> {
   };
 }
 
+/** `adb` can be run. */
 export async function checkAdbOnPath(): Promise<CheckResult> {
   try {
     await execAsync("adb version");
@@ -68,6 +78,7 @@ export async function checkAdbOnPath(): Promise<CheckResult> {
   }
 }
 
+/** A JDK of at least the required version is on the path. Handles both `1.8` and `17` version styles. */
 export async function checkJdkVersion(): Promise<CheckResult> {
   let output: string;
   try {
@@ -96,6 +107,7 @@ export async function checkJdkVersion(): Promise<CheckResult> {
   };
 }
 
+/** At least one Android device or emulator is connected and authorised. */
 export async function checkConnectedDevice(): Promise<CheckResult> {
   let stdout: string;
   try {
@@ -133,6 +145,7 @@ function isMacOS(): boolean {
   return process.platform === "darwin";
 }
 
+/** The machine is a Mac, which iOS builds need. */
 export async function checkMacOS(): Promise<CheckResult> {
   if (isMacOS()) {
     return { name: "Running on macOS", passed: true };
@@ -145,6 +158,7 @@ export async function checkMacOS(): Promise<CheckResult> {
   };
 }
 
+/** Xcode is installed. */
 export async function checkXcodeInstalled(): Promise<CheckResult> {
   if (!isMacOS()) {
     return { name: "Xcode installed", passed: false, fix: "requires macOS" };
@@ -161,6 +175,7 @@ export async function checkXcodeInstalled(): Promise<CheckResult> {
   }
 }
 
+/** The Xcode command line tools are selected. */
 export async function checkXcodeCommandLineTools(): Promise<CheckResult> {
   if (!isMacOS()) {
     return { name: "Xcode Command Line Tools", passed: false, fix: "requires macOS" };
@@ -173,6 +188,7 @@ export async function checkXcodeCommandLineTools(): Promise<CheckResult> {
   }
 }
 
+/** At least one iOS simulator exists. */
 export async function checkSimulatorAvailable(): Promise<CheckResult> {
   if (!isMacOS()) {
     return { name: "iOS Simulator available", passed: false, fix: "requires macOS" };
@@ -198,6 +214,7 @@ export async function checkSimulatorAvailable(): Promise<CheckResult> {
   }
 }
 
+/** Runs every check in parallel. */
 export async function runAllChecks(): Promise<CheckResult[]> {
   return Promise.all([
     checkNodeVersion(),

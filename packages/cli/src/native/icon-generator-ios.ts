@@ -3,8 +3,10 @@ import { join, resolve } from "node:path";
 import sharp from "sharp";
 import { assertIconSourceSize } from "./icon-source.js";
 
+/** iOS needs a single 1024×1024 icon; Xcode derives the other sizes. */
 const APP_ICON_SIZE = 1024;
 
+/** The `Contents.json` of the app icon set. */
 const APP_ICON_CONTENTS_JSON = `{
   "images" : [
     {
@@ -21,6 +23,12 @@ const APP_ICON_CONTENTS_JSON = `{
 }
 `;
 
+/**
+ * Writes the app icon set from `iconSourcePath`. Transparency is filled with white, because iOS does not
+ * allow transparent app icons.
+ *
+ * @throws {Error} When the source image is smaller than 1024×1024.
+ */
 export async function generateIosIcons(
   projectDir: string,
   iconSourcePath: string,

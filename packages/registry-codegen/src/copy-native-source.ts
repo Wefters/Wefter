@@ -2,6 +2,7 @@ import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, write
 import { join } from "node:path";
 import type { DiscoveredPlugin } from "./scan-plugins.js";
 
+/** Rewrites the `package` line of every Kotlin file under `dir` to `packageName`. */
 function rewritePackageDeclarations(dir: string, packageName: string): void {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const entryPath = join(dir, entry.name);
@@ -14,6 +15,12 @@ function rewritePackageDeclarations(dir: string, packageName: string): void {
   }
 }
 
+/**
+ * Replaces `destDir` with the `android/` folders of all plugins and moves their Kotlin files into the
+ * app's package, so they compile alongside the shell.
+ *
+ * @throws {Error} When a plugin has no `android/` folder.
+ */
 export function copyAndroidNativeSource(plugins: DiscoveredPlugin[], destDir: string, packageName: string): void {
   rmSync(destDir, { recursive: true, force: true });
   mkdirSync(destDir, { recursive: true });

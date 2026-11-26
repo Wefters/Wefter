@@ -47,7 +47,6 @@ function fakeSession(overrides: Partial<RunSession> = {}) {
   return { session, devServer, crash: (code: number) => exitListeners.forEach((l) => l(code)) };
 }
 
-/** Lets queued promise callbacks (the key handlers) run. */
 const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
 let out: string;

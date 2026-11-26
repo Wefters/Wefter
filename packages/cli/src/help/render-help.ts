@@ -1,16 +1,21 @@
+/** Coloured `--help` output for every command, replacing Commander's plain text. */
+
 import type { Command, Help } from "commander";
 import type { ColoredSegment } from "../utils/logger.js";
 
+/** The full command name, such as `wefter plugin validate`. */
 function qualifiedName(cmd: Command): string {
   const parts: string[] = [];
   for (let c: Command | null = cmd; c; c = c.parent) parts.unshift(c.name());
   return parts.join(" ");
 }
 
+/** Width of the widest left column entry. */
 function widthOf(rows: { left: string }[]): number {
   return rows.reduce((max, row) => Math.max(max, row.left.length), 0);
 }
 
+/** Adds a titled, aligned section (arguments, options or commands). Empty sections are skipped. */
 function pushRows(
   lines: ColoredSegment[][],
   heading: string,
@@ -29,6 +34,7 @@ function pushRows(
   lines.push([]);
 }
 
+/** Builds the help for a command: description, usage, arguments, options and subcommands. */
 export function renderHelp(cmd: Command, helper: Help): ColoredSegment[][] {
   const lines: ColoredSegment[][] = [];
 

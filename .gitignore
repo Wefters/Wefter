@@ -30,7 +30,6 @@ captures/
 *.iml
 .vscode/
 
-# Xcode
 xcuserdata/
 *.xcworkspace/xcuserdata/
 *.xcuserstate

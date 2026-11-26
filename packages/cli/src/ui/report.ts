@@ -1,9 +1,12 @@
+/** The summaries the CLI prints when a run or build finishes, and the failure report when it does not. */
+
 import chalk from "chalk";
 import { ProcessFailure } from "../process/run-process.js";
 import { activeRunLog } from "../process/run-log.js";
 import { formatElapsed, symbols } from "./steps.js";
 import { uiSettings, writeLine } from "./terminal.js";
 
+/** Keyboard shortcuts available while `wefter run --watch` is running. */
 export const SHORTCUTS: [key: string, action: string][] = [
   ["r", "reload app"],
   ["Ctrl+R", "rebuild native"],
@@ -13,16 +16,19 @@ export const SHORTCUTS: [key: string, action: string][] = [
   ["q", "quit"],
 ];
 
+/** All shortcuts on one line, for the run summary. */
 export function shortcutsLine(): string {
   return SHORTCUTS.map(([key, action]) => `${chalk.bold(key)} ${chalk.dim(action)}`).join(chalk.dim(" · "));
 }
 
+/** Lists the shortcuts one per line (the `h` key). */
 export function printShortcutHelp(): void {
   writeLine("");
   for (const [key, action] of SHORTCUTS) writeLine(`  ${chalk.bold(key.padEnd(7))} ${action}`);
   writeLine("");
 }
 
+/** What {@link printRunSummary} shows. */
 export interface RunSummary {
   appName: string;
   targetName: string;
@@ -32,6 +38,10 @@ export interface RunSummary {
   shortcuts: boolean;
 }
 
+/**
+ * Prints that the app is running, how long the build took, the dev server and DevTools URLs when watching,
+ * and the shortcuts when keys are being read.
+ */
 export function printRunSummary(summary: RunSummary): void {
   const sym = symbols();
   writeLine("");
@@ -51,6 +61,7 @@ export function printRunSummary(summary: RunSummary): void {
   writeLine("");
 }
 
+/** What {@link printBuildSummary} shows. */
 export interface BuildSummary {
   appName: string;
   platformLabel: string;
@@ -59,6 +70,7 @@ export interface BuildSummary {
   plugins: string[];
 }
 
+/** Prints where the built app is, its size and the plugins it includes. */
 export function printBuildSummary(summary: BuildSummary): void {
   const sym = symbols();
   writeLine("");
@@ -72,14 +84,22 @@ export function printBuildSummary(summary: BuildSummary): void {
   writeLine("");
 }
 
-/** The same command again with --debug (and only the flags the user actually passed). */
+/**
+ * The same command with `--debug` added, suggested after a failure.
+ *
+ * @example debugRetryCommand({ command: "run", platform: "ios", flags: ["--watch"] }) // "wefter run ios
+ *   --watch --debug"
+ */
 export function debugRetryCommand(parts: { command: string; platform: string; flags: string[] }): string {
   return ["wefter", parts.command, parts.platform, ...parts.flags, "--debug"].join(" ");
 }
 
 /**
- * Explains a failure: the headline, the real errors from the tool's output, fixes for problems we
- * recognise, where the full log is, and how to see everything live.
+ * Prints a failure to stderr.
+ *
+ * For a {@link ProcessFailure} it shows the tool's message, the errors found in its output and hints on how
+ * to fix them; for any other error, its message. It then points to the full run log and, unless already in
+ * debug mode, to `retryWithDebug`.
  */
 export function printFailure(title: string, error: unknown, retryWithDebug?: string): void {
   const sym = symbols();

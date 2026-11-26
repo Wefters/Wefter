@@ -1,3 +1,9 @@
+/**
+ * Public API of `@wefterjs/registry-codegen`: reads plugin manifests and native source, validates them,
+ * generates the native plugin registries and merges plugin requirements (permissions, dependencies,
+ * manifest entries) into the native projects. Used by the CLI's `sync`, `add` and `plugin validate`.
+ */
+
 export {
   PluginManifestSchema,
   type PluginManifest,

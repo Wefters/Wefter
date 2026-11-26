@@ -72,17 +72,17 @@ const { isDebug } = await invokeNative<{ isDebug: boolean }>("__system", "isDebu
 
 ### Bridge functions
 
-| Export | Description |
-| --- | --- |
-| `invokeNative<T>(plugin, method, payload?, options?)` | Sends a message to the native bridge and returns a Promise that resolves with the native response or rejects with a `WefterBridgeError`. |
-| `registerHook(hookName, callback)` | Subscribes to native push events (such as hardware back button presses, barcode scans, or network state transitions). Returns an object with a `remove()` cleanup method. |
-| `onBridgeReady()` | Returns a Promise that resolves once the native bridge objects (`window.AndroidBridge` or `window.webkit.messageHandlers`) are registered. |
-| `isNativeBridgeAvailable()` | Synchronous helper returning `true` when running inside a native Wefter shell, and `false` in a standard browser tab. |
-| `getPlatformInfo()` | Synchronous helper returning `{ platform, coreVersion, environment }` without native dispatch overhead. |
-| `getDeviceInfo()` | Asynchronous native call returning `{ platform, osVersion }` directly from the host operating system. |
-| `hideSplash()` | Signals the native shell to dismiss the splash screen when configured with `waitForReady: true`. |
-| `isLandscape()` | Returns `true` if the shell was built with landscape lock enabled. |
-| `definePlugin<T>(name, methodMap)` | Helper used by plugin authors to construct typed proxy objects around `invokeNative`. |
+| Export                                                | Description                                                                                                                                                               |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `invokeNative<T>(plugin, method, payload?, options?)` | Sends a message to the native bridge and returns a Promise that resolves with the native response or rejects with a `WefterBridgeError`.                                  |
+| `registerHook(hookName, callback)`                    | Subscribes to native push events (such as hardware back button presses, barcode scans, or network state transitions). Returns an object with a `remove()` cleanup method. |
+| `onBridgeReady()`                                     | Returns a Promise that resolves once the native bridge objects (`window.AndroidBridge` or `window.webkit.messageHandlers`) are registered.                                |
+| `isNativeBridgeAvailable()`                           | Synchronous helper returning `true` when running inside a native Wefter shell, and `false` in a standard browser tab.                                                     |
+| `getPlatformInfo()`                                   | Synchronous helper returning `{ platform, coreVersion, environment }` without native dispatch overhead.                                                                   |
+| `getDeviceInfo()`                                     | Asynchronous native call returning `{ platform, osVersion }` directly from the host operating system.                                                                     |
+| `hideSplash()`                                        | Signals the native shell to dismiss the splash screen when configured with `waitForReady: true`.                                                                          |
+| `isLandscape()`                                       | Returns `true` if the shell was built with landscape lock enabled.                                                                                                        |
+| `definePlugin<T>(name, methodMap)`                    | Helper used by plugin authors to construct typed proxy objects around `invokeNative`.                                                                                     |
 
 ### Error handling
 

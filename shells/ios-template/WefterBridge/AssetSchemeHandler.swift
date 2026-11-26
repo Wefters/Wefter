@@ -2,17 +2,25 @@ import Foundation
 import WebKit
 import UniformTypeIdentifiers
 
+/// Serves the bundled web app from the app bundle's `www` folder at `app://local/`.
+///
+/// Serving from a custom scheme instead of `file://` gives the page a real origin. Requests outside `www`
+/// are refused, byte ranges are supported (for media), and every response carries a Content Security
+/// Policy.
 public final class AssetSchemeHandler: NSObject, WKURLSchemeHandler {
 
+    /// Scheme and host of bundled pages: `app://local/index.html`.
     public static let scheme = "app"
     public static let host = "local"
 
     private let rootDirectory: URL
 
+    /// Serves files from `rootDirectory`, or from the bundle's `www` folder by default.
     public init(rootDirectory: URL? = nil) {
         self.rootDirectory = rootDirectory ?? Bundle.main.bundleURL.appendingPathComponent("www", isDirectory: true)
     }
 
+    /// Answers a request with the file it names, `index.html` for the root.
     public func webView(_ webView: WKWebView, start urlSchemeTask: WKURLSchemeTask) {
         guard let url = urlSchemeTask.request.url else {
             urlSchemeTask.didFailWithError(URLError(.badURL))
@@ -58,14 +66,17 @@ public final class AssetSchemeHandler: NSObject, WKURLSchemeHandler {
         urlSchemeTask.didFinish()
     }
 
+    /// Nothing to cancel: responses are sent in full as soon as a request starts.
     public func webView(_ webView: WKWebView, stop urlSchemeTask: WKURLSchemeTask) {
 
     }
 
+    /// Only the app's own code may run; images and network requests may also use HTTPS.
     static let contentSecurityPolicy =
         "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
             + "img-src 'self' data: https:; connect-src 'self' https:; font-src 'self' data:;"
 
+    /// MIME type from the file extension.
     private static func mimeType(for url: URL) -> String {
         if let type = UTType(filenameExtension: url.pathExtension), let mime = type.preferredMIMEType {
             return mime
@@ -73,6 +84,10 @@ public final class AssetSchemeHandler: NSObject, WKURLSchemeHandler {
         return "application/octet-stream"
     }
 
+    /// Applies a `Range: bytes=start-end` header.
+    ///
+    /// - Returns: The body, status (`206` for a range, otherwise `200`) and extra headers. Invalid ranges get
+    ///   the whole file.
     private static func resolveRangeIfPresent(_ rangeHeader: String?, fullData: Data) -> (Data, Int, [String: String]) {
         guard let rangeHeader, rangeHeader.hasPrefix("bytes=") else {
             return (fullData, 200, [:])

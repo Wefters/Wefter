@@ -5,7 +5,6 @@ import { tmpdir } from "node:os";
 import { generateSplash } from "../src/native/splash-generator.js";
 import { setTerminalStreams } from "../src/ui/terminal.js";
 
-/** Captures what the CLI writes to stderr (warnings) instead of printing it. */
 function captureStderr(): { text: () => string; restore: () => void } {
   let err = "";
   setTerminalStreams({ out: () => {}, err: (chunk) => (err += chunk), columns: () => 80 });

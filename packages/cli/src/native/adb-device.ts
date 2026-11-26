@@ -1,14 +1,22 @@
+/** Picks the Android device or emulator to install on. */
+
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline/promises";
 import chalk from "chalk";
 import logger from "../utils/logger.js";
 
+/** A device as listed by `adb devices -l`. `state` is `device` when it is ready. */
 export interface AdbDevice {
   serial: string;
   state: string;
   model?: string;
 }
 
+/**
+ * Runs `adb` and resolves with its stdout.
+ *
+ * @throws {Error} When adb is missing or fails.
+ */
 function runAdbCapture(args: string[]): Promise<string> {
   return new Promise((resolve, reject) => {
     const proc = spawn("adb", args);
@@ -33,6 +41,7 @@ function runAdbCapture(args: string[]): Promise<string> {
   });
 }
 
+/** Every device adb knows about, ready or not. */
 export async function listAdbDevices(): Promise<AdbDevice[]> {
   const output = await runAdbCapture(["devices", "-l"]);
   const devices: AdbDevice[] = [];
@@ -50,10 +59,12 @@ export async function listAdbDevices(): Promise<AdbDevice[]> {
   return devices;
 }
 
+/** Model name when known, else the serial. */
 function describeDevice(device: AdbDevice): string {
   return device.model ?? device.serial;
 }
 
+/** Asks which device to use, by number or serial. Enter picks the first. */
 async function promptForAdbDevice(devices: AdbDevice[]): Promise<AdbDevice> {
   logger.warn("Multiple Android devices found — pick the one to install on:");
   for (const [i, device] of devices.entries()) {
@@ -84,11 +95,19 @@ async function promptForAdbDevice(devices: AdbDevice[]): Promise<AdbDevice> {
   }
 }
 
+/** Options for {@link resolveAdbDevice}; mainly for tests. */
 export interface ResolveAdbDeviceOptions {
   isInteractive?: boolean;
   prompt?: (devices: AdbDevice[]) => Promise<AdbDevice>;
 }
 
+/**
+ * The device to use. `WEFTER_ADB_SERIAL` picks one directly; a single ready device is used as is; with
+ * several the user is asked.
+ *
+ * @throws {Error} When no device is ready (explaining unauthorised devices), the override does not match,
+ * or several are connected without an interactive terminal.
+ */
 export async function resolveAdbDevice(options: ResolveAdbDeviceOptions = {}): Promise<AdbDevice> {
   const allEntries = await listAdbDevices();
   const ready = allEntries.filter((d) => d.state === "device");

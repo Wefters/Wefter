@@ -1,10 +1,16 @@
 import { readFileSync, writeFileSync } from "node:fs";
 
+/** One colour channel of `#RRGGBB` as a 0–1 value, rounded to four decimals. */
 function hexComponentToUnitFloat(hex: string, start: number): string {
   const value = parseInt(hex.slice(start, start + 2), 16) / 255;
   return String(Math.round(value * 10000) / 10000);
 }
 
+/**
+ * Sets the background colour of the launch screen storyboard.
+ *
+ * @throws {Error} When the storyboard has no background colour element.
+ */
 export function injectLaunchBackgroundIos(storyboardPath: string, hexColor: string): void {
   const current = readFileSync(storyboardPath, "utf-8");
   const pattern = /<color key="backgroundColor"[^>]*\/>/;

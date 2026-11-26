@@ -1,37 +1,48 @@
+/** HTTP routes and virtual modules served by the DevTools plugin. */
+
 import type { ViteDevServer } from "vite";
 import { collectPluginInfo } from "./plugins-info.js";
 
+/** Where the dashboard is served. */
 export const DASHBOARD_ROUTE = "/__wefter-devtools";
+/** JSON list of the project's plugins, read from `wefter.config.json` and each `plugin.json`. */
 const PLUGINS_API_ROUTE = "/__wefter-devtools/api/plugins";
+/** `POST` here reloads every connected app; the CLI's `r` shortcut uses it. */
 export const RELOAD_API_ROUTE = "/__wefter-devtools/api/reload";
+/** Virtual module holding the dashboard bundle. */
 const VIRTUAL_CLIENT_ID = "virtual:wefter-devtools-client";
 const RESOLVED_VIRTUAL_CLIENT_ID = "\0" + VIRTUAL_CLIENT_ID;
 
+/** Virtual module injected into app pages. */
 const VIRTUAL_AGENT_ID = "virtual:wefter-devtools-agent";
 const RESOLVED_VIRTUAL_AGENT_ID = "\0" + VIRTUAL_AGENT_ID;
+/** URL the app page loads the agent from. */
 export const AGENT_MODULE_URL = `/@id/${VIRTUAL_AGENT_ID}`;
 
-// Injected into every app page (see the plugin's transformIndexHtml). Loading @wefterjs/core
-// runs its devtools instrumentation — presence, console/network taps, reload listener — so the
-// dashboard sees the app even when the app's own code never imports @wefterjs/core directly, or
-// only reaches it transitively through a plugin that pins an older, un-instrumented copy.
+/**
+ * The agent: imports `@wefterjs/core` so its DevTools instrumentation installs even when the app has
+ * not imported core yet. A missing core is logged at debug level and ignored.
+ */
 const AGENT_SOURCE = `import(${JSON.stringify("@wefterjs/core")}).catch((err) => {
   console.debug("[wefter:devtools] @wefterjs/core agent unavailable", err);
 });
 `;
 
+/** Vite `resolveId` hook for the two virtual modules. */
 export function resolveDevtoolsVirtualModule(source: string): string | undefined {
   if (source === VIRTUAL_CLIENT_ID) return RESOLVED_VIRTUAL_CLIENT_ID;
   if (source === VIRTUAL_AGENT_ID) return RESOLVED_VIRTUAL_AGENT_ID;
   return undefined;
 }
 
+/** Vite `load` hook: returns the dashboard bundle or the agent source. */
 export function loadDevtoolsVirtualModule(id: string, clientBundleSource: string): string | undefined {
   if (id === RESOLVED_VIRTUAL_CLIENT_ID) return clientBundleSource;
   if (id === RESOLVED_VIRTUAL_AGENT_ID) return AGENT_SOURCE;
   return undefined;
 }
 
+/** Serves the plugins list used by the dashboard's Plugins panel. */
 export function registerPluginsApiMiddleware(server: ViteDevServer): void {
   server.middlewares.use(PLUGINS_API_ROUTE, (_req, res) => {
     const plugins = collectPluginInfo(server.config.root);
@@ -41,9 +52,8 @@ export function registerPluginsApiMiddleware(server: ViteDevServer): void {
 }
 
 /**
- * `POST /__wefter-devtools/api/reload` reloads every connected app web view (the CLI's `r`
- * shortcut uses it) and answers `{ clients }`, the number of apps that received the reload. A 0
- * tells the caller nothing was reloaded, so it can restart the app natively instead.
+ * Serves `POST /__wefter-devtools/api/reload`, answering `{ clients }` with the number of apps that
+ * were told to reload. Other methods get `405`.
  */
 export function registerReloadApiMiddleware(server: ViteDevServer, reloadApps: () => number): void {
   server.middlewares.use(RELOAD_API_ROUTE, (req, res) => {
@@ -59,6 +69,7 @@ export function registerReloadApiMiddleware(server: ViteDevServer, reloadApps: (
   });
 }
 
+/** Serves the dashboard page. It goes through Vite's HTML transform so the HMR client is included. */
 export function registerDashboardMiddleware(server: ViteDevServer): void {
   server.middlewares.use(DASHBOARD_ROUTE, (req, res, next) => {
     const shellHtml = `<!doctype html>

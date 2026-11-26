@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync } from "node:fs";
 const START = "// WEFTER-SPLASH-CONFIG-START";
 const END = "// WEFTER-SPLASH-CONFIG-END";
 
+/** Splash screen settings from `wefter.config.json`. */
 export interface IosSplashConfigValues {
   enabled: boolean;
   minDuration: number;
@@ -11,6 +12,12 @@ export interface IosSplashConfigValues {
   transition: "fade" | "none";
 }
 
+/**
+ * Writes the splash settings as constants into `BuildConfig.swift`, between the `WEFTER-SPLASH-CONFIG`
+ * markers.
+ *
+ * @throws {Error} When the markers are missing.
+ */
 export function injectSplashConfigIos(buildConfigPath: string, values: IosSplashConfigValues): void {
   const current = readFileSync(buildConfigPath, "utf-8");
   const pattern = new RegExp(`${START}[\\s\\S]*?${END}`);

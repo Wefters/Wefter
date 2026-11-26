@@ -1,3 +1,8 @@
+/**
+ * `wefter sync`: regenerates the native projects from `wefter.config.json`, the installed plugins and the
+ * built web app. Run it after changing the config, adding or updating a plugin, or rebuilding the web app.
+ */
+
 import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import {
@@ -68,6 +73,7 @@ import { checkLockDrift, writeLockfile } from "../plugins/lockfile.js";
 import { writeSyncMarker } from "../plugins/sync-freshness.js";
 import { runHook } from "../hooks/run-hook.js";
 
+/** Everything a sync added or changed, for the summary. */
 export interface SyncResult {
   plugins: string[];
   unresolvedRegisteredPlugins: string[];
@@ -88,8 +94,10 @@ export interface SyncResult {
   iosWebAssetsDir: string;
 }
 
+/** Build caches kept when the native project is regenerated, so rebuilds stay incremental. */
 const PRESERVED_DIR_NAMES = new Set(["build", ".gradle"]);
 
+/** Empties `dir`, keeping build cache folders. */
 function removePreservingBuildDirs(dir: string): void {
   if (!existsSync(dir)) return;
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -106,6 +114,7 @@ function removePreservingBuildDirs(dir: string): void {
   }
 }
 
+/** Replaces the generated Android project with a fresh copy of the template. */
 function recreateNativeShell(projectDir: string): void {
   const root = androidProjectRootDir(projectDir);
   removePreservingBuildDirs(root);
@@ -115,6 +124,7 @@ function recreateNativeShell(projectDir: string): void {
   });
 }
 
+/** Replaces the generated iOS project with a fresh copy of the template. */
 function recreateIosNativeShell(projectDir: string): void {
   const root = iosProjectRootDir(projectDir);
   removePreservingBuildDirs(root);
@@ -124,11 +134,33 @@ function recreateIosNativeShell(projectDir: string): void {
   });
 }
 
+/**
+ * Options for {@link sync}.
+ *
+ * - `requireWebAssets`: fail when the web app has not been built (default `true`).
+ * - `updateLock`: accept plugin version changes and update the lockfile.
+ */
 export interface SyncOptions {
   requireWebAssets?: boolean;
   updateLock?: boolean;
 }
 
+/**
+ * Syncs the native projects.
+ *
+ * 1. Loads and validates the declared plugins and checks them against the lockfile.
+ * 2. Regenerates both native projects from the templates (ejected projects are updated in place).
+ * 3. Copies the web app, plugin sources and splash screen in, and resets dev server settings.
+ * 4. Merges plugin dependencies, permissions, components and ProGuard rules.
+ * 5. Applies environments, icons, splash, launch background and orientation.
+ * 6. Generates the plugin registries and writes the lockfile and sync marker.
+ *
+ * The `wefter:sync` hooks run before and after. In an ejected project the changed files are restored if
+ * anything fails.
+ *
+ * @throws {Error} When a plugin is invalid or missing a permission, plugin versions drifted, or the web app
+ * has not been built.
+ */
 export async function sync(projectDir: string, options: SyncOptions = {}): Promise<SyncResult> {
   await runHook(projectDir, "sync", "before");
 
@@ -153,6 +185,7 @@ export async function sync(projectDir: string, options: SyncOptions = {}): Promi
   const iosNativeDependenciesPackagePathVar = iosNativeDependenciesPackagePath(projectDir);
   const iosAppIconSetDir = join(iosAppDir(projectDir), "Assets.xcassets/AppIcon.appiconset");
 
+  /** The sync itself; wrapped in a transaction for ejected projects. */
   const doSync = async (): Promise<SyncResult> => {
     const pluginsDir = pluginsDirPath(projectDir, config);
 

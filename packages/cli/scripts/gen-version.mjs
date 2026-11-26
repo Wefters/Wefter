@@ -1,3 +1,8 @@
+/**
+ * Writes `src/internal/version.ts` with the CLI version and the core version it installs, read from the
+ * two packages' `package.json` files.
+ */
+
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";

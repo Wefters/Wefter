@@ -7,11 +7,13 @@ import {
 } from "../config/project-paths.js";
 import type { WefterConfig } from "../config/wefter-config-schema.js";
 
+/** Result of {@link checkReleaseSecurity}. */
 export interface ReleaseSecurityResult {
   passed: boolean;
   issues: string[];
 }
 
+/** Files under `dir` (recursively) whose name matches `predicate`. */
 function findFiles(dir: string, predicate: (name: string) => boolean): string[] {
   if (!existsSync(dir)) return [];
   const found: string[] = [];
@@ -26,6 +28,7 @@ function findFiles(dir: string, predicate: (name: string) => boolean): string[] 
   return found;
 }
 
+/** The release `DEV_SERVER_URL` value in `build.gradle.kts`, found by its marker comment. */
 function readReleaseDevServerUrlField(buildGradlePath: string): string | null {
   if (!existsSync(buildGradlePath)) return null;
   const contents = readFileSync(buildGradlePath, "utf-8");
@@ -33,6 +36,10 @@ function readReleaseDevServerUrlField(buildGradlePath: string): string | null {
   return match ? match[1] : null;
 }
 
+/**
+ * Checks that an Android release build is safe to ship: no release dev server URL, no unconditional
+ * web view debugging, the debug-only network config in place, and a signing keystore that exists.
+ */
 export function checkReleaseSecurity(projectDir: string, config: WefterConfig): ReleaseSecurityResult {
   const issues: string[] = [];
 

@@ -56,14 +56,14 @@ Plugins are implemented natively in Kotlin on Android and Swift on iOS. The proj
 
 This repository is configured as a pnpm monorepo.
 
-| Path | Description |
-| --- | --- |
-| [`packages/core`](packages/core) | `@wefterjs/core`, the runtime library included in your compiled web app (`invokeNative`, `registerHook`, plugin definition helpers). |
-| [`packages/cli`](packages/cli) | `@wefterjs/cli`, the `wefter` command line tool (`sync`, `build`, `run`, `add`, `doctor`, `eject`, and plugin development utilities). |
-| [`packages/devtools`](packages/devtools) | `@wefterjs/devtools`, Vite plugin and browser dashboard for inspecting bridge calls, events, and plugin status during development. |
-| [`packages/registry-codegen`](packages/registry-codegen) | Native code generator that scans plugins, validates schemas, merges manifests, and generates typed Android and iOS registries. |
-| [`shells/android-template`](shells/android-template) | Android native project template used by `wefter sync` to assemble the runnable app. |
-| [`shells/ios-template`](shells/ios-template) | iOS native project template used by `wefter sync` to assemble the runnable app. |
+| Path                                                     | Description                                                                                                                           |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| [`packages/core`](packages/core)                         | `@wefterjs/core`, the runtime library included in your compiled web app (`invokeNative`, `registerHook`, plugin definition helpers).  |
+| [`packages/cli`](packages/cli)                           | `@wefterjs/cli`, the `wefter` command line tool (`sync`, `build`, `run`, `add`, `doctor`, `eject`, and plugin development utilities). |
+| [`packages/devtools`](packages/devtools)                 | `@wefterjs/devtools`, Vite plugin and browser dashboard for inspecting bridge calls, events, and plugin status during development.    |
+| [`packages/registry-codegen`](packages/registry-codegen) | Native code generator that scans plugins, validates schemas, merges manifests, and generates typed Android and iOS registries.        |
+| [`shells/android-template`](shells/android-template)     | Android native project template used by `wefter sync` to assemble the runnable app.                                                   |
+| [`shells/ios-template`](shells/ios-template)             | iOS native project template used by `wefter sync` to assemble the runnable app.                                                       |
 
 ## Getting started
 

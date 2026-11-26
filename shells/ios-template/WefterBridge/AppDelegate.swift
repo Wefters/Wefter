@@ -1,5 +1,6 @@
 import UIKit
 
+/// App entry point. The window and web view are set up per scene in `SceneDelegate`.
 @main
 final class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(

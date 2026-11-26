@@ -1,23 +1,28 @@
+/** Turns xcodebuild and simctl output into a short list of errors and fix suggestions. */
+
 import { basename } from "node:path";
 import type { Diagnosis } from "../process/run-process.js";
 
+/** Most error lines shown; the run log has the rest. */
 const MAX_ERRORS = 15;
 
+/** Adds a trimmed line unless it is empty, already listed or over the limit. */
 function addUnique(list: string[], value: string): void {
   const trimmed = value.trim();
   if (trimmed && !list.includes(trimmed) && list.length < MAX_ERRORS) list.push(trimmed);
 }
 
-// "/path/ViewController.swift:12:5: error: cannot find 'x' in scope"
+/** `/path/File.swift:12:5: error: …` from the Swift and Clang compilers. */
 const COMPILER_ERROR = /^(\/\S.*?):(\d+)(?::(\d+))?: (?:fatal )?error: (.+)$/;
-// "error: …", "xcodebuild: error: …", "ld: error: …", "clang: error: …"
+/** `error: …` from xcodebuild and the tools it runs. */
 const TOOL_ERROR = /^(?:(?:xcodebuild|ld|clang|swift-frontend|codesign|actool|ibtool):\s*)?error:\s*(.+)$/;
-// The lines xcodebuild lists under "The following build commands failed:"
+/** Heading of xcodebuild's list of failed build commands. */
 const FAILED_COMMANDS_HEADER = /^The following build commands failed:/;
 
 /**
- * Pulls the real errors out of a failed `xcodebuild` run (compiler errors first, then tool errors,
- * then the "build commands failed" list) and adds fixes for problems we recognise.
+ * Finds compiler and tool errors in xcodebuild output (falling back to the list of failed commands) and adds
+ * hints for a stale plugin registry, a missing simulator, a misconfigured Xcode, signing, a locked build
+ * folder, an unhealthy simulator service and missing platforms.
  */
 export function diagnoseXcode(lines: string[]): Diagnosis {
   const errors: string[] = [];
@@ -47,8 +52,6 @@ export function diagnoseXcode(lines: string[]): Diagnosis {
     }
   }
 
-  // Only when the error is *in* the generated registry: it is compiled in every build, so its name
-  // alone appearing in the log means nothing.
   if (
     /GeneratedRegistry\.swift:\d+(?::\d+)?: (?:fatal )?error: (?:cannot find .* in scope|no such module)/i.test(text)
   ) {
@@ -82,7 +85,10 @@ export function diagnoseXcode(lines: string[]): Diagnosis {
   return { errors, hints };
 }
 
-/** Explains a failed `xcrun simctl` install / launch / boot. */
+/**
+ * Finds errors in simctl output and explains a shut-down or missing simulator, or an app that could not be
+ * launched.
+ */
 export function diagnoseSimctl(lines: string[]): Diagnosis {
   const errors: string[] = [];
   const hints: string[] = [];
