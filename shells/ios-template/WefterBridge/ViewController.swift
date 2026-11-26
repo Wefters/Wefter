@@ -142,8 +142,9 @@ final class ViewController: UIViewController {
         return config
     }
 
-    /// Creates the main web view: injects the environment name, registers the plugins and the `__system`
-    /// module, tells the page about incoming deep links, and enables Safari inspection in debug builds.
+    /// Creates the main web view: injects the environment name, hides the keyboard's form bar unless the
+    /// config keeps it, registers the plugins and the `__system` module, tells the page about incoming deep
+    /// links, and enables Safari inspection in debug builds.
     private func makePrimaryWebView() -> WKWebView {
         let config = makeSchemeAwareConfiguration()
 
@@ -160,6 +161,7 @@ final class ViewController: UIViewController {
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = self
         Self.pinPageToScreen(webView)
+        FormAccessoryBar.apply(to: webView)
 
         let newDispatcher = BridgeDispatcher(webView: webView)
         dispatcher = newDispatcher

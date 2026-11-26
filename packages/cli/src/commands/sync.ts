@@ -68,6 +68,7 @@ import { resolveLaunchBackground } from "../native/resolve-launch-background.js"
 import { injectLaunchBackgroundAndroid } from "../native/inject-launch-background.js";
 import { injectLaunchBackgroundIos } from "../native/inject-launch-background-ios.js";
 import { injectOrientationAndroid, injectOrientationIos } from "../native/inject-orientation.js";
+import { injectKeyboardConfigIos } from "../native/inject-keyboard-ios.js";
 import {
   androidFlavorManifestPath,
   injectDeepLinksAndroid,
@@ -295,6 +296,7 @@ export async function sync(projectDir: string, options: SyncOptions = {}): Promi
 
     injectOrientationAndroid(manifestPath, buildGradlePath, Boolean(config.landscape));
     injectOrientationIos(iosInfoPlistPathVar, iosBuildConfigPathVar, Boolean(config.landscape));
+    injectKeyboardConfigIos(iosBuildConfigPathVar, config.keyboard?.accessoryBar ?? false);
 
     const deepLinks = Object.fromEntries(
       Object.keys(config.environments).map((env) => [env, resolveDeepLinks(config, env)]),

@@ -73,6 +73,16 @@ const DeepLinksSchema = z.object({
 });
 
 /**
+ * Keyboard settings.
+ *
+ * - `accessoryBar`: shows the bar iOS puts above the keyboard in web forms (previous, next and Done). Off by
+ *   default, as in native apps. Android has no such bar.
+ */
+const KeyboardSchema = z.object({
+  accessoryBar: z.boolean().optional(),
+});
+
+/**
  * One build environment, such as `development` or `production`. Each is installed as a separate app, and
  * may override the top-level `deepLinks` (for example a `myshop-dev` scheme for development builds).
  */
@@ -94,6 +104,7 @@ const EnvironmentSchema = z.object({
  * - `environments`: app id, name, optional iOS bundle id and deep link overrides per environment.
  * - `icon`, `launchBackground`, `splash`, `landscape`: app look and orientation.
  * - `deepLinks`: custom URL schemes and verified web domains the app opens for.
+ * - `keyboard`: keyboard behaviour in the web view.
  * - `signing`, `iosSigning`: release signing for Android and iOS.
  */
 export const WefterConfigSchema = z.object({
@@ -113,6 +124,8 @@ export const WefterConfigSchema = z.object({
   landscape: z.boolean().optional(),
 
   deepLinks: DeepLinksSchema.optional(),
+
+  keyboard: KeyboardSchema.optional(),
 
   splash: z
     .union([
