@@ -108,10 +108,15 @@ class BridgeDispatcher(private val webView: WebView) {
     /** Name of the build flavor (environment), reported to `getPlatformInfo()`. */
     @JavascriptInterface fun getEnvironment(): String = BuildConfig.FLAVOR
 
-    /** Sends an event to JavaScript listeners. */
+    /**
+     * Sends an event to JavaScript listeners. Plugins can emit as soon as they start (battery and network
+     * callbacks fire on registration), before `@wefterjs/core` has set up `window.__wefterNative`; no one
+     * can be listening yet, so such an event is dropped instead of throwing in the page.
+     */
     fun emit(hookName: String, data: JSONObject) {
         webView.post {
-            val js = "window.__wefterNative.emit('$hookName', ${JSONObject.quote(data.toString())})"
+            val js =
+                    "window.__wefterNative && window.__wefterNative.emit('$hookName', ${JSONObject.quote(data.toString())})"
             webView.evaluateJavascript(js, null)
         }
     }
