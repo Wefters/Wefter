@@ -108,3 +108,34 @@ describe("WefterConfigSchema — iOS fields", () => {
     });
   });
 });
+
+describe("WefterConfigSchema — deepLinks", () => {
+  const base = { environments: { production: { appId: "com.example.app", appName: "Example" } } };
+
+  it("is optional, and so is each of its fields", () => {
+    expect(WefterConfigSchema.parse(base).deepLinks).toBeUndefined();
+    expect(WefterConfigSchema.parse({ ...base, deepLinks: {} }).deepLinks).toEqual({});
+  });
+
+  it("accepts lower-case custom schemes", () => {
+    const result = WefterConfigSchema.parse({ ...base, deepLinks: { schemes: ["myshop", "my-shop.v2"] } });
+    expect(result.deepLinks.schemes).toEqual(["myshop", "my-shop.v2"]);
+  });
+
+  it.each(["MyShop", "1shop", "my_shop", "my shop"])("rejects the badly formed scheme %s", (scheme) => {
+    expect(WefterConfigSchema.safeParse({ ...base, deepLinks: { schemes: [scheme] } }).success).toBe(false);
+  });
+
+  it.each(["https", "app", "wefter", "intent"])("rejects the reserved scheme %s", (scheme) => {
+    expect(WefterConfigSchema.safeParse({ ...base, deepLinks: { schemes: [scheme] } }).success).toBe(false);
+  });
+
+  it("rejects a scheme ending in .auth, which sign-in redirects use", () => {
+    const result = WefterConfigSchema.safeParse({ ...base, deepLinks: { schemes: ["com.example.app.auth"] } });
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects a scheme listed twice", () => {
+    expect(WefterConfigSchema.safeParse({ ...base, deepLinks: { schemes: ["myshop", "myshop"] } }).success).toBe(false);
+  });
+});

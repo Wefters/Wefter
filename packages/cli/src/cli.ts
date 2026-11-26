@@ -23,6 +23,7 @@ import { createPlugin } from "./commands/create-plugin.js";
 import { iconGenerate } from "./commands/icon.js";
 import { splashGenerate } from "./commands/splash.js";
 import { pluginValidate } from "./commands/plugin-validate.js";
+import { checkDeepLinkDomains, deepLinkFiles } from "./commands/deep-links.js";
 import { runAllChecks } from "./doctor/checks.js";
 import { runReleaseReadinessChecks } from "./doctor/release-readiness.js";
 import { allPassed, buildReportLines } from "./doctor/report.js";
@@ -142,6 +143,10 @@ program
     try {
       const result = await sync(resolve(projectDir), { updateLock: opts.updateLock });
       logger.success(`Synced ${result.plugins.length} plugin(s): ${result.plugins.join(", ")}`);
+      for (const [env, links] of Object.entries(result.deepLinks)) {
+        const targets = [...links.schemes.map((s) => `${s}://`), ...links.domains.map((d) => `https://${d}`)];
+        if (targets.length > 0) logger.info(`Deep links (${env}): ${targets.join(", ")}`);
+      }
 
       const exported = result.manifestEntriesAdded.filter((e) => e.exported);
       if (exported.length > 0) {
@@ -441,6 +446,59 @@ pluginCommand
     }
     logger.success("Plugin is valid.");
     process.exitCode = 0;
+  });
+
+/** Adds a repeatable option's value to the values given so far. */
+function collect(value: string, previous: string[]): string[] {
+  return [...previous, value];
+}
+
+const deepLinksCommand = program
+  .command("deep-links")
+  .description("Website files for verified https links (App Links, Universal Links), and a check of them");
+deepLinksCommand
+  .command("files")
+  .description("Write assetlinks.json and apple-app-site-association for every domain in deepLinks.domains")
+  .argument("[projectDir]", "project root directory", process.cwd())
+  .option("--out <dir>", "where to write the files", ".wefter/deep-links")
+  .option(
+    "--fingerprint <sha256>",
+    "add a signing certificate, such as the Play App Signing key (repeatable)",
+    collect,
+    [],
+  )
+  .option("--debug", "also allow debug builds signed with this machine's debug keystore", false)
+  .action(async (projectDir: string, opts: { out: string; fingerprint: string[]; debug: boolean }) => {
+    try {
+      const root = resolve(projectDir);
+      const result = await deepLinkFiles(root, { outDir: opts.out, extra: opts.fingerprint, debug: opts.debug });
+      for (const warning of result.warnings) logger.warn(warning);
+      logger.success("Wrote the deep link verification files:");
+      for (const path of result.written) logger.info(`  ${path}`);
+      logger.info(
+        "Serve each folder's .well-known files at https://<domain>/.well-known/ as application/json, without " +
+          "redirects, then run `wefter deep-links check`.",
+      );
+      process.exitCode = 0;
+    } catch (err) {
+      logger.error(err instanceof Error ? err.message : String(err));
+      process.exitCode = 1;
+    }
+  });
+deepLinksCommand
+  .command("check")
+  .description("Download the verification files from every domain and check that they list this app")
+  .argument("[projectDir]", "project root directory", process.cwd())
+  .option("--fingerprint <sha256>", "also require this signing certificate (repeatable)", collect, [])
+  .action(async (projectDir: string, opts: { fingerprint: string[] }) => {
+    try {
+      const results = await checkDeepLinkDomains(resolve(projectDir), { fingerprints: opts.fingerprint });
+      for (const line of buildReportLines(results)) logger.segmentColor(line);
+      process.exitCode = allPassed(results) ? 0 : 1;
+    } catch (err) {
+      logger.error(err instanceof Error ? err.message : String(err));
+      process.exitCode = 1;
+    }
   });
 
 /** Uses the coloured help renderer for `cmd` and all its subcommands. */

@@ -1,5 +1,6 @@
 /**
- * Public entry point of `@wefterjs/core`: the bridge to native code, platform helpers and `definePlugin`.
+ * Public entry point of `@wefterjs/core`: the bridge to native code, platform helpers, deep links and
+ * `definePlugin`.
  *
  * The side-effect imports at the bottom install the DevTools instrumentation (console, uncaught errors,
  * network, presence and remote reload). Each of them only activates under the Vite dev server
@@ -13,6 +14,7 @@ export { definePlugin } from "./internal/define-plugin.js";
 export { hideSplash } from "./internal/hide-splash.js";
 export { getDeviceInfo, type DeviceInfo } from "./internal/device-info.js";
 export { isLandscape } from "./internal/landscape.js";
+export { onDeepLink, getLaunchUrl, type DeepLink, type DeepLinkSubscription } from "./internal/deep-links.js";
 
 import "./internal/devtools/console-patch.js";
 import "./internal/devtools/uncaught.js";

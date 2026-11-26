@@ -1344,6 +1344,135 @@ button {
   }
 }
 
+/* Deep Links panel */
+
+.wd-dl-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 6px;
+  color: var(--text-3);
+  white-space: nowrap;
+}
+
+.wd-dl-status-ok {
+  color: var(--green);
+}
+
+.wd-dl-status-warn {
+  color: var(--amber);
+}
+
+.wd-dl-tester {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.wd-input {
+  height: 26px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: var(--input);
+  color: var(--text);
+  font: 12px var(--font-mono);
+}
+
+.wd-input::placeholder {
+  color: var(--text-3);
+}
+
+.wd-input:focus {
+  outline: none;
+  border-color: var(--focus);
+}
+
+.wd-dl-url {
+  flex: 1 1 260px;
+  min-width: 180px;
+}
+
+.wd-dl-send-btn {
+  background: var(--blue-bg);
+  color: var(--accent);
+}
+
+.wd-dl-result {
+  padding: 0 6px;
+  color: var(--text-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wd-dl-result-ok {
+  color: var(--green);
+}
+
+.wd-dl-result-error {
+  color: var(--red);
+}
+
+.wd-dl-config {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  background: var(--chrome);
+}
+
+.wd-dl-env {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.wd-dl-env-name {
+  min-width: 88px;
+  color: var(--text-2);
+  font-weight: 600;
+}
+
+.wd-dl-example {
+  height: 22px;
+  padding: 0 7px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text);
+  font: 11.5px var(--font-mono);
+  cursor: pointer;
+}
+
+.wd-dl-example:hover {
+  border-color: var(--focus);
+  background: var(--input);
+}
+
+.wd-dl-note {
+  margin: 0;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--amber-bg);
+}
+
+.wd-dl-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.wd-dl-none,
+.wd-trow.wd-row-accent-unhandled .wd-col-method {
+  color: var(--amber);
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

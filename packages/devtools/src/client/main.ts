@@ -1,6 +1,6 @@
 /**
  * Entry point of the DevTools dashboard. Connects to the dev server's socket, keeps the bridge, console,
- * network and presence data in stores, and mounts the panels inside the shell.
+ * network, deep link and presence data in stores, and mounts the panels inside the shell.
  */
 
 import {
@@ -11,6 +11,8 @@ import {
   type BufferChannel,
   type ClientHelloEvent,
   type ConsoleEvent,
+  type DeepLinkEvent,
+  type DeepLinkListenersEvent,
   type NetworkRecord,
   type NetworkRequestEvent,
   type NetworkResponseEvent,
@@ -23,6 +25,7 @@ import { createBridgeInspectorPanel } from "./panels/bridge-inspector.js";
 import { createConsolePanel } from "./panels/console.js";
 import { createNetworkPanel } from "./panels/network.js";
 import { createPluginsPanel } from "./panels/plugins.js";
+import { createDeepLinksPanel } from "./panels/deep-links.js";
 import cssText from "./styles.css";
 
 /** The part of Vite's HMR client the dashboard needs. Tests pass a fake. */
@@ -35,6 +38,7 @@ export interface MinimalHotContext {
 const BRIDGE_CAP = 500;
 const CONSOLE_CAP = 1000;
 const NETWORK_CAP = 500;
+const DEEP_LINKS_CAP = 200;
 
 /** A store whose value is computed from another store and follows its changes. */
 function derive<S, T>(source: Store<S>, fn: (state: S) => T): Store<T> {
@@ -59,14 +63,16 @@ const isErrorLog = (e: ConsoleEvent) => e.level === "error" || e.level === "unca
  * Builds the dashboard inside `app`.
  *
  * It asks the server for the history on start and after every reconnect, applies live events to the
- * stores, and derives the tab badges (failed counts, or totals when nothing failed) and the status bar
- * statistics.
+ * stores, and derives the tab badges (failed or unhandled counts, or totals when nothing failed) and the
+ * status bar statistics.
  */
 export function mountDevtoolsApp(app: HTMLElement, hot: MinimalHotContext): void {
   const bridgeStore = createStore<BridgeRecord[]>([]);
   const consoleStore = createStore<ConsoleEvent[]>([]);
   const networkStore = createStore<NetworkRecord[]>([]);
   const presenceStore = createStore<ClientHelloEvent[]>([]);
+  const deepLinkStore = createStore<DeepLinkEvent[]>([]);
+  const deepLinkListenersStore = createStore<number | null>(null);
   const serverConnected = createStore(true);
 
   function requestReplay(): void {
@@ -79,6 +85,8 @@ export function mountDevtoolsApp(app: HTMLElement, hot: MinimalHotContext): void
     consoleStore.set(() => payload.console);
     networkStore.set(() => payload.network);
     presenceStore.set(() => payload.presence);
+    deepLinkStore.set(() => payload.deepLinks ?? []);
+    deepLinkListenersStore.set(() => payload.deepLinkListeners ?? null);
   });
 
   hot.on(WEFTER_EVENT.bridgeCall, (data: unknown) => {
@@ -103,6 +111,13 @@ export function mountDevtoolsApp(app: HTMLElement, hot: MinimalHotContext): void
     networkStore.set((records) => mergeRecordById(records, "requestId", response));
   });
 
+  hot.on(WEFTER_EVENT.deepLink, (data: unknown) => {
+    deepLinkStore.set((links) => appendRecord(links, data as DeepLinkEvent, DEEP_LINKS_CAP));
+  });
+  hot.on(WEFTER_EVENT.deepLinkListeners, (data: unknown) => {
+    deepLinkListenersStore.set(() => (data as DeepLinkListenersEvent).listeners);
+  });
+
   hot.on(WEFTER_EVENT.clientList, (data: unknown) => {
     presenceStore.set(() => data as ClientHelloEvent[]);
   });
@@ -112,10 +127,15 @@ export function mountDevtoolsApp(app: HTMLElement, hot: MinimalHotContext): void
     if (channel === "bridge") bridgeStore.set(() => []);
     else if (channel === "console") consoleStore.set(() => []);
     else if (channel === "network") networkStore.set(() => []);
+    else if (channel === "deepLinks") deepLinkStore.set(() => []);
   });
 
   function clearChannel(channel: BufferChannel): void {
     hot.send(WEFTER_EVENT.clearRequest, { channel });
+  }
+
+  function simulateDeepLink(url: string): void {
+    hot.send(WEFTER_EVENT.simulateDeepLinkRequest, { url });
   }
 
   function reloadDevice(): void {
@@ -145,6 +165,11 @@ export function mountDevtoolsApp(app: HTMLElement, hot: MinimalHotContext): void
   const networkBadge = derive<NetworkRecord[], PanelBadge>(networkStore, (records) => {
     const failed = records.filter(isFailedRequest).length;
     return failed ? { count: failed, tone: "error" } : { count: records.length };
+  });
+
+  const deepLinkBadge = derive<DeepLinkEvent[], PanelBadge>(deepLinkStore, (links) => {
+    const unhandled = links.filter((link) => link.listeners === 0).length;
+    return unhandled ? { count: unhandled, tone: "warn" } : { count: links.length };
   });
 
   const stats = createStore<StatusItem[]>([]);
@@ -192,6 +217,15 @@ export function mountDevtoolsApp(app: HTMLElement, hot: MinimalHotContext): void
         label: "Network",
         badge: networkBadge,
         element: createNetworkPanel(networkStore, () => clearChannel("network")),
+      },
+      {
+        id: "deep-links",
+        label: "Deep Links",
+        badge: deepLinkBadge,
+        element: createDeepLinksPanel(deepLinkStore, deepLinkListenersStore, {
+          onClear: () => clearChannel("deepLinks"),
+          onSimulate: simulateDeepLink,
+        }),
       },
       { id: "plugins", label: "Plugins", element: createPluginsPanel(bridgeStore) },
     ],

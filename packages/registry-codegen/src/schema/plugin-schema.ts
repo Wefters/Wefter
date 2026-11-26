@@ -4,7 +4,7 @@ import { z } from "zod";
 
 /**
  * Attributes of an intent filter's `<data>` element. Values may contain `${key}` placeholders filled from
- * `pluginConfig`.
+ * `pluginConfig`, and `${applicationId}`, which Gradle fills with the build flavor's app id.
  */
 const IntentFilterDataSchema = z.object({
   scheme: z.string().optional(),
@@ -24,7 +24,8 @@ const IntentFilterSchema = z.object({
 
 /**
  * An Android component a plugin adds to the app's manifest, such as an activity that receives an OAuth
- * redirect.
+ * redirect. `launchMode` is needed by an activity that waits for a result in `onNewIntent`: with the
+ * default `standard` mode, Android starts a second copy of the activity instead.
  */
 const ManifestEntrySchema = z.object({
   type: z.enum(["activity"]),
@@ -36,6 +37,7 @@ const ManifestEntrySchema = z.object({
         'must be a single-segment relative class reference starting with "." (e.g. ".BrowserAuthActivity"), resolved against the app\'s own namespace at build time — the same way the template\'s own ".MainActivity" entry already is. Wefter flattens every plugin\'s android/ source into one package, so a nested reference like ".auth.BrowserAuthActivity" can never resolve.',
     }),
   exported: z.boolean().default(false),
+  launchMode: z.enum(["standard", "singleTop", "singleTask", "singleInstance"]).optional(),
   intentFilters: z.array(IntentFilterSchema).default([]),
 });
 

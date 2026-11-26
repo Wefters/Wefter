@@ -13,6 +13,8 @@ import {
   type BufferChannel,
   type ClientHelloEvent,
   type ConsoleEvent,
+  type DeepLinkEvent,
+  type DeepLinkListenersEvent,
   type NetworkRecord,
   type NetworkRequestEvent,
   type NetworkResponseEvent,
@@ -21,16 +23,20 @@ import {
 const BRIDGE_CAP = 500;
 const CONSOLE_CAP = 1000;
 const NETWORK_CAP = 500;
+const DEEP_LINKS_CAP = 200;
 
 /**
- * What the server remembers: recent bridge calls, console entries and requests, plus the apps currently
- * connected (by socket).
+ * What the server remembers: recent bridge calls, console entries, requests and deep links, the apps
+ * currently connected (by socket), and the `onDeepLink` listener count last reported (`null` until an app
+ * reports one).
  */
 export interface DevtoolsState {
   bridge: RingBuffer<BridgeRecord>;
   console: RingBuffer<ConsoleEvent>;
   network: RingBuffer<NetworkRecord>;
+  deepLinks: RingBuffer<DeepLinkEvent>;
   presence: Map<NormalizedHotChannelClient, ClientHelloEvent>;
+  deepLinkListeners: number | null;
 }
 
 /** Creates empty state with the default history limits. */
@@ -39,7 +45,9 @@ export function createDevtoolsState(): DevtoolsState {
     bridge: new RingBuffer(BRIDGE_CAP),
     console: new RingBuffer(CONSOLE_CAP),
     network: new RingBuffer(NETWORK_CAP),
+    deepLinks: new RingBuffer(DEEP_LINKS_CAP),
     presence: new Map(),
+    deepLinkListeners: null,
   };
 }
 
@@ -54,7 +62,8 @@ function broadcastClientList(server: ViteDevServer, state: DevtoolsState): void 
  * - Bridge calls and requests are stored as `pending` and completed when their response arrives.
  * - Each event is broadcast so dashboards update live.
  * - An app's hello adds it to the connected list until its socket closes.
- * - Dashboards can ask for a replay of the history, clear a channel, or reload every app.
+ * - Dashboards can ask for a replay of the history, clear a channel, reload every app, or send a deep
+ *   link to every app.
  */
 export function registerServerHandlers(server: ViteDevServer, state: DevtoolsState): void {
   server.ws.on(WEFTER_EVENT.bridgeCall, (data: BridgeCallEvent) => {
@@ -88,6 +97,22 @@ export function registerServerHandlers(server: ViteDevServer, state: DevtoolsSta
     server.ws.send(WEFTER_EVENT.networkResponse, data);
   });
 
+  server.ws.on(WEFTER_EVENT.deepLink, (data: DeepLinkEvent) => {
+    state.deepLinks.push(data);
+    server.ws.send(WEFTER_EVENT.deepLink, data);
+  });
+
+  server.ws.on(WEFTER_EVENT.deepLinkListeners, (data: DeepLinkListenersEvent) => {
+    state.deepLinkListeners = data.listeners;
+    server.ws.send(WEFTER_EVENT.deepLinkListeners, data);
+  });
+
+  server.ws.on(WEFTER_EVENT.simulateDeepLinkRequest, (data: { url?: unknown }) => {
+    if (typeof data?.url === "string" && data.url.trim()) {
+      server.ws.send(WEFTER_EVENT.simulateDeepLink, { url: data.url.trim() });
+    }
+  });
+
   server.ws.on(WEFTER_EVENT.clientHello, (data: ClientHelloEvent, client: NormalizedHotChannelClient) => {
     state.presence.set(client, data);
     (client as Partial<WebSocketClient>).socket?.on("close", () => {
@@ -103,6 +128,8 @@ export function registerServerHandlers(server: ViteDevServer, state: DevtoolsSta
       console: state.console.toArray(),
       network: state.network.toArray(),
       presence: [...state.presence.values()],
+      deepLinks: state.deepLinks.toArray(),
+      deepLinkListeners: state.deepLinkListeners,
     });
   });
 

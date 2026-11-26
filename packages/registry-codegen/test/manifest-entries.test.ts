@@ -109,6 +109,40 @@ describe("mergeManifestEntries", () => {
     expect(added).toEqual([{ pluginName: "browser", type: "activity", name: ".BrowserAuthActivity", exported: true }]);
   });
 
+  it("writes the launch mode when an entry sets one", () => {
+    setup();
+
+    mergeManifestEntries(
+      [pluginWithEntries("browser", [{ ...AUTH_ACTIVITY, launchMode: "singleTask" }])],
+      manifestPath,
+      {
+        appScheme: "myapp",
+      },
+    );
+
+    expect(readFileSync(manifestPath, "utf-8")).toContain('android:launchMode="singleTask"');
+  });
+
+  it("leaves the launch mode out when an entry does not set one", () => {
+    setup();
+
+    mergeManifestEntries([pluginWithEntries("browser", [AUTH_ACTIVITY])], manifestPath, { appScheme: "myapp" });
+
+    expect(readFileSync(manifestPath, "utf-8")).not.toContain("android:launchMode");
+  });
+
+  it("leaves ${applicationId} for Gradle to fill per build flavor", () => {
+    setup();
+    const entry: ManifestEntry = {
+      ...AUTH_ACTIVITY,
+      intentFilters: [{ ...AUTH_ACTIVITY.intentFilters[0], data: { scheme: "${applicationId}.auth" } }],
+    };
+
+    mergeManifestEntries([pluginWithEntries("browser", [entry])], manifestPath, {});
+
+    expect(readFileSync(manifestPath, "utf-8")).toContain('android:scheme="${applicationId}.auth"');
+  });
+
   it("writes an empty marker block when no plugin declares any manifest entries", () => {
     setup();
 
@@ -128,6 +162,15 @@ describe("extractRequiredPluginConfigKeys", () => {
 
   it("returns an empty array for a plugin with no manifestEntries at all", () => {
     const keys = extractRequiredPluginConfigKeys(pluginWithEntries("browser", []).manifest);
+    expect(keys).toEqual([]);
+  });
+
+  it("does not ask pluginConfig for Gradle's ${applicationId}", () => {
+    const entry: ManifestEntry = {
+      ...AUTH_ACTIVITY,
+      intentFilters: [{ ...AUTH_ACTIVITY.intentFilters[0], data: { scheme: "${applicationId}.auth" } }],
+    };
+    const keys = extractRequiredPluginConfigKeys(pluginWithEntries("browser", [entry]).manifest);
     expect(keys).toEqual([]);
   });
 

@@ -49,6 +49,7 @@ import {
   iosProjectRootDir,
   iosWebAssetsDir,
   iosXcconfigPath,
+  iosConfigDir,
   isEjected,
   loadWefterConfig,
   pluginsDirPath,
@@ -67,6 +68,13 @@ import { resolveLaunchBackground } from "../native/resolve-launch-background.js"
 import { injectLaunchBackgroundAndroid } from "../native/inject-launch-background.js";
 import { injectLaunchBackgroundIos } from "../native/inject-launch-background-ios.js";
 import { injectOrientationAndroid, injectOrientationIos } from "../native/inject-orientation.js";
+import {
+  androidFlavorManifestPath,
+  injectDeepLinksAndroid,
+  injectDeepLinksIos,
+  iosEntitlementsPath,
+} from "../native/inject-deep-links.js";
+import { resolveDeepLinks, type ResolvedDeepLinks } from "../config/deep-links.js";
 import { shellTemplatePath, iosShellTemplatePath } from "../native/shell-template.js";
 import { resolveRegisteredPlugins, unresolvedRegisteredPlugins } from "../plugins/registry.js";
 import { checkLockDrift, writeLockfile } from "../plugins/lockfile.js";
@@ -86,6 +94,7 @@ export interface SyncResult {
   proguardRulesAdded: string[];
   webAssetsDir: string;
   environments: string[];
+  deepLinks: Record<string, ResolvedDeepLinks>;
 
   iosOutFile: string;
   iosPluginSourceDir: string;
@@ -152,7 +161,7 @@ export interface SyncOptions {
  * 2. Regenerates both native projects from the templates (ejected projects are updated in place).
  * 3. Copies the web app, plugin sources and splash screen in, and resets dev server settings.
  * 4. Merges plugin dependencies, permissions, components and ProGuard rules.
- * 5. Applies environments, icons, splash, launch background and orientation.
+ * 5. Applies environments, icons, splash, launch background, orientation and deep link schemes.
  * 6. Generates the plugin registries and writes the lockfile and sync marker.
  *
  * The `wefter:sync` hooks run before and after. In an ejected project the changed files are restored if
@@ -287,6 +296,12 @@ export async function sync(projectDir: string, options: SyncOptions = {}): Promi
     injectOrientationAndroid(manifestPath, buildGradlePath, Boolean(config.landscape));
     injectOrientationIos(iosInfoPlistPathVar, iosBuildConfigPathVar, Boolean(config.landscape));
 
+    const deepLinks = Object.fromEntries(
+      Object.keys(config.environments).map((env) => [env, resolveDeepLinks(config, env)]),
+    );
+    injectDeepLinksAndroid(androidAppModuleDir(projectDir), deepLinks);
+    injectDeepLinksIos(iosInfoPlistPathVar, iosConfigDir(projectDir), deepLinks);
+
     const kotlin = generateRegistryKotlin(androidPlugins, namespace, extraction);
     mkdirSync(dirname(outFile), { recursive: true });
     writeFileSync(outFile, kotlin + "\n", "utf-8");
@@ -310,6 +325,7 @@ export async function sync(projectDir: string, options: SyncOptions = {}): Promi
       proguardRulesAdded,
       webAssetsDir,
       environments: Object.keys(config.environments),
+      deepLinks,
       iosOutFile,
       iosPluginSourceDir: iosPluginSourceDirPath,
       iosPluginsWithNativeSource,
@@ -333,6 +349,11 @@ export async function sync(projectDir: string, options: SyncOptions = {}): Promi
           iosInfoPlistPathVar,
           iosWebAssetsDirPath,
           iosNativeDependenciesPackagePathVar,
+          iosConfigDir(projectDir),
+          ...Object.keys(config.environments).flatMap((env) => [
+            androidFlavorManifestPath(androidAppModuleDir(projectDir), env),
+            iosEntitlementsPath(iosAppDir(projectDir), env),
+          ]),
         ],
         doSync,
       )

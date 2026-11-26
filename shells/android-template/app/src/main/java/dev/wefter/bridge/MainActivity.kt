@@ -77,12 +77,17 @@ class MainActivity : AppCompatActivity() {
 
     /**
      * Sets up edge-to-edge drawing, system bar colours that suit the launch background, the asset loader,
-     * the
-     * web view and splash, then loads the app. Back navigates inside the web view before leaving the app.
+     * the web view and splash, then loads the app. Back navigates inside the web view before leaving the
+     * app. A fresh start passes its launch link (if any) to [DeepLinkInbox]; a recreated activity (after a
+     * configuration change) keeps the links it already had.
      */
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
         super.onCreate(savedInstanceState)
+
+        if (savedInstanceState == null) {
+            DeepLinkInbox.launch(deepLinkFrom(intent))
+        }
 
         if (BuildConfig.LANDSCAPE) {
             requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
@@ -137,6 +142,29 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
         )
+    }
+
+    /** A link opened while the app is running. `singleTask` routes it here instead of a new activity. */
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        deepLinkFrom(intent)?.let { DeepLinkInbox.receive(it) }
+    }
+
+    /** Stops telling this activity's web view about new links. */
+    override fun onDestroy() {
+        DeepLinkInbox.setListener(null)
+        super.onDestroy()
+    }
+
+    /**
+     * The URL of a `VIEW` intent, or `null` for other intents. An intent replayed from the recent apps
+     * screen is ignored, since its link was already handled when it first arrived.
+     */
+    private fun deepLinkFrom(intent: Intent?): String? {
+        if (intent?.action != Intent.ACTION_VIEW) return null
+        if (intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0) return null
+        return intent.dataString?.takeIf { it.isNotEmpty() }
     }
 
     /** Passes permission results to the plugin that asked. */
@@ -213,9 +241,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Creates the main web view and its bridge: registers the plugins and the `__system` module and exposes
-     * the
-     * dispatcher to JavaScript.
+     * Creates the main web view and its bridge: registers the plugins and the `__system` module, tells the
+     * page about incoming deep links, and exposes the dispatcher to JavaScript.
      */
     private fun createPrimaryWebView(): WebView {
         val newWebView = WebView(this)
@@ -314,7 +341,7 @@ class MainActivity : AppCompatActivity() {
         GeneratedRegistry.registerAll(this, dispatcher)
         /**
          * Built-in module used by `@wefterjs/core`: debug flag, device info, the app-ready and hide-splash
-         * signals, and the current orientation.
+         * signals, the current orientation and deep links (from [DeepLinkInbox]).
          */
         dispatcher.register(
                 "__system",
@@ -350,12 +377,24 @@ class MainActivity : AppCompatActivity() {
                                 result.put("landscape", isLandscape)
                                 callback(Result.success(result))
                             }
+                            "getLaunchUrl" -> {
+                                val result = JSONObject()
+                                result.put("url", DeepLinkInbox.launchUrl ?: JSONObject.NULL)
+                                callback(Result.success(result))
+                            }
+                            "takeDeepLinks" -> {
+                                val result = JSONObject()
+                                result.put("links", DeepLinkInbox.take())
+                                callback(Result.success(result))
+                            }
                             else -> callback(Result.failure(Exception("Unknown method: $method")))
                         }
                     }
                 }
         )
         newWebView.addJavascriptInterface(dispatcher, "AndroidBridge")
+        val linkDispatcher = dispatcher
+        DeepLinkInbox.setListener { linkDispatcher.emit("__system:deepLink", JSONObject()) }
 
         return newWebView
     }

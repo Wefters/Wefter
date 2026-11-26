@@ -2,7 +2,7 @@ import Foundation
 import UIKit
 
 /// Built-in `__system` module used by `@wefterjs/core`: debug flag, device info, the app-ready and
-/// hide-splash signals, and the current orientation.
+/// hide-splash signals, the current orientation and deep links (from ``DeepLinkInbox``).
 final class SystemModule: NativeModule {
     private weak var viewController: ViewController?
 
@@ -40,6 +40,10 @@ final class SystemModule: NativeModule {
                 }
                 callback(.success(["landscape": isLandscape]))
             }
+        case "getLaunchUrl":
+            callback(.success(["url": (DeepLinkInbox.shared.launchUrl as Any?) ?? NSNull()]))
+        case "takeDeepLinks":
+            callback(.success(["links": DeepLinkInbox.shared.take()]))
         default:
             callback(.failure(WefterError(code: "UNKNOWN_METHOD", message: "No such method: \(method)")))
         }

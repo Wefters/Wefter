@@ -143,7 +143,7 @@ final class ViewController: UIViewController {
     }
 
     /// Creates the main web view: injects the environment name, registers the plugins and the `__system`
-    /// module, and enables Safari inspection in debug builds.
+    /// module, tells the page about incoming deep links, and enables Safari inspection in debug builds.
     private func makePrimaryWebView() -> WKWebView {
         let config = makeSchemeAwareConfiguration()
 
@@ -165,6 +165,9 @@ final class ViewController: UIViewController {
         dispatcher = newDispatcher
         GeneratedRegistry.registerAll(dispatcher: newDispatcher, viewController: self)
         newDispatcher.register("__system", module: SystemModule(viewController: self))
+        DeepLinkInbox.shared.setListener { [weak newDispatcher] in
+            newDispatcher?.emit("__system:deepLink", [:])
+        }
 
         config.userContentController.add(newDispatcher, name: BridgeDispatcher.messageHandlerName)
 

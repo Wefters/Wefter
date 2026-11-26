@@ -2,8 +2,8 @@
  * The `@wefterjs/devtools` Vite plugin. While the dev server runs it:
  *
  * - injects a small agent into the app page that loads core's DevTools instrumentation;
- * - collects bridge calls, console output and network traffic sent by connected apps;
- * - serves the dashboard at `/__wefter-devtools`, plus its plugins and reload APIs.
+ * - collects bridge calls, console output, network traffic and deep links sent by connected apps;
+ * - serves the dashboard at `/__wefter-devtools`, plus its plugins, deep links, open-link and reload APIs.
  *
  * It is a no-op in production builds (`apply: "serve"`).
  */
@@ -18,6 +18,8 @@ import {
   DASHBOARD_ROUTE,
   loadDevtoolsVirtualModule,
   registerDashboardMiddleware,
+  registerDeepLinksApiMiddleware,
+  registerOpenLinkApiMiddleware,
   registerPluginsApiMiddleware,
   registerReloadApiMiddleware,
   resolveDevtoolsVirtualModule,
@@ -83,12 +85,14 @@ export function wefterDevtools(_options: WefterDevtoolsOptions = {}) {
     },
 
     /**
-     * Wires up the event handlers and the HTTP routes. The reload API is registered before the dashboard
-     * route, which would otherwise catch it.
+     * Wires up the event handlers and the HTTP routes. The API routes are registered before the dashboard
+     * route, which would otherwise catch them.
      */
     configureServer(server: ViteDevServer) {
       registerServerHandlers(server, state);
       registerPluginsApiMiddleware(server);
+      registerDeepLinksApiMiddleware(server);
+      registerOpenLinkApiMiddleware(server);
       registerReloadApiMiddleware(server, () => reloadConnectedApps(server, state));
       registerDashboardMiddleware(server);
     },

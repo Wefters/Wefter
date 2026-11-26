@@ -1,9 +1,9 @@
-/** How a bridge call ended. */
 /**
  * Event names and payloads exchanged between apps, the dev server and the dashboard. Shared by the
  * server and the browser bundle.
  */
 
+/** How a bridge call ended. */
 export type BridgeStatus = "success" | "error" | "timeout" | "cancelled";
 
 /** Sent by an app when it calls a native method. */
@@ -60,12 +60,56 @@ export interface ClientHelloEvent {
   timestamp: number;
 }
 
+/** Where a deep link came from: the native shell, or the dashboard's "Send to app" button. */
+export type DeepLinkSource = "native" | "devtools";
+
+/**
+ * Sent by an app when a deep link is delivered to its `onDeepLink` listeners. `scheme` and `path` are
+ * `null` when the URL could not be parsed; `listeners` is how many listeners received it.
+ */
+export interface DeepLinkEvent {
+  url: string;
+  scheme: string | null;
+  path: string | null;
+  query: Record<string, string>;
+  isLaunch: boolean;
+  source: DeepLinkSource;
+  listeners: number;
+  timestamp: number;
+}
+
+/** Sent by an app when its number of `onDeepLink` listeners changes, and after it connects. */
+export interface DeepLinkListenersEvent {
+  listeners: number;
+  timestamp: number;
+}
+
+/** One environment's deep links from `wefter.config.json`, for the Deep Links panel. */
+export interface DeepLinkEnvironmentInfo {
+  name: string;
+  appId: string;
+  schemes: string[];
+  domains: string[];
+  paths: string[];
+}
+
+/** Platforms the dev server can open a link on: an Android device over adb, or the booted iOS Simulator. */
+export type DeepLinkPlatform = "android" | "ios";
+
+/** Result of opening a link on a device: whether the command succeeded, and what it printed. */
+export interface OpenLinkResult {
+  ok: boolean;
+  output: string;
+}
+
 /** The history a dashboard receives when it connects. */
 export interface ReplayPayload {
   bridge: BridgeRecord[];
   console: ConsoleEvent[];
   network: NetworkRecord[];
   presence: ClientHelloEvent[];
+  deepLinks: DeepLinkEvent[];
+  deepLinkListeners: number | null;
 }
 
 /** A plugin as shown in the Plugins panel. */
@@ -81,7 +125,7 @@ export interface PluginInfo {
 }
 
 /** A history the dashboard can clear. */
-export type BufferChannel = "bridge" | "console" | "network";
+export type BufferChannel = "bridge" | "console" | "network" | "deepLinks";
 
 /** A bridge call with its response merged in once it arrives. */
 export type BridgeRecord = BridgeCallEvent &
@@ -105,4 +149,8 @@ export const WEFTER_EVENT = {
   cleared: "wefter:__cleared",
   reloadRequest: "wefter:__reload_request",
   reload: "wefter:reload",
+  deepLink: "wefter:deep_link",
+  deepLinkListeners: "wefter:deep_link_listeners",
+  simulateDeepLinkRequest: "wefter:__simulate_deep_link_request",
+  simulateDeepLink: "wefter:simulate_deep_link",
 } as const;

@@ -126,7 +126,7 @@ describe("wefterDevtools", () => {
     expect(loaded).toBeUndefined();
   });
 
-  it("registers bridge/console/network handlers and the HTTP routes on configureServer", () => {
+  it("registers bridge/console/network/deep link handlers and the HTTP routes on configureServer", () => {
     const plugin = wefterDevtools();
     const { server, wsHandlers, routes } = createFakeServer();
 
@@ -135,7 +135,14 @@ describe("wefterDevtools", () => {
     expect(wsHandlers.has(WEFTER_EVENT.bridgeCall)).toBe(true);
     expect(wsHandlers.has(WEFTER_EVENT.console)).toBe(true);
     expect(wsHandlers.has(WEFTER_EVENT.networkRequest)).toBe(true);
-    expect(routes).toEqual(["/__wefter-devtools/api/plugins", "/__wefter-devtools/api/reload", "/__wefter-devtools"]);
+    expect(wsHandlers.has(WEFTER_EVENT.deepLink)).toBe(true);
+    expect(routes).toEqual([
+      "/__wefter-devtools/api/plugins",
+      "/__wefter-devtools/api/deep-links",
+      "/__wefter-devtools/api/open-link",
+      "/__wefter-devtools/api/reload",
+      "/__wefter-devtools",
+    ]);
   });
 
   it("registers the API routes before the dashboard route, since middleware matching is prefix-based", () => {
@@ -145,7 +152,12 @@ describe("wefterDevtools", () => {
     (plugin.configureServer as (server: ViteDevServer) => void)(server);
 
     const dashboardIndex = routes.indexOf("/__wefter-devtools");
-    for (const api of ["/__wefter-devtools/api/plugins", "/__wefter-devtools/api/reload"]) {
+    for (const api of [
+      "/__wefter-devtools/api/plugins",
+      "/__wefter-devtools/api/deep-links",
+      "/__wefter-devtools/api/open-link",
+      "/__wefter-devtools/api/reload",
+    ]) {
       expect(routes.indexOf(api)).toBeGreaterThanOrEqual(0);
       expect(routes.indexOf(api)).toBeLessThan(dashboardIndex);
     }

@@ -549,4 +549,36 @@ describe("sync — iOS", () => {
     const iosBuildConfig = readFileSync(join(iosAppDir, "BuildConfig.swift"), "utf-8");
     expect(iosBuildConfig).toContain("static let landscape = true");
   });
+
+  it("registers each environment's deep links with both platforms, and reports them", async () => {
+    const configPath = join(projectDir, "wefter.config.json");
+    const config = JSON.parse(readFileSync(configPath, "utf-8"));
+    config.deepLinks = { schemes: ["myshop"], domains: ["shop.example.com"] };
+    config.environments.development.deepLinks = { schemes: ["myshop-dev"], domains: [] };
+    writeFileSync(configPath, JSON.stringify(config, null, 2), "utf-8");
+
+    const result = await sync(projectDir);
+
+    expect(result.deepLinks.development).toEqual({ schemes: ["myshop-dev"], domains: [], paths: [] });
+    expect(result.deepLinks.production).toEqual({ schemes: ["myshop"], domains: ["shop.example.com"], paths: [] });
+
+    const appDir = join(projectDir, ".wefter/native/android/app");
+    expect(readFileSync(manifestPath, "utf-8")).toContain('android:launchMode="singleTask"');
+    expect(readFileSync(join(appDir, "src/development/AndroidManifest.xml"), "utf-8")).toContain(
+      'android:scheme="myshop-dev"',
+    );
+    expect(readFileSync(join(appDir, "src/production/AndroidManifest.xml"), "utf-8")).toContain(
+      'android:host="shop.example.com"',
+    );
+
+    const configDir = join(projectDir, ".wefter/native/ios/Config");
+    expect(readFileSync(join(iosAppDir, "Info.plist"), "utf-8")).toContain("$(WEFTER_URL_SCHEME_1)");
+    expect(readFileSync(join(configDir, "Environment-development.xcconfig"), "utf-8")).toContain(
+      "WEFTER_URL_SCHEME_1 = myshop-dev",
+    );
+    expect(readFileSync(join(configDir, "Environment-production.xcconfig"), "utf-8")).toContain(
+      "CODE_SIGN_ENTITLEMENTS = WefterBridge/Entitlements-production.entitlements",
+    );
+    expect(existsSync(join(iosAppDir, "Entitlements-production.entitlements"))).toBe(true);
+  });
 });

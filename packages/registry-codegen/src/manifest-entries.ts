@@ -14,13 +14,22 @@ const TAG_BY_TYPE: Record<ManifestEntry["type"], string> = {
 const PLACEHOLDER_PATTERN = /\$\{([^}]+)\}/g;
 
 /**
- * Replaces every `${key}` in `value` with the matching `pluginConfig` value.
+ * Placeholders left in the manifest for Gradle's manifest merger, which fills them per build flavor.
+ * `${applicationId}` becomes each environment's app id, so a scheme such as `${applicationId}.auth` differs
+ * between development and production builds.
+ */
+const GRADLE_PLACEHOLDERS = new Set(["applicationId"]);
+
+/**
+ * Replaces every `${key}` in `value` with the matching `pluginConfig` value. Gradle's own placeholders
+ * (such as `${applicationId}`) are kept as they are.
  *
  * @param context Describes where the value came from, for the error message.
  * @throws {Error} When a referenced key is missing, explaining how to add it.
  */
 export function resolvePlaceholders(value: string, pluginConfig: Record<string, string>, context: string): string {
-  return value.replace(PLACEHOLDER_PATTERN, (_match, key: string) => {
+  return value.replace(PLACEHOLDER_PATTERN, (match, key: string) => {
+    if (GRADLE_PLACEHOLDERS.has(key)) return match;
     const resolved = pluginConfig[key];
     if (resolved === undefined) {
       throw new Error(
@@ -32,7 +41,7 @@ export function resolvePlaceholders(value: string, pluginConfig: Record<string, 
   });
 }
 
-/** Lists the `pluginConfig` keys a plugin's intent filters reference. */
+/** Lists the `pluginConfig` keys a plugin's intent filters reference, leaving out Gradle's own placeholders. */
 export function extractRequiredPluginConfigKeys(manifest: PluginManifest): string[] {
   const keys = new Set<string>();
   for (const entry of manifest.android?.manifestEntries ?? []) {
@@ -40,7 +49,9 @@ export function extractRequiredPluginConfigKeys(manifest: PluginManifest): strin
       if (!filter.data) continue;
       for (const value of Object.values(filter.data)) {
         if (typeof value !== "string") continue;
-        for (const match of value.matchAll(PLACEHOLDER_PATTERN)) keys.add(match[1]);
+        for (const match of value.matchAll(PLACEHOLDER_PATTERN)) {
+          if (!GRADLE_PLACEHOLDERS.has(match[1])) keys.add(match[1]);
+        }
       }
     }
   }
@@ -78,7 +89,7 @@ function renderIntentFilter(filter: IntentFilter): string {
   return lines.join("\n");
 }
 
-/** Renders one component element (for example an `<activity>`) with its intent filters. */
+/** Renders one component element (for example an `<activity>`) with its launch mode and intent filters. */
 function renderManifestEntry(entry: ManifestEntry): string {
   const tag = TAG_BY_TYPE[entry.type];
   const filtersBlock =
@@ -86,6 +97,7 @@ function renderManifestEntry(entry: ManifestEntry): string {
   return [
     `        <${tag}`,
     `            android:name="${entry.name}"`,
+    ...(entry.launchMode ? [`            android:launchMode="${entry.launchMode}"`] : []),
     `            android:exported="${entry.exported}">${filtersBlock}</${tag}>`,
   ].join("\n");
 }

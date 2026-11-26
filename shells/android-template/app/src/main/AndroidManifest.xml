@@ -15,11 +15,14 @@
         <activity
             android:name=".MainActivity"
             android:theme="@style/Theme.App.Starting"
+            android:launchMode="singleTask"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- Deep link intent filters are added per environment: `wefter sync` writes them to
+                 src/<env>/AndroidManifest.xml, which Gradle merges into this activity. -->
         </activity>
 
         <!-- WEFTER-COMPONENTS-START -->

@@ -20,16 +20,23 @@ function createFakeHot() {
   return { hot, trigger: (event: string, data?: unknown) => handlers.get(event)?.(data), sent };
 }
 
-const emptyReplay: ReplayPayload = { bridge: [], console: [], network: [], presence: [] };
+const emptyReplay: ReplayPayload = {
+  bridge: [],
+  console: [],
+  network: [],
+  presence: [],
+  deepLinks: [],
+  deepLinkListeners: null,
+};
 
 describe("mountDevtoolsApp", () => {
-  it("mounts the shell with all 4 tabs", () => {
+  it("mounts the shell with all 5 tabs", () => {
     const app = document.createElement("div");
     const { hot } = createFakeHot();
     mountDevtoolsApp(app, hot);
 
     const tabLabels = [...app.querySelectorAll(".wd-tab-label")].map((t) => t.textContent);
-    expect(tabLabels).toEqual(["Bridge", "Console", "Network", "Plugins"]);
+    expect(tabLabels).toEqual(["Bridge", "Console", "Network", "Deep Links", "Plugins"]);
   });
 
   it("requests a replay immediately on mount", () => {
@@ -235,5 +242,74 @@ describe("mountDevtoolsApp", () => {
     await flush();
 
     expect(app.querySelectorAll("#wd-panel-bridge .wd-trow").length).toBe(500);
+  });
+
+  describe("deep links", () => {
+    const link = {
+      url: "myshop://product/42",
+      scheme: "myshop",
+      path: "/product/42",
+      query: {},
+      isLaunch: false,
+      source: "native" as const,
+      listeners: 1,
+      timestamp: 1,
+    };
+
+    it("lists live deep links and badges the tab with the links nobody handled", async () => {
+      const app = document.createElement("div");
+      const { hot, trigger } = createFakeHot();
+      mountDevtoolsApp(app, hot);
+
+      trigger(WEFTER_EVENT.deepLink, link);
+      trigger(WEFTER_EVENT.deepLink, { ...link, url: "myshop://cart", path: "/cart", listeners: 0 });
+      await flush();
+      await flush();
+
+      expect(app.querySelectorAll("#wd-panel-deep-links .wd-trow").length).toBe(2);
+      const badge = app.querySelector("#wd-tab-deep-links .wd-tab-badge")!;
+      expect(badge.textContent).toBe("1");
+      expect(badge.className).toContain("wd-tab-badge-warn");
+    });
+
+    it("shows the listener count the app reports", async () => {
+      const app = document.createElement("div");
+      const { hot, trigger } = createFakeHot();
+      mountDevtoolsApp(app, hot);
+
+      trigger(WEFTER_EVENT.deepLinkListeners, { listeners: 0, timestamp: 1 });
+      await flush();
+
+      expect(app.querySelector("#wd-panel-deep-links .wd-dl-status")?.textContent).toBe("No onDeepLink listener");
+    });
+
+    it("asks the dev server to send the tester's link to the apps", () => {
+      const app = document.createElement("div");
+      const { hot, sent } = createFakeHot();
+      mountDevtoolsApp(app, hot);
+
+      const input = app.querySelector<HTMLInputElement>("#wd-panel-deep-links .wd-dl-url")!;
+      input.value = "myshop://cart";
+      app.querySelector<HTMLButtonElement>("#wd-panel-deep-links .wd-dl-send-btn")!.click();
+
+      expect(sent).toContainEqual({ event: WEFTER_EVENT.simulateDeepLinkRequest, payload: { url: "myshop://cart" } });
+    });
+
+    it("restores deep links from a replay and empties them when cleared", async () => {
+      const app = document.createElement("div");
+      const { hot, trigger, sent } = createFakeHot();
+      mountDevtoolsApp(app, hot);
+
+      trigger(WEFTER_EVENT.replay, { ...emptyReplay, deepLinks: [link], deepLinkListeners: 2 });
+      await flush();
+      expect(app.querySelectorAll("#wd-panel-deep-links .wd-trow").length).toBe(1);
+      expect(app.querySelector("#wd-panel-deep-links .wd-dl-status")?.textContent).toBe("onDeepLink: 2 listeners");
+
+      app.querySelector<HTMLButtonElement>("#wd-panel-deep-links .wd-clear-btn")!.click();
+      expect(sent).toContainEqual({ event: WEFTER_EVENT.clearRequest, payload: { channel: "deepLinks" } });
+      trigger(WEFTER_EVENT.cleared, { channel: "deepLinks" });
+      await flush();
+      expect(app.querySelectorAll("#wd-panel-deep-links .wd-trow").length).toBe(0);
+    });
   });
 });

@@ -165,6 +165,66 @@ describe("registerServerHandlers — replay", () => {
   });
 });
 
+describe("registerServerHandlers — deep links", () => {
+  const link = {
+    url: "myshop://cart",
+    scheme: "myshop",
+    path: "/cart",
+    query: {},
+    isLaunch: false,
+    source: "native" as const,
+    listeners: 1,
+    timestamp: 1,
+  };
+
+  it("keeps deep links and the listener count, rebroadcasts them, and includes them in the replay", () => {
+    const { server, trigger, sent } = createFakeServer();
+    const state = createDevtoolsState();
+    registerServerHandlers(server, state);
+    const { client } = createFakeClient();
+
+    trigger(WEFTER_EVENT.deepLink, link);
+    trigger(WEFTER_EVENT.deepLinkListeners, { listeners: 2, timestamp: 1 });
+    trigger(WEFTER_EVENT.replayRequest, {}, client);
+
+    expect(sent).toContainEqual({ event: WEFTER_EVENT.deepLink, payload: link });
+    expect(sent).toContainEqual({ event: WEFTER_EVENT.deepLinkListeners, payload: { listeners: 2, timestamp: 1 } });
+    expect(client.send).toHaveBeenCalledWith(
+      WEFTER_EVENT.replay,
+      expect.objectContaining({ deepLinks: [link], deepLinkListeners: 2 }),
+    );
+  });
+
+  it("starts with an unknown listener count", () => {
+    expect(createDevtoolsState().deepLinkListeners).toBeNull();
+  });
+
+  it("relays a dashboard's link to the apps, ignoring empty ones", () => {
+    const { server, trigger, sent } = createFakeServer();
+    registerServerHandlers(server, createDevtoolsState());
+
+    trigger(WEFTER_EVENT.simulateDeepLinkRequest, { url: " myshop://cart " });
+    trigger(WEFTER_EVENT.simulateDeepLinkRequest, { url: "  " });
+    trigger(WEFTER_EVENT.simulateDeepLinkRequest, {});
+
+    expect(sent.filter((e) => e.event === WEFTER_EVENT.simulateDeepLink)).toEqual([
+      { event: WEFTER_EVENT.simulateDeepLink, payload: { url: "myshop://cart" } },
+    ]);
+  });
+
+  it("clears the deep link history on request", () => {
+    const { server, trigger, sent } = createFakeServer();
+    const state = createDevtoolsState();
+    registerServerHandlers(server, state);
+
+    trigger(WEFTER_EVENT.deepLink, link);
+    trigger(WEFTER_EVENT.clearRequest, { channel: "deepLinks" });
+
+    expect(state.deepLinks.toArray()).toEqual([]);
+    expect(sent).toContainEqual({ event: WEFTER_EVENT.cleared, payload: { channel: "deepLinks" } });
+  });
+});
+
 describe("reloadConnectedApps", () => {
   it("broadcasts the reload and returns how many apps are connected to receive it", () => {
     const { server, trigger, sent } = createFakeServer();

@@ -41,6 +41,12 @@
 	</dict>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
+
+	<!-- CFBundleURLTypes for the custom URL schemes in "deepLinks" of wefter.config.json, written by
+	     `wefter sync`. The schemes are build settings ($(WEFTER_URL_SCHEME_1), …) set per environment in
+	     Config/Environment-<env>.xcconfig. Everything between the markers is replaced on every sync. -->
+	<!-- WEFTER-URL-TYPES-START -->
+	<!-- WEFTER-URL-TYPES-END -->
 	<!-- WEFTER-ORIENTATIONS-START -->
 	<key>UISupportedInterfaceOrientations</key>
 	<array>

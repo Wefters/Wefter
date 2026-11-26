@@ -3,11 +3,14 @@ import { resolve } from "node:path";
 import { loadWefterConfig } from "../config/project-paths.js";
 import { checkReleaseSecurity } from "../native/release-security-check.js";
 import { checkReleaseSecurityIos } from "../native/release-security-check-ios.js";
+import { usesVerifiedDomains } from "../config/deep-links.js";
+import { checkDeepLinkDomains } from "../commands/deep-links.js";
 import type { CheckResult } from "./checks.js";
 
 /**
- * Checks behind `wefter doctor --release`: the release security lint for both platforms, and that signing
- * is configured and its secrets are available in the environment.
+ * Checks behind `wefter doctor --release`: the release security lint for both platforms, that signing is
+ * configured and its secrets are available in the environment, and, when the app opens verified `https`
+ * links, that every domain serves verification files listing it (see `wefter deep-links check`).
  */
 export async function runReleaseReadinessChecks(projectDir: string): Promise<CheckResult[]> {
   const config = loadWefterConfig(projectDir);
@@ -68,6 +71,18 @@ export async function runReleaseReadinessChecks(projectDir: string): Promise<Che
         ? undefined
         : "set WEFTER_IOS_SIGNING_IDENTITY (a certificate common name already in the build machine's keychain) before running a release build",
     });
+  }
+
+  if (usesVerifiedDomains(config)) {
+    try {
+      results.push(...(await checkDeepLinkDomains(projectDir)));
+    } catch (error) {
+      results.push({
+        name: "Deep link domains",
+        passed: false,
+        fix: error instanceof Error ? error.message : String(error),
+      });
+    }
   }
 
   return results;
