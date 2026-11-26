@@ -88,7 +88,8 @@ class MainActivity : AppCompatActivity() {
      * Sets up edge-to-edge drawing, system bar colours that suit the launch background, the asset loader,
      * the web view and splash, then loads the app. Back navigates inside the web view before leaving the
      * app. A fresh start passes its launch link (if any) to [DeepLinkInbox]; a recreated activity (after a
-     * configuration change) keeps the links it already had.
+     * configuration change) keeps the links it already had and reopens the page it was on, without the
+     * splash. Rotation and resizing do not recreate it (see `configChanges` in the manifest).
      */
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -133,11 +134,15 @@ class MainActivity : AppCompatActivity() {
                 ViewGroup.LayoutParams.MATCH_PARENT
         )
 
-        if (BuildConfig.SPLASH_ENABLED) {
+        val restored = savedInstanceState != null && restoreWebViewState(savedInstanceState)
+
+        if (BuildConfig.SPLASH_ENABLED && !restored) {
             setupSplash()
         }
 
-        loadInitialContent()
+        if (!restored) {
+            loadInitialContent()
+        }
 
         onBackPressedDispatcher.addCallback(
                 this,
@@ -159,6 +164,28 @@ class MainActivity : AppCompatActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         deepLinkFrom(intent)?.let { DeepLinkInbox.receive(it) }
+    }
+
+    /**
+     * Saves the web view's history, so an activity Android recreates anyway (a language or font size change,
+     * or the app's process stopped in the background) reopens the page the user was on.
+     */
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        if (::webView.isInitialized) {
+            webView.saveState(outState)
+        }
+    }
+
+    /**
+     * Restores the history saved by [onSaveInstanceState], reloading the page the user was on. Only bundled
+     * builds restore: a dev server build loads the dev server again, so its connection checks run.
+     *
+     * @return Whether a page was restored.
+     */
+    private fun restoreWebViewState(savedInstanceState: Bundle): Boolean {
+        if (isDevServerBuild()) return false
+        return webView.restoreState(savedInstanceState)?.let { it.size > 0 } ?: false
     }
 
     /** Stops telling this activity's web view about new links. */
