@@ -5,6 +5,7 @@ import type { ViteDevServer } from "vite";
 import { collectPluginInfo } from "./plugins-info.js";
 import { collectDeepLinkInfo } from "./deep-links-info.js";
 import { openLinkOnDevice, type CommandRunner } from "./open-link.js";
+import { FAVICON_DATA_URL } from "./favicon.js";
 
 /** Where the dashboard is served. */
 export const DASHBOARD_ROUTE = "/__wefter-devtools";
@@ -136,7 +137,10 @@ export function registerReloadApiMiddleware(server: ViteDevServer, reloadApps: (
   });
 }
 
-/** Serves the dashboard page. It goes through Vite's HTML transform so the HMR client is included. */
+/**
+ * Serves the dashboard page. It goes through Vite's HTML transform so the HMR client is included. Its own
+ * favicon, the Wefter mark, replaces the app's while the page is open.
+ */
 export function registerDashboardMiddleware(server: ViteDevServer): void {
   server.middlewares.use(DASHBOARD_ROUTE, (req, res, next) => {
     const shellHtml = `<!doctype html>
@@ -146,6 +150,7 @@ export function registerDashboardMiddleware(server: ViteDevServer): void {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="color-scheme" content="dark light" />
     <title>Wefter DevTools</title>
+    <link rel="icon" type="image/svg+xml" href="${FAVICON_DATA_URL}" />
   </head>
   <body>
     <div id="app"></div>

@@ -1,8 +1,12 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { tmpdir } from "node:os";
-import { injectLaunchBackgroundIos } from "../src/native/inject-launch-background-ios.js";
+import {
+  injectLaunchBackgroundBuildConfigIos,
+  injectLaunchBackgroundIos,
+} from "../src/native/inject-launch-background-ios.js";
 
 let dir: string;
 
@@ -71,5 +75,44 @@ describe("injectLaunchBackgroundIos", () => {
     writeFileSync(storyboardPath, storyboardWith(""));
 
     expect(() => injectLaunchBackgroundIos(storyboardPath, "#14161C")).toThrow(/No backgroundColor/);
+  });
+});
+
+describe("injectLaunchBackgroundBuildConfigIos", () => {
+  const template = readFileSync(
+    join(dirname(fileURLToPath(import.meta.url)), "../../../shells/ios-template/WefterBridge/BuildConfig.swift"),
+    "utf-8",
+  );
+
+  it("defaults to white in the template", () => {
+    expect(template).toContain("static let launchBackground: (red: Double, green: Double, blue: Double) = (1, 1, 1)");
+  });
+
+  it("writes the colour between the markers and replaces it on the next sync", () => {
+    dir = mkdtempSync(join(tmpdir(), "wefter-launchbg-buildconfig-"));
+    const path = join(dir, "BuildConfig.swift");
+    writeFileSync(path, template);
+
+    injectLaunchBackgroundBuildConfigIos(path, "#111314");
+    injectLaunchBackgroundBuildConfigIos(path, "#FF0000");
+
+    const result = readFileSync(path, "utf-8");
+    expect(result).toContain("= (1, 0, 0)");
+    expect(result.match(/static let launchBackground/g)).toHaveLength(1);
+  });
+
+  it("adds the markers inside BuildConfig in projects that predate them", () => {
+    dir = mkdtempSync(join(tmpdir(), "wefter-launchbg-buildconfig-"));
+    const path = join(dir, "BuildConfig.swift");
+    writeFileSync(path, "enum BuildConfig {\n    static let landscape = false\n}\n");
+
+    injectLaunchBackgroundBuildConfigIos(path, "#111314");
+
+    expect(readFileSync(path, "utf-8")).toBe(
+      "enum BuildConfig {\n    static let landscape = false\n\n" +
+        "    // WEFTER-LAUNCH-BACKGROUND-START\n" +
+        "    static let launchBackground: (red: Double, green: Double, blue: Double) = (0.0667, 0.0745, 0.0784)\n" +
+        "    // WEFTER-LAUNCH-BACKGROUND-END\n}\n",
+    );
   });
 });

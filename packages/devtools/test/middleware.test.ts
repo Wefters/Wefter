@@ -107,6 +107,19 @@ describe("registerDashboardMiddleware", () => {
     expect(res.body).toContain("<!-- injected -->");
   });
 
+  it("sets the Wefter mark as the page's favicon", async () => {
+    const { server, routes } = createFakeServer();
+    registerDashboardMiddleware(server);
+    const res = createFakeRes();
+
+    routes.get(DASHBOARD_ROUTE)!({}, res, () => {});
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    const href = /<link rel="icon" type="image\/svg\+xml" href="([^"]+)"/.exec(res.body)?.[1];
+    expect(href).toMatch(/^data:image\/svg\+xml,/);
+    expect(decodeURIComponent(href!.slice("data:image/svg+xml,".length))).toContain("<svg");
+  });
+
   it("references the virtual client module via the /@id/ script src", async () => {
     const { server, routes } = createFakeServer();
     registerDashboardMiddleware(server);

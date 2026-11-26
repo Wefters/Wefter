@@ -15,6 +15,13 @@ final class ViewController: UIViewController {
     private static let maxRenderProcessRetries = 3
 
     private static let splashFadeTransitionSeconds: TimeInterval = 0.2
+    /// `launchBackground` from `wefter.config.json`, shown until the pages have painted.
+    private static let launchBackground = UIColor(
+        red: CGFloat(BuildConfig.launchBackground.red),
+        green: CGFloat(BuildConfig.launchBackground.green),
+        blue: CGFloat(BuildConfig.launchBackground.blue),
+        alpha: 1
+    )
     /// How long to wait for the dev server before treating it as unreachable.
     private static let devServerLoadTimeoutSeconds: TimeInterval = 25
     /// Delay between attempts to reconnect to the dev server.
@@ -26,7 +33,9 @@ final class ViewController: UIViewController {
     private(set) var dispatcher: BridgeDispatcher!
     private var splashWebView: WKWebView?
     private var splashDismissed = false
-    private let splashStartTime = Date()
+    /// When the splash page finished loading, so its minimum duration counts from when it is on screen.
+    private var splashShownAt: Date?
+    private let splashNavigationDelegate = SplashNavigationDelegate()
 
     private var usingDevServer = false
     private var renderProcessCrashCount = 0
@@ -61,7 +70,7 @@ final class ViewController: UIViewController {
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        view.backgroundColor = .systemBackground
+        view.backgroundColor = Self.launchBackground
 
         mainWebView = makePrimaryWebView()
         installFullBleed(mainWebView, at: 0)
@@ -123,6 +132,14 @@ final class ViewController: UIViewController {
         scrollView.alwaysBounceHorizontal = false
     }
 
+    /// Shows the launch colour instead of white while the web view's content process starts and its page
+    /// loads, so the launch screen hands over without a white flash.
+    private static func showLaunchBackground(in webView: WKWebView) {
+        webView.isOpaque = false
+        webView.backgroundColor = launchBackground
+        webView.scrollView.backgroundColor = launchBackground
+    }
+
     /// Adds a view at `index` that fills the whole screen.
     private func installFullBleed(_ subview: UIView, at index: Int) {
         subview.translatesAutoresizingMaskIntoConstraints = false
@@ -161,6 +178,7 @@ final class ViewController: UIViewController {
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = self
         Self.pinPageToScreen(webView)
+        Self.showLaunchBackground(in: webView)
         FormAccessoryBar.apply(to: webView)
 
         let newDispatcher = BridgeDispatcher(webView: webView)
@@ -184,12 +202,16 @@ final class ViewController: UIViewController {
         return webView
     }
 
-    /// Shows the splash page over the app. It is dismissed when the app calls `hideSplash()` (or after the
-    /// maximum duration), or after the minimum duration when it does not wait for the app.
+    /// Shows the splash page over the app. It is dismissed when the app calls `hideSplash()`, or after the
+    /// minimum duration when it does not wait for the app, and in either case after the maximum duration.
     private func setupSplash() {
         let config = makeSchemeAwareConfiguration()
         let splash = WKWebView(frame: .zero, configuration: config)
         Self.pinPageToScreen(splash)
+        Self.showLaunchBackground(in: splash)
+        splashNavigationDelegate.onFinish = { [weak self] in self?.splashDidAppear() }
+        splashNavigationDelegate.onFail = { [weak self] in self?.dismissSplash(respectingMinimum: false) }
+        splash.navigationDelegate = splashNavigationDelegate
 
         installFullBleed(splash, at: 1)
         splash.load(URLRequest(url: Self.splashURL))
@@ -197,23 +219,34 @@ final class ViewController: UIViewController {
 
         if BuildConfig.splashWaitForReady {
             dispatcher.subscribeHook("hideSplash") { [weak self] in self?.dismissSplash() }
-            DispatchQueue.main.asyncAfter(deadline: .now() + BuildConfig.splashMaxDurationMs / 1000) { [weak self] in
-                self?.dismissSplash()
-            }
-        } else {
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + BuildConfig.splashMaxDurationMs / 1000) { [weak self] in
+            self?.dismissSplash(respectingMinimum: false)
+        }
+    }
+
+    /// Starts the minimum duration once the splash page has loaded, and the timer when it does not wait for
+    /// the app.
+    private func splashDidAppear() {
+        guard splashShownAt == nil, !splashDismissed else { return }
+        splashShownAt = Date()
+        if !BuildConfig.splashWaitForReady {
             DispatchQueue.main.asyncAfter(deadline: .now() + BuildConfig.splashMinDurationMs / 1000) { [weak self] in
                 self?.dismissSplash()
             }
         }
     }
 
-    /// Fades the splash out once its minimum duration has passed.
-    private func dismissSplash() {
+    /// Fades the splash out. With `respectingMinimum`, a splash that is on screen first stays for its minimum
+    /// duration; one that has not appeared yet is removed at once, since the app is already ready.
+    private func dismissSplash(respectingMinimum: Bool = true) {
         guard let splash = splashWebView, !splashDismissed else { return }
         splashDismissed = true
 
-        let elapsedMs = Date().timeIntervalSince(splashStartTime) * 1000
-        let remainingMs = max(0, BuildConfig.splashMinDurationMs - elapsedMs)
+        var remainingMs: Double = 0
+        if respectingMinimum, let shownAt = splashShownAt {
+            remainingMs = max(0, BuildConfig.splashMinDurationMs - Date().timeIntervalSince(shownAt) * 1000)
+        }
         let fadeSeconds = BuildConfig.splashFadeTransition ? Self.splashFadeTransitionSeconds : 0
         DispatchQueue.main.asyncAfter(deadline: .now() + remainingMs / 1000) { [weak self] in
             UIView.animate(
@@ -302,6 +335,7 @@ final class ViewController: UIViewController {
         label.textAlignment = .center
         label.numberOfLines = 0
         label.font = .systemFont(ofSize: 16)
+        label.backgroundColor = .systemBackground
         installFullBleed(label, at: view.subviews.count)
     }
 
@@ -315,8 +349,15 @@ final class ViewController: UIViewController {
 }
 
 extension ViewController: WKNavigationDelegate {
-    /// A page finished loading: the dev server is reachable again, and plugins get the `appReady` hook.
+    /// A page finished loading: the dev server is reachable again, and plugins get the `appReady` hook. The
+    /// web view becomes opaque again, so pages without a background of their own show white as in a browser.
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        if !webView.isOpaque {
+            webView.isOpaque = true
+            webView.backgroundColor = .white
+            webView.scrollView.backgroundColor = .white
+        }
+
         if usingDevServer {
             clearDevServerWatchdog()
             devServerRetry?.cancel()
@@ -378,5 +419,27 @@ extension ViewController: WKNavigationDelegate {
         mainWebView = makePrimaryWebView()
         installFullBleed(mainWebView, at: 0)
         loadInitialContent(preferDevServer: preferDevServer)
+    }
+}
+
+/// Reports when the splash page has loaded, or could not be shown.
+private final class SplashNavigationDelegate: NSObject, WKNavigationDelegate {
+    var onFinish: (() -> Void)?
+    var onFail: (() -> Void)?
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        onFinish?()
+    }
+
+    func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+        onFail?()
+    }
+
+    func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        onFail?()
+    }
+
+    func webViewWebContentProcessDidTerminate(_ webView: WKWebView) {
+        onFail?()
     }
 }

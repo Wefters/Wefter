@@ -66,7 +66,7 @@ import { generateSplash } from "../native/splash-generator.js";
 import { resolveSplash, SPLASH_DEFAULTS } from "../native/resolve-splash.js";
 import { resolveLaunchBackground } from "../native/resolve-launch-background.js";
 import { injectLaunchBackgroundAndroid } from "../native/inject-launch-background.js";
-import { injectLaunchBackgroundIos } from "../native/inject-launch-background-ios.js";
+import { injectLaunchBackgroundBuildConfigIos, injectLaunchBackgroundIos } from "../native/inject-launch-background-ios.js";
 import { injectOrientationAndroid, injectOrientationIos } from "../native/inject-orientation.js";
 import { injectKeyboardConfigIos } from "../native/inject-keyboard-ios.js";
 import {
@@ -293,6 +293,7 @@ export async function sync(projectDir: string, options: SyncOptions = {}): Promi
     const launchBackground = resolveLaunchBackground(config, projectDir);
     injectLaunchBackgroundAndroid(androidColorsPath(projectDir), launchBackground);
     injectLaunchBackgroundIos(iosLaunchScreenStoryboardPath(projectDir), launchBackground);
+    injectLaunchBackgroundBuildConfigIos(iosBuildConfigPathVar, launchBackground);
 
     injectOrientationAndroid(manifestPath, buildGradlePath, Boolean(config.landscape));
     injectOrientationIos(iosInfoPlistPathVar, iosBuildConfigPathVar, Boolean(config.landscape));
