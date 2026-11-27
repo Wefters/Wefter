@@ -82,6 +82,23 @@ const KeyboardSchema = z.object({
   accessoryBar: z.boolean().optional(),
 });
 
+/** The message iOS shows when asking for a permission, such as "Used to scan receipts". */
+const UsageDescriptionSchema = z.string().trim().min(1, "must be the message shown when asking for the permission");
+
+/**
+ * Device access the web app itself uses through standard web APIs: `camera` (`getUserMedia` video and
+ * taking photos from `<input type="file">`), `microphone` (`getUserMedia` audio) and `location`
+ * (`navigator.geolocation`). Each value is the message iOS shows when asking; Android asks with its own
+ * wording. Plugins declare their own permissions and do not need these.
+ */
+const PermissionsSchema = z
+  .object({
+    camera: UsageDescriptionSchema.optional(),
+    microphone: UsageDescriptionSchema.optional(),
+    location: UsageDescriptionSchema.optional(),
+  })
+  .strict();
+
 /**
  * One build environment, such as `development` or `production`. Each is installed as a separate app, and
  * may override the top-level `deepLinks` (for example a `myshop-dev` scheme for development builds).
@@ -252,6 +269,7 @@ export function legacyConfigNotes(raw: unknown): string[] {
  * - `icon`, `launchBackground`, `splash`, `landscape`: app look and orientation.
  * - `deepLinks`: custom URL schemes and verified web domains the app opens for.
  * - `keyboard`: keyboard behaviour in the web view.
+ * - `permissions`: camera, microphone and location used by the web app itself, with the iOS messages.
  * - `version`, `buildNumber`: the app version (`1.4.0`) and build number (`42`) the stores see.
  * - `build`: output folder, Android format and iOS export settings.
  * - `signing`: release signing, `android` and `ios`.
@@ -279,6 +297,8 @@ export const WefterConfigSchema = z.preprocess(
     deepLinks: DeepLinksSchema.optional(),
 
     keyboard: KeyboardSchema.optional(),
+
+    permissions: PermissionsSchema.optional(),
 
     splash: z
       .union([
@@ -308,6 +328,9 @@ export const WefterConfigSchema = z.preprocess(
 
 /** A parsed `wefter.config.json`, with defaults applied. */
 export type WefterConfig = z.infer<typeof WefterConfigSchema>;
+
+/** The `permissions` the web app uses, as written in the config. */
+export type AppPermissionsConfig = z.infer<typeof PermissionsSchema>;
 
 /** Android signing settings as written in the config. */
 export type AndroidSigningConfig = z.infer<typeof AndroidSigningSchema>;

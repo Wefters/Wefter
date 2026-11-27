@@ -71,10 +71,12 @@ public final class AssetSchemeHandler: NSObject, WKURLSchemeHandler {
 
     }
 
-    /// Only the app's own code may run; images and network requests may also use HTTPS.
+    /// Only the app's own code may run. Images, audio, video and network requests may also use HTTPS, and
+    /// `blob:` and `data:` URLs the page makes itself (previews of picked files, downloads it creates).
     static let contentSecurityPolicy =
         "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
-            + "img-src 'self' data: https:; connect-src 'self' https:; font-src 'self' data:;"
+            + "img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; "
+            + "connect-src 'self' data: blob: https:; font-src 'self' data:;"
 
     /// MIME type from the file extension.
     private static func mimeType(for url: URL) -> String {

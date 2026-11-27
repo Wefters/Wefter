@@ -83,4 +83,20 @@ describe("mergePermissions", () => {
     expect(result).not.toContain("android.permission.CAMERA");
     expect(result).toContain("android.permission.RECORD_AUDIO");
   });
+
+  it("adds the app's own permissions once, alongside the plugins'", () => {
+    tmpDir = mkdtempSync(join(tmpdir(), "wefter-manifest-"));
+    manifestPath = join(tmpDir, "AndroidManifest.xml");
+    writeFileSync(manifestPath, INITIAL_MANIFEST);
+
+    const written = mergePermissions([pluginWithPermissions("scanner", ["android.permission.CAMERA"])], manifestPath, [
+      "android.permission.CAMERA",
+      "android.permission.ACCESS_FINE_LOCATION",
+    ]);
+
+    const result = readFileSync(manifestPath, "utf-8");
+    expect(written).toEqual(["android.permission.CAMERA", "android.permission.ACCESS_FINE_LOCATION"]);
+    expect(result.match(/android\.permission\.CAMERA/g)).toHaveLength(1);
+    expect(result).toContain('<uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />');
+  });
 });

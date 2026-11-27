@@ -25,6 +25,10 @@
 		D37DC2C9A7A5236BB4734865 /* WebKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 79317DE23F0749D0B7D52B20 /* WebKit.framework */; };
 		F2E1D0C9B8A7F6E5D4C3B2A1 /* WefterBridge.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F2 /* WefterBridge.swift */; };
 		E5E2AB29955B73647F0BBE42 /* BridgeDispatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6EAAC8D82F01B7210760474F /* BridgeDispatcher.swift */; };
+		154B0BA3FC01AC3026913DD4 /* ExternalLinks.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D2B49ED594CE49C44D0B08E /* ExternalLinks.swift */; };
+		047D559374F721DCC48415C0 /* WebUIDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = ABA5507D0B0845139EC2CE3D /* WebUIDelegate.swift */; };
+		A6C92BEEA66AAEC5E3072F73 /* WebDownloads.swift in Sources */ = {isa = PBXBuildFile; fileRef = E203DE96A67195CBDCE24B8B /* WebDownloads.swift */; };
+		DFCA4BDDBCEC56496B6764CC /* WebGeolocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65339183128662F5B0B05063 /* WebGeolocation.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -57,6 +61,10 @@
 		C939B774F4EBDF672EB23164 /* Environment-production.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "Environment-production.xcconfig"; sourceTree = "<group>"; };
 		CA0FA5F6B8A880627DF7FFE0 /* Release-Production.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "Release-Production.xcconfig"; sourceTree = "<group>"; };
 		F78DF0CAC5E40C02D4E518CA /* Release-Development.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "Release-Development.xcconfig"; sourceTree = "<group>"; };
+		0D2B49ED594CE49C44D0B08E /* ExternalLinks.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExternalLinks.swift; sourceTree = "<group>"; };
+		ABA5507D0B0845139EC2CE3D /* WebUIDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebUIDelegate.swift; sourceTree = "<group>"; };
+		E203DE96A67195CBDCE24B8B /* WebDownloads.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebDownloads.swift; sourceTree = "<group>"; };
+		65339183128662F5B0B05063 /* WebGeolocation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebGeolocation.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -133,6 +141,10 @@
 				9EF307590D273E34F98DFF7E /* SystemModule.swift */,
 				5B8D2F4A6C1E3907B2D4F6A8 /* DeepLinkInbox.swift */,
 				6D1F3B5A7C9E2048B3D5F7A9 /* FormAccessoryBar.swift */,
+				0D2B49ED594CE49C44D0B08E /* ExternalLinks.swift */,
+				ABA5507D0B0845139EC2CE3D /* WebUIDelegate.swift */,
+				E203DE96A67195CBDCE24B8B /* WebDownloads.swift */,
+				65339183128662F5B0B05063 /* WebGeolocation.swift */,
 				2667A40844853040B7A05814 /* GeneratedRegistry.swift */,
 				42DB0B956AF67442931A4C45 /* Assets.xcassets */,
 				30877432D1026706D7E805DA /* PrivacyInfo.xcprivacy */,
@@ -230,6 +242,10 @@
 				4017F2ED6CFC7403D75E173E /* SystemModule.swift in Sources */,
 				7A3C5E1F9B2D4068A1C3E5F7 /* DeepLinkInbox.swift in Sources */,
 				3E9A6C2D8F1B4057A2C4E6F8 /* FormAccessoryBar.swift in Sources */,
+				154B0BA3FC01AC3026913DD4 /* ExternalLinks.swift in Sources */,
+				047D559374F721DCC48415C0 /* WebUIDelegate.swift in Sources */,
+				A6C92BEEA66AAEC5E3072F73 /* WebDownloads.swift in Sources */,
+				DFCA4BDDBCEC56496B6764CC /* WebGeolocation.swift in Sources */,
 				5AE36F2E1E4DE1E90C80621D /* GeneratedRegistry.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

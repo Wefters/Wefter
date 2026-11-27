@@ -5,7 +5,7 @@
 
 import chalk from "chalk";
 import { buildAndroid } from "../native/android-builder.js";
-import { resolveAdbDevice, type AdbDevice } from "../native/adb-device.js";
+import { resolveAdbDevice, reverseAdbPort, type AdbDevice } from "../native/adb-device.js";
 import { installAndroidApp, launchAndroidApp, restartAndroidApp, type AndroidTarget } from "../native/android-run.js";
 import { buildIos } from "../native/ios-builder.js";
 import { startDevServer, type DevServer } from "../devserver/vite-launcher.js";
@@ -97,6 +97,17 @@ async function startWatchServer(projectDir: string): Promise<{ devServer: DevSer
   return { devServer, lanIp };
 }
 
+/**
+ * The dev server's address on `localhost`, for a device that reaches this computer's ports there: an iOS
+ * simulator, or an Android device after `adb reverse`. Web views treat `localhost` as a secure origin, so
+ * the camera, microphone and location work as in the built app.
+ */
+export function localhostUrl(devServerUrl: string): string {
+  const url = new URL(devServerUrl);
+  url.hostname = "localhost";
+  return url.toString().replace(/\/$/, "");
+}
+
 /** A device's model and serial, for messages. */
 function describeAdbDevice(device: AdbDevice): string {
   const model = device.model?.replace(/_/g, " ");
@@ -133,14 +144,17 @@ export async function run(projectDir: string, options: RunOptions): Promise<RunS
     if (options.watch) {
       const started = await startWatchServer(projectDir);
       devServer = started.devServer;
+      const server = devServer;
       const buildGradlePath = androidBuildGradlePath(projectDir);
       const networkSecurityConfigPath = androidDebugNetworkSecurityConfigPath(projectDir);
-      await step("Connecting the app to the dev server", () =>
+      await step("Connecting the app to the dev server", async () => {
+        const port = Number(new URL(server.url).port);
+        const appUrl = (await reverseAdbPort(device.serial, port)) ? localhostUrl(server.url) : server.url;
         runTransactionalSync([buildGradlePath, networkSecurityConfigPath], () => {
-          injectNetworkSecurityException(networkSecurityConfigPath, started.lanIp);
-          injectDevServerUrl(buildGradlePath, devServer!.url);
-        }),
-      );
+          injectNetworkSecurityException(networkSecurityConfigPath, new URL(appUrl).hostname);
+          injectDevServerUrl(buildGradlePath, appUrl);
+        });
+      });
     }
 
     const buildInstallLaunch = async () => {
@@ -202,12 +216,13 @@ export async function runIos(projectDir: string, options: IosRunOptions): Promis
     if (options.watch) {
       const started = await startWatchServer(projectDir);
       devServer = started.devServer;
+      const appUrl = localhostUrl(devServer.url);
       const buildConfigPath = iosBuildConfigPath(projectDir);
       const infoPlistPath = iosInfoPlistPath(projectDir);
       await step("Connecting the app to the dev server", () =>
         runTransactionalSync([buildConfigPath, infoPlistPath], () => {
-          injectNetworkSecurityExceptionIos(infoPlistPath, started.lanIp);
-          injectDevServerUrlIos(buildConfigPath, devServer!.url);
+          injectNetworkSecurityExceptionIos(infoPlistPath, "localhost");
+          injectDevServerUrlIos(buildConfigPath, appUrl);
         }),
       );
     }

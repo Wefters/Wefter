@@ -1,6 +1,5 @@
 package dev.wefter.bridge
 
-import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
@@ -38,6 +37,8 @@ private const val ASSETS_ORIGIN = "appassets.androidplatform.net"
 private const val BUNDLED_URL = "https://$ASSETS_ORIGIN/index.html"
 private const val SPLASH_URL = "https://$ASSETS_ORIGIN/splash/index.html"
 private const val BLANK_URL = "about:blank"
+/** Schemes a frame inside the page may load in place. */
+private val FRAME_SCHEMES = setOf("http", "https", "about", "data", "blob")
 /** How often the web renderer may crash before giving up and showing a fallback message. */
 private const val MAX_RENDER_PROCESS_RETRIES = 3
 
@@ -47,10 +48,14 @@ private const val DEV_SERVER_LOAD_TIMEOUT_MS = 25000L
 /** Delay between attempts to reconnect to the dev server. */
 private const val DEV_SERVER_RETRY_INTERVAL_MS = 3000L
 
-/** Only the app's own code may run; images and network requests may also use HTTPS. */
+/**
+ * Only the app's own code may run. Images, audio, video and network requests may also use HTTPS, and
+ * `blob:` and `data:` URLs the page makes itself (previews of picked files, downloads it creates).
+ */
 private const val CONTENT_SECURITY_POLICY =
         "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; " +
-                "img-src 'self' data: https:; connect-src 'self' https:; font-src 'self' data:;"
+                "img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; " +
+                "connect-src 'self' data: blob: https:; font-src 'self' data:;"
 
 /**
  * The app's only screen: a full-screen web view running the web app, an optional splash web view on top,
@@ -77,6 +82,12 @@ class MainActivity : AppCompatActivity() {
 
     private var usingDevServer = false
     private var renderProcessCrashCount = 0
+
+    private lateinit var runtimePermissions: RuntimePermissions
+    private lateinit var chromeClient: WefterChromeClient
+    private lateinit var downloads: WebDownloads
+    /** Whether the download script must run after each page load (web views without document start scripts). */
+    private var injectDownloadScriptAfterLoad = false
 
     private val handler = Handler(Looper.getMainLooper())
     private var devServerWatchdog: Runnable? = null
@@ -127,6 +138,17 @@ class MainActivity : AppCompatActivity() {
 
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
 
+        runtimePermissions = RuntimePermissions(this)
+        chromeClient =
+                WefterChromeClient(
+                        activity = this,
+                        permissions = runtimePermissions,
+                        fullscreenContainer = root,
+                        webView = { webView },
+                        isOwnOrigin = ::isOwnOrigin
+                )
+        downloads = WebDownloads(this)
+
         webView = createPrimaryWebView()
         root.addView(
                 webView,
@@ -153,6 +175,7 @@ class MainActivity : AppCompatActivity() {
                         } else {
                             isEnabled = false
                             onBackPressedDispatcher.onBackPressed()
+                            isEnabled = true
                         }
                     }
                 }
@@ -228,6 +251,23 @@ class MainActivity : AppCompatActivity() {
         super.onPause()
         isForeground = false
         devServerRetry?.let { handler.removeCallbacks(it) }
+    }
+
+    /** Whether [uri] is one of the app's own pages: the bundled app, or the dev server in debug builds. */
+    private fun isOwnOrigin(uri: Uri): Boolean {
+        val host = uri.host ?: return false
+        return (uri.scheme == "https" && host == ASSETS_ORIGIN) || (devServerHost != null && host == devServerHost)
+    }
+
+    /** Origins of the app's own pages, as the web view's origin rules write them. */
+    private fun ownOrigins(): Set<String> {
+        val origins = mutableSetOf("https://$ASSETS_ORIGIN")
+        if (BuildConfig.DEBUG && BuildConfig.DEV_SERVER_URL.isNotEmpty()) {
+            val devServer = Uri.parse(BuildConfig.DEV_SERVER_URL)
+            val port = if (devServer.port != -1) ":${devServer.port}" else ""
+            origins += "${devServer.scheme}://${devServer.host}$port"
+        }
+        return origins
     }
 
     /** Whether this is a debug build pointed at a dev server. */
@@ -324,7 +364,11 @@ class MainActivity : AppCompatActivity() {
     private fun createPrimaryWebView(): WebView {
         val newWebView = WebView(this)
         newWebView.settings.javaScriptEnabled = true
+        // localStorage and sessionStorage, which a plain web view leaves off.
+        newWebView.settings.domStorageEnabled = true
         newWebView.setBackgroundColor(launchBackground)
+        newWebView.webChromeClient = chromeClient
+        injectDownloadScriptAfterLoad = downloads.attach(newWebView, ownOrigins(), ::isOwnOrigin)
 
         newWebView.webViewClient =
                 object : WebViewClient() {
@@ -340,6 +384,9 @@ class MainActivity : AppCompatActivity() {
                      */
                     override fun onPageFinished(view: WebView, url: String) {
                         view.setBackgroundColor(Color.WHITE)
+                        if (injectDownloadScriptAfterLoad && isOwnOrigin(Uri.parse(url))) {
+                            downloads.injectInto(view)
+                        }
 
                         if (usingDevServer) {
                             clearDevServerWatchdog()
@@ -351,26 +398,21 @@ class MainActivity : AppCompatActivity() {
                     }
 
                     /**
-                     * Keeps navigation inside the app's own origin (bundled or dev server); other web links
-                     * open in the
-                     * browser.
+                     * Keeps navigation inside the app's own origin (bundled or dev server). Other web pages
+                     * open in the browser, and `tel:`, `mailto:`, `sms:`, `intent:` and other app links in
+                     * their apps (see [ExternalLinks]). Frames inside a page load in place.
                      */
                     override fun shouldOverrideUrlLoading(
                             view: WebView,
                             request: WebResourceRequest
                     ): Boolean {
-                        val host = request.url.host
-                        val isOwnOrigin =
-                                host == ASSETS_ORIGIN ||
-                                        (devServerHost != null && host == devServerHost)
-                        if (isOwnOrigin) return false
+                        val url = request.url
+                        if (isOwnOrigin(url)) return false
+                        val scheme = url.scheme?.lowercase()
+                        if (!request.isForMainFrame && scheme in FRAME_SCHEMES) return false
+                        if (scheme == "about") return false
 
-                        val scheme = request.url.scheme
-                        if (scheme == "http" || scheme == "https") {
-                            try {
-                                startActivity(Intent(Intent.ACTION_VIEW, request.url))
-                            } catch (e: ActivityNotFoundException) {}
-                        }
+                        ExternalLinks.open(this@MainActivity, url)
                         return true
                     }
 

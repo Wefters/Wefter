@@ -13,6 +13,10 @@ The shell is written in Swift using modern Apple frameworks:
 - `ViewController.swift`: Hosts the `WKWebView`, initializes WebKit configuration, sets user agent metadata, and connects message handlers.
 - `BridgeDispatcher.swift`: Central routing controller for iOS. It conforms to `WKScriptMessageHandler`, receiving bridge messages from JavaScript, dispatching calls to registered plugins, and executing JavaScript callbacks on `window.__wefterNative`.
 - `WefterPlugin.swift`: Protocol and base class that iOS plugins conform to. Provides references to the root view controller, bridge dispatcher, and promise resolution helpers.
+- `WebUIDelegate.swift`: `alert()`, `confirm()` and `prompt()` as native alerts, `target="_blank"` and `window.open()`, and the camera and microphone for `getUserMedia()`. See [Web APIs](https://wefter.dev/docs/app-configuration/web-apis).
+- `WebGeolocation.swift`: `navigator.geolocation` answered by Core Location, with one permission prompt.
+- `WebDownloads.swift`: Downloads (`<a download>`, attachments, `blob:` and `data:` files and the app's own files), offered in the **Save to Files** sheet.
+- `ExternalLinks.swift`: Opens other sites in Safari and `tel:`, `mailto:`, `sms:` and other links in their apps.
 - `GeneratedRegistry.swift`: Emitted during `wefter sync`. Maps plugin names to Swift class initializers and provides direct method invocation without reflection.
 - `BuildConfig.swift`: Contains build-time variables such as developer server URLs and splash screen timeout configuration.
 - `Config/*.xcconfig`: Holds build settings, bundle identifiers, and display names corresponding to the active environment (`development`, `production`, and any others `wefter sync` adds build configurations for).

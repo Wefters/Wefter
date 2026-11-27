@@ -79,6 +79,7 @@ import {
   iosEntitlementsPath,
 } from "../native/inject-deep-links.js";
 import { resolveDeepLinks, type ResolvedDeepLinks } from "../config/deep-links.js";
+import { androidAppPermissions, iosAppUsageDescriptions } from "../config/app-permissions.js";
 import { shellTemplatePath, iosShellTemplatePath } from "../native/shell-template.js";
 import { resolveRegisteredPlugins, unresolvedRegisteredPlugins } from "../plugins/registry.js";
 import { checkLockDrift, writeLockfile } from "../plugins/lockfile.js";
@@ -268,10 +269,14 @@ export async function sync(projectDir: string, options: SyncOptions = {}): Promi
     const nativeDependenciesPackage = generateNativeDependenciesPackage(iosPlugins);
     writeFileSync(iosNativeDependenciesPackagePathVar, nativeDependenciesPackage + "\n", "utf-8");
 
-    const permissionsAdded = mergePermissions(androidPlugins, manifestPath);
+    const permissionsAdded = mergePermissions(androidPlugins, manifestPath, androidAppPermissions(config.permissions));
     const manifestEntriesAdded = mergeManifestEntries(androidPlugins, manifestPath, config.pluginConfig);
     const proguardRulesAdded = mergeProguardRules(androidPlugins, proguardRulesPath);
-    const iosPermissionsAdded = mergeInfoPlist(iosPlugins, iosInfoPlistPathVar);
+    const iosPermissionsAdded = mergeInfoPlist(
+      iosPlugins,
+      iosInfoPlistPathVar,
+      iosAppUsageDescriptions(config.permissions),
+    );
 
     const envNames = Object.keys(config.environments);
     ensureAndroidFlavors(buildGradlePath, envNames);

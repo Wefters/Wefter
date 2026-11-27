@@ -15,16 +15,22 @@ function escapeXml(value: string): string {
 }
 
 /**
- * Writes the iOS permission usage descriptions of all plugins into `Info.plist`, between the
- * `WEFTER-PERMISSIONS` markers. When two plugins set the same key, the later one wins.
+ * Writes the iOS permission usage descriptions of all plugins, and the `appDescriptions` of the app
+ * itself, into `Info.plist`, between the `WEFTER-PERMISSIONS` markers. When two plugins set the same key,
+ * the later one wins; the app's own description wins over every plugin's.
  *
  * @returns The keys and descriptions that were written.
  */
-export function mergeInfoPlist(plugins: DiscoveredPlugin[], infoPlistPath: string): Record<string, string> {
+export function mergeInfoPlist(
+  plugins: DiscoveredPlugin[],
+  infoPlistPath: string,
+  appDescriptions: Record<string, string> = {},
+): Record<string, string> {
   const merged: Record<string, string> = {};
   for (const plugin of plugins) {
     Object.assign(merged, plugin.manifest.permissions?.ios ?? {});
   }
+  Object.assign(merged, appDescriptions);
 
   const entries = Object.entries(merged)
     .map(([key, description]) => `\t<key>${escapeXml(key)}</key>\n\t<string>${escapeXml(description)}</string>`)

@@ -12,8 +12,10 @@ vi.mock("../src/native/android-builder.js", () => ({
   buildAndroid: (...args: unknown[]) => buildAndroidMock(...args),
 }));
 
+const reverseAdbPortMock = vi.fn();
 vi.mock("../src/native/adb-device.js", () => ({
   resolveAdbDevice: vi.fn().mockResolvedValue({ serial: "emulator-5554", state: "device", model: "Pixel_8" }),
+  reverseAdbPort: (...args: unknown[]) => reverseAdbPortMock(...args),
 }));
 
 vi.mock("../src/devserver/lan-ip.js", () => ({ resolveLanIp: vi.fn().mockResolvedValue("10.0.0.2") }));
@@ -46,7 +48,7 @@ vi.mock("node:child_process", () => ({
   spawn: (...args: unknown[]) => spawnMock(...args),
 }));
 
-const { run } = await import("../src/commands/run.js");
+const { run, localhostUrl } = await import("../src/commands/run.js");
 const { writeSyncMarker } = await import("../src/plugins/sync-freshness.js");
 const { configureUi, setTerminalStreams, stripAnsi } = await import("../src/ui/terminal.js");
 
@@ -87,6 +89,7 @@ beforeEach(() => {
   devServer.stop.mockReset();
   injectDevServerUrlMock.mockReset();
   injectNetworkSecurityExceptionMock.mockReset();
+  reverseAdbPortMock.mockReset().mockResolvedValue(true);
   spawnMock.mockReset();
   adbSucceeds();
 });
@@ -125,15 +128,28 @@ describe("run (Android)", () => {
     expect(session.buildMs).toBeGreaterThanOrEqual(0);
   });
 
-  it("with --watch, starts the dev server and points the app at it before building", async () => {
+  it("with --watch, starts the dev server and points the app at it on localhost through adb reverse", async () => {
     const session = await run(projectDir, { watch: true, env: "development" });
 
     expect(startDevServerMock).toHaveBeenCalledWith(projectDir, "10.0.0.2");
-    expect(injectNetworkSecurityExceptionMock).toHaveBeenCalledWith(expect.any(String), "10.0.0.2");
-    expect(injectDevServerUrlMock).toHaveBeenCalledWith(expect.stringMatching(/build\.gradle/), devServer.url);
+    expect(reverseAdbPortMock).toHaveBeenCalledWith("emulator-5554", 5173);
+    expect(injectNetworkSecurityExceptionMock).toHaveBeenCalledWith(expect.any(String), "localhost");
+    expect(injectDevServerUrlMock).toHaveBeenCalledWith(
+      expect.stringMatching(/build\.gradle/),
+      "http://localhost:5173",
+    );
     expect(session.devServer).toBe(devServer);
     expect(session.devtoolsUrl).toBe("http://10.0.0.2:5173/__wefter-devtools");
     expect(stripAnsi(out)).toContain("✔ Dev server ready at http://10.0.0.2:5173");
+  });
+
+  it("with --watch, uses the network address when adb reverse is not available", async () => {
+    reverseAdbPortMock.mockResolvedValue(false);
+
+    await run(projectDir, { watch: true, env: "development" });
+
+    expect(injectNetworkSecurityExceptionMock).toHaveBeenCalledWith(expect.any(String), "10.0.0.2");
+    expect(injectDevServerUrlMock).toHaveBeenCalledWith(expect.stringMatching(/build\.gradle/), devServer.url);
   });
 
   it("stops the dev server if anything fails after it started", async () => {
@@ -183,5 +199,12 @@ describe("run (Android)", () => {
   it("rejects an unknown environment before touching the device", async () => {
     await expect(run(projectDir, { watch: false, env: "staging" })).rejects.toThrow(/Unknown environment "staging"/);
     expect(spawnMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("localhostUrl", () => {
+  it("swaps the network address for localhost and keeps the port", () => {
+    expect(localhostUrl("http://10.0.0.2:5173")).toBe("http://localhost:5173");
+    expect(localhostUrl("http://192.168.1.20:5174/")).toBe("http://localhost:5174");
   });
 });

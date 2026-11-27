@@ -11,6 +11,8 @@ final class ViewController: UIViewController {
     private static let bundledURL = URL(string: "\(AssetSchemeHandler.scheme)://\(AssetSchemeHandler.host)/index.html")!
     private static let splashURL = URL(string: "\(AssetSchemeHandler.scheme)://\(AssetSchemeHandler.host)/splash/index.html")!
     private static let blankURL = URL(string: "about:blank")!
+    /// Schemes a frame inside the page may load in place.
+    private static let frameSchemes: Set<String> = ["http", "https", "about", "data", "blob"]
     /// How often the web content process may crash before giving up and showing a fallback message.
     private static let maxRenderProcessRetries = 3
 
@@ -36,6 +38,7 @@ final class ViewController: UIViewController {
     /// When the splash page finished loading, so its minimum duration counts from when it is on screen.
     private var splashShownAt: Date?
     private let splashNavigationDelegate = SplashNavigationDelegate()
+    private lazy var downloads = WebDownloads(presenter: self)
 
     private var usingDevServer = false
     private var renderProcessCrashCount = 0
@@ -152,16 +155,34 @@ final class ViewController: UIViewController {
         ])
     }
 
-    /// A web view configuration that serves `app://local/` from the bundle.
+    /// A web view configuration that serves `app://local/` from the bundle. Media behaves as in Safari:
+    /// videos with `playsinline` play in the page, muted videos may autoplay, and elements can go fullscreen.
     private func makeSchemeAwareConfiguration() -> WKWebViewConfiguration {
         let config = WKWebViewConfiguration()
         config.setURLSchemeHandler(AssetSchemeHandler(), forURLScheme: AssetSchemeHandler.scheme)
+        config.allowsInlineMediaPlayback = true
+        config.mediaTypesRequiringUserActionForPlayback = .audio
+        if #available(iOS 16.4, *) {
+            config.preferences.isElementFullscreenEnabled = true
+        }
         return config
+    }
+
+    /// Whether `url` is one of the app's own pages: the bundled app, or the dev server in debug builds.
+    func isOwnOrigin(_ url: URL) -> Bool {
+        (url.scheme == AssetSchemeHandler.scheme && url.host == AssetSchemeHandler.host)
+            || (devServerHost != nil && url.host == devServerHost)
+    }
+
+    /// Whether `origin` is one of the app's own pages.
+    func isOwnOrigin(_ origin: WKSecurityOrigin) -> Bool {
+        (origin.protocol == AssetSchemeHandler.scheme && origin.host == AssetSchemeHandler.host)
+            || (devServerHost != nil && origin.host == devServerHost)
     }
 
     /// Creates the main web view: injects the environment name, hides the keyboard's form bar unless the
     /// config keeps it, registers the plugins and the `__system` module, tells the page about incoming deep
-    /// links, and enables Safari inspection in debug builds.
+    /// links, answers `navigator.geolocation` natively, and enables Safari inspection in debug builds.
     private func makePrimaryWebView() -> WKWebView {
         let config = makeSchemeAwareConfiguration()
 
@@ -173,10 +194,17 @@ final class ViewController: UIViewController {
             forMainFrameOnly: true
         )
         userContentController.addUserScript(envScript)
+        userContentController.addUserScript(WebGeolocation.userScript)
+        userContentController.addUserScript(WebDownloads.userScript)
         config.userContentController = userContentController
 
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = self
+        webView.uiDelegate = self
+        let geolocation = WebGeolocation(webView: webView) { [weak self] origin in
+            self?.isOwnOrigin(origin) ?? false
+        }
+        userContentController.add(geolocation, name: WebGeolocation.messageHandlerName)
         Self.pinPageToScreen(webView)
         Self.showLaunchBackground(in: webView)
         FormAccessoryBar.apply(to: webView)
@@ -367,7 +395,9 @@ extension ViewController: WKNavigationDelegate {
         dispatcher.dispatchHook("appReady")
     }
 
-    /// Keeps navigation inside the app's own origin (bundled or dev server); other web links open in Safari.
+    /// Keeps navigation inside the app's own origin (bundled or dev server). Other web pages open in Safari,
+    /// and `tel:`, `mailto:`, `sms:` and other app links in their apps (see ``ExternalLinks``). Frames
+    /// inside a page load in place, and `<a download>` links are downloaded (see ``WebDownloads``).
     func webView(
         _ webView: WKWebView,
         decidePolicyFor navigationAction: WKNavigationAction,
@@ -377,19 +407,43 @@ extension ViewController: WKNavigationDelegate {
             decisionHandler(.allow)
             return
         }
-
-        let isOwnOrigin =
-            (url.scheme == AssetSchemeHandler.scheme && url.host == AssetSchemeHandler.host)
-            || (devServerHost != nil && url.host == devServerHost)
-        if isOwnOrigin {
+        if navigationAction.shouldPerformDownload {
+            decisionHandler(.download)
+            return
+        }
+        let scheme = url.scheme?.lowercased() ?? ""
+        let isFrame = !(navigationAction.targetFrame?.isMainFrame ?? true)
+        if isOwnOrigin(url) || scheme == "about" || (isFrame && Self.frameSchemes.contains(scheme)) {
             decisionHandler(.allow)
             return
         }
 
-        if url.scheme == "http" || url.scheme == "https" {
-            UIApplication.shared.open(url, options: [:], completionHandler: nil)
-        }
+        ExternalLinks.open(url, from: self)
         decisionHandler(.cancel)
+    }
+
+    /// Downloads responses sent as attachments, or that the web view cannot show.
+    func webView(
+        _ webView: WKWebView,
+        decidePolicyFor navigationResponse: WKNavigationResponse,
+        decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void
+    ) {
+        let disposition = (navigationResponse.response as? HTTPURLResponse)?
+            .value(forHTTPHeaderField: "Content-Disposition")?
+            .lowercased()
+        if disposition?.hasPrefix("attachment") == true || !navigationResponse.canShowMIMEType {
+            decisionHandler(.download)
+        } else {
+            decisionHandler(.allow)
+        }
+    }
+
+    func webView(_ webView: WKWebView, navigationAction: WKNavigationAction, didBecome download: WKDownload) {
+        downloads.track(download)
+    }
+
+    func webView(_ webView: WKWebView, navigationResponse: WKNavigationResponse, didBecome download: WKDownload) {
+        downloads.track(download)
     }
 
     /// Treats a failed load of the dev server as unreachable (debug builds only).

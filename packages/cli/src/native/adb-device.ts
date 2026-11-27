@@ -41,6 +41,22 @@ function runAdbCapture(args: string[]): Promise<string> {
   });
 }
 
+/**
+ * Makes `localhost:<port>` on the device reach the same port on this computer (`adb reverse`), so the app
+ * can load the dev server from `localhost`. Web views treat `localhost` as a secure origin, where the
+ * camera, microphone and location work; a network address such as `192.168.1.20` is not one.
+ *
+ * @returns Whether it worked.
+ */
+export async function reverseAdbPort(serial: string, port: number): Promise<boolean> {
+  try {
+    await runAdbCapture(["-s", serial, "reverse", `tcp:${port}`, `tcp:${port}`]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** Every device adb knows about, ready or not. */
 export async function listAdbDevices(): Promise<AdbDevice[]> {
   const output = await runAdbCapture(["devices", "-l"]);

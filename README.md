@@ -37,7 +37,7 @@ The same workflow applies whether you target Android or iOS.
 
 The system operates across four main steps:
 
-1. **Write your app.** Use standard web code running inside a native web view on Android or iOS.
+1. **Write your app.** Use standard web code running inside a native web view on Android or iOS. Browser features work as on the web without a plugin: `alert()`, file uploads, the camera and microphone, location, links to other apps, downloads and fullscreen video ([Web APIs](https://wefter.dev/docs/app-configuration/web-apis)).
 2. **Declare native capabilities.** Running `wefter add @yourorg/scanner-plugin` checks the package on the registry, adds it to `package.json`, and records it in `wefter.config.json`. Install dependencies using your preferred package manager (pnpm, npm, yarn, or bun).
 3. **Synchronize native code.** Running `wefter sync` weaves dependencies into a disposable native project (`.wefter/native/android` and `.wefter/native/ios`). Native plugin sources are copied, dependencies and permissions are merged, and a typed registry is generated automatically.
 4. **Build and launch.** Running `wefter run` compiles, installs, and launches the native app on an emulator, simulator, or connected physical device, supporting hot reload during development.

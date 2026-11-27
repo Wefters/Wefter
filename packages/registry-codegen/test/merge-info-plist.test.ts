@@ -130,4 +130,25 @@ describe("mergeInfoPlist", () => {
     expect(result).toContain("<!-- WEFTER-PERMISSIONS-START -->");
     expect(result).toContain("<!-- WEFTER-PERMISSIONS-END -->");
   });
+
+  it("writes the app's own usage descriptions, which win over a plugin's", () => {
+    tmpDir = mkdtempSync(join(tmpdir(), "wefter-plist-"));
+    plistPath = join(tmpDir, "Info.plist");
+    writeFileSync(plistPath, INITIAL_PLIST);
+
+    const written = mergeInfoPlist(
+      [pluginWithIosPermissions("scanner", { NSCameraUsageDescription: "Scan codes" })],
+      plistPath,
+      { NSCameraUsageDescription: "Take profile photos", NSLocationWhenInUseUsageDescription: "Find stores" },
+    );
+
+    const result = readFileSync(plistPath, "utf-8");
+    expect(written).toEqual({
+      NSCameraUsageDescription: "Take profile photos",
+      NSLocationWhenInUseUsageDescription: "Find stores",
+    });
+    expect(result).toContain("<string>Take profile photos</string>");
+    expect(result).not.toContain("Scan codes");
+    expect(result).toContain("<key>NSLocationWhenInUseUsageDescription</key>");
+  });
 });
