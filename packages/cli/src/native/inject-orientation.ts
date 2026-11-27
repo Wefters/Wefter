@@ -1,6 +1,7 @@
-/** Applies the `landscape` option from `wefter.config.json` to both native projects. */
+/** Applies the `orientation` option from `wefter.config.json` to both native projects. */
 
 import { readFileSync, writeFileSync } from "node:fs";
+import type { AppOrientation } from "../config/wefter-config-schema.js";
 
 /** Markers around the generated orientation settings in each native file. */
 export const ANDROID_ORIENTATION_START = "// WEFTER-ORIENTATION-CONFIG-START";
@@ -24,8 +25,21 @@ const IOS_LANDSCAPE_ORIENTATIONS = `\t<key>UISupportedInterfaceOrientations</key
 \t\t<string>UIInterfaceOrientationLandscapeRight</string>
 \t</array>`;
 
-/** `Info.plist` orientations when landscape is off: the iOS defaults for iPhone and iPad. */
-const IOS_DEFAULT_ORIENTATIONS = `\t<key>UISupportedInterfaceOrientations</key>
+/** `Info.plist` orientations for a portrait app: portrait on iPhone; every orientation on iPad, as the App Store requires. */
+const IOS_PORTRAIT_ORIENTATIONS = `\t<key>UISupportedInterfaceOrientations</key>
+\t<array>
+\t\t<string>UIInterfaceOrientationPortrait</string>
+\t</array>
+\t<key>UISupportedInterfaceOrientations~ipad</key>
+\t<array>
+\t\t<string>UIInterfaceOrientationPortrait</string>
+\t\t<string>UIInterfaceOrientationPortraitUpsideDown</string>
+\t\t<string>UIInterfaceOrientationLandscapeLeft</string>
+\t\t<string>UIInterfaceOrientationLandscapeRight</string>
+\t</array>`;
+
+/** `Info.plist` orientations for an app that rotates: the iOS defaults for iPhone and iPad. */
+const IOS_ANY_ORIENTATIONS = `\t<key>UISupportedInterfaceOrientations</key>
 \t<array>
 \t\t<string>UIInterfaceOrientationPortrait</string>
 \t\t<string>UIInterfaceOrientationLandscapeLeft</string>
@@ -39,11 +53,25 @@ const IOS_DEFAULT_ORIENTATIONS = `\t<key>UISupportedInterfaceOrientations</key>
 \t\t<string>UIInterfaceOrientationLandscapeRight</string>
 \t</array>`;
 
+/** `android:screenOrientation` of `MainActivity` for each orientation; `any` leaves it out. */
+const ANDROID_SCREEN_ORIENTATIONS: Record<AppOrientation, string | null> = {
+  portrait: "portrait",
+  landscape: "sensorLandscape",
+  any: null,
+};
+
 /**
- * Locks `MainActivity` to landscape (or removes the lock) in the manifest, and sets the `LANDSCAPE` build
- * config field. Projects that predate the markers get them added after the splash config.
+ * Sets `MainActivity`'s orientation in the manifest (portrait, or landscape either way up; none for `any`)
+ * and the `LANDSCAPE` build config field. Android 16 ignores the lock on large screens such as tablets.
+ * Projects that predate the markers get them added after the splash config.
  */
-export function injectOrientationAndroid(manifestPath: string, buildGradlePath: string, landscape: boolean): void {
+export function injectOrientationAndroid(
+  manifestPath: string,
+  buildGradlePath: string,
+  orientation: AppOrientation,
+): void {
+  const landscape = orientation === "landscape";
+  const screenOrientation = ANDROID_SCREEN_ORIENTATIONS[orientation];
   let manifest = readFileSync(manifestPath, "utf-8");
   const activityRegex = /(<activity\b[^>]*android:name="\.MainActivity"[^>]*>)/s;
   const match = manifest.match(activityRegex);
@@ -52,17 +80,12 @@ export function injectOrientationAndroid(manifestPath: string, buildGradlePath: 
     let activityTag = match[1];
     const orientationAttrRegex = /\s*android:screenOrientation="[^"]*"/;
 
-    if (landscape) {
+    if (screenOrientation) {
+      const attribute = `\n            android:screenOrientation="${screenOrientation}"`;
       if (orientationAttrRegex.test(activityTag)) {
-        activityTag = activityTag.replace(
-          orientationAttrRegex,
-          '\n            android:screenOrientation="sensorLandscape"',
-        );
+        activityTag = activityTag.replace(orientationAttrRegex, attribute);
       } else {
-        activityTag = activityTag.replace(
-          /(android:name="\.MainActivity")/,
-          '$1\n            android:screenOrientation="sensorLandscape"',
-        );
+        activityTag = activityTag.replace(/(android:name="\.MainActivity")/, `$1${attribute}`);
       }
     } else {
       activityTag = activityTag.replace(orientationAttrRegex, "");
@@ -96,13 +119,25 @@ export function injectOrientationAndroid(manifestPath: string, buildGradlePath: 
   writeFileSync(buildGradlePath, gradle, "utf-8");
 }
 
+/** `Info.plist` orientations for each orientation. */
+const IOS_ORIENTATIONS: Record<AppOrientation, string> = {
+  portrait: IOS_PORTRAIT_ORIENTATIONS,
+  landscape: IOS_LANDSCAPE_ORIENTATIONS,
+  any: IOS_ANY_ORIENTATIONS,
+};
+
 /**
  * Writes the supported orientations into `Info.plist` and the `landscape` constant into
  * `BuildConfig.swift`. Projects that predate the markers get them added.
  */
-export function injectOrientationIos(infoPlistPath: string, buildConfigPath: string, landscape: boolean): void {
+export function injectOrientationIos(
+  infoPlistPath: string,
+  buildConfigPath: string,
+  orientation: AppOrientation,
+): void {
+  const landscape = orientation === "landscape";
   let plist = readFileSync(infoPlistPath, "utf-8");
-  const orientationsBlock = landscape ? IOS_LANDSCAPE_ORIENTATIONS : IOS_DEFAULT_ORIENTATIONS;
+  const orientationsBlock = IOS_ORIENTATIONS[orientation];
   const replacement = `${IOS_ORIENTATION_PLIST_START}\n${orientationsBlock}\n\t${IOS_ORIENTATION_PLIST_END}`;
 
   const markerPattern = new RegExp(`${IOS_ORIENTATION_PLIST_START}[\\s\\S]*?${IOS_ORIENTATION_PLIST_END}`);

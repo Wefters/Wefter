@@ -59,8 +59,17 @@ describe("injectOrientationAndroid", () => {
     rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it("injects sensorLandscape into MainActivity and updates build.gradle.kts when landscape is true", () => {
-    injectOrientationAndroid(manifestPath, buildGradlePath, true);
+  it("locks MainActivity to portrait and sets LANDSCAPE to false for portrait", () => {
+    injectOrientationAndroid(manifestPath, buildGradlePath, "portrait");
+
+    const manifest = readFileSync(manifestPath, "utf-8");
+    expect(manifest).toContain('android:screenOrientation="portrait"');
+    expect(manifest.match(/screenOrientation/g)).toHaveLength(1);
+    expect(readFileSync(buildGradlePath, "utf-8")).toContain('buildConfigField("boolean", "LANDSCAPE", "false")');
+  });
+
+  it("injects sensorLandscape into MainActivity and updates build.gradle.kts for landscape", () => {
+    injectOrientationAndroid(manifestPath, buildGradlePath, "landscape");
 
     const manifest = readFileSync(manifestPath, "utf-8");
     expect(manifest).toContain('android:screenOrientation="sensorLandscape"');
@@ -69,11 +78,20 @@ describe("injectOrientationAndroid", () => {
     expect(gradle).toContain('buildConfigField("boolean", "LANDSCAPE", "true")');
   });
 
-  it("removes screenOrientation and sets LANDSCAPE to false when landscape is false", () => {
-    injectOrientationAndroid(manifestPath, buildGradlePath, true);
+  it("switches an existing lock to another orientation", () => {
+    injectOrientationAndroid(manifestPath, buildGradlePath, "landscape");
+    injectOrientationAndroid(manifestPath, buildGradlePath, "portrait");
+
+    const manifest = readFileSync(manifestPath, "utf-8");
+    expect(manifest).toContain('android:screenOrientation="portrait"');
+    expect(manifest).not.toContain("sensorLandscape");
+  });
+
+  it("removes screenOrientation and sets LANDSCAPE to false for any", () => {
+    injectOrientationAndroid(manifestPath, buildGradlePath, "landscape");
     expect(readFileSync(manifestPath, "utf-8")).toContain('android:screenOrientation="sensorLandscape"');
 
-    injectOrientationAndroid(manifestPath, buildGradlePath, false);
+    injectOrientationAndroid(manifestPath, buildGradlePath, "any");
     const manifest = readFileSync(manifestPath, "utf-8");
     expect(manifest).not.toContain("android:screenOrientation");
 
@@ -128,8 +146,22 @@ describe("injectOrientationIos", () => {
     rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it("restricts Info.plist orientations to landscape and sets BuildConfig.landscape = true", () => {
-    injectOrientationIos(infoPlistPath, buildConfigPath, true);
+  it("restricts iPhone to portrait and keeps every iPad orientation for portrait", () => {
+    injectOrientationIos(infoPlistPath, buildConfigPath, "portrait");
+
+    const plist = readFileSync(infoPlistPath, "utf-8");
+    const [iphone, ipad] = plist.split("UISupportedInterfaceOrientations~ipad");
+    expect(iphone).toContain("UIInterfaceOrientationPortrait");
+    expect(iphone).not.toContain("Landscape");
+    expect(iphone).not.toContain("PortraitUpsideDown");
+    for (const orientation of ["Portrait", "PortraitUpsideDown", "LandscapeLeft", "LandscapeRight"]) {
+      expect(ipad).toContain(`UIInterfaceOrientation${orientation}</string>`);
+    }
+    expect(readFileSync(buildConfigPath, "utf-8")).toContain("static let landscape = false");
+  });
+
+  it("restricts Info.plist orientations to landscape and sets BuildConfig.landscape = true for landscape", () => {
+    injectOrientationIos(infoPlistPath, buildConfigPath, "landscape");
 
     const plist = readFileSync(infoPlistPath, "utf-8");
     expect(plist).toContain("UIInterfaceOrientationLandscapeLeft");
@@ -140,13 +172,14 @@ describe("injectOrientationIos", () => {
     expect(buildConfig).toContain("static let landscape = true");
   });
 
-  it("restores portrait orientations and sets BuildConfig.landscape = false when landscape is false", () => {
-    injectOrientationIos(infoPlistPath, buildConfigPath, true);
-    injectOrientationIos(infoPlistPath, buildConfigPath, false);
+  it("allows portrait and landscape on iPhone and sets BuildConfig.landscape = false for any", () => {
+    injectOrientationIos(infoPlistPath, buildConfigPath, "landscape");
+    injectOrientationIos(infoPlistPath, buildConfigPath, "any");
 
     const plist = readFileSync(infoPlistPath, "utf-8");
-    expect(plist).toContain("UIInterfaceOrientationPortrait");
-    expect(plist).toContain("UIInterfaceOrientationLandscapeLeft");
+    const [iphone] = plist.split("UISupportedInterfaceOrientations~ipad");
+    expect(iphone).toContain("UIInterfaceOrientationPortrait");
+    expect(iphone).toContain("UIInterfaceOrientationLandscapeLeft");
 
     const buildConfig = readFileSync(buildConfigPath, "utf-8");
     expect(buildConfig).toContain("static let landscape = false");

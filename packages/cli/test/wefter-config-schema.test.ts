@@ -79,37 +79,40 @@ describe("WefterConfigSchema — iOS fields", () => {
     expect(legacyConfigNotes(raw)).toHaveLength(2);
   });
 
-  describe("landscape field", () => {
-    it("is undefined when omitted", () => {
-      const result = WefterConfigSchema.safeParse({
-        environments: { production: { appId: "com.example.app", appName: "Example" } },
-      });
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data.landscape).toBeUndefined();
-      }
+  describe("orientation field", () => {
+    const environments = { production: { appId: "com.example.app", appName: "Example" } };
+
+    it("is undefined when omitted (sync then locks phones to portrait)", () => {
+      const result = WefterConfigSchema.parse({ environments });
+      expect(result.orientation).toBeUndefined();
     });
 
-    it("accepts landscape: true", () => {
-      const result = WefterConfigSchema.safeParse({
-        environments: { production: { appId: "com.example.app", appName: "Example" } },
-        landscape: true,
-      });
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data.landscape).toBe(true);
-      }
+    it.each(["portrait", "landscape", "any"] as const)("accepts %s", (orientation) => {
+      expect(WefterConfigSchema.parse({ environments, orientation }).orientation).toBe(orientation);
     });
 
-    it("accepts landscape: false", () => {
-      const result = WefterConfigSchema.safeParse({
-        environments: { production: { appId: "com.example.app", appName: "Example" } },
-        landscape: false,
-      });
-      expect(result.success).toBe(true);
-      if (result.success) {
-        expect(result.data.landscape).toBe(false);
-      }
+    it("rejects other values", () => {
+      expect(WefterConfigSchema.safeParse({ environments, orientation: "upside-down" }).success).toBe(false);
+    });
+
+    it('moves "landscape": true to "orientation": "landscape", with a note', () => {
+      const raw = { environments, landscape: true };
+      const result = WefterConfigSchema.parse(raw);
+      expect(result.orientation).toBe("landscape");
+      expect(result).not.toHaveProperty("landscape");
+      expect(legacyConfigNotes(raw)).toEqual(['"landscape": true is now "orientation": "landscape"']);
+    });
+
+    it('drops "landscape": false, leaving the portrait default, with a note about "any"', () => {
+      const raw = { environments, landscape: false };
+      const result = WefterConfigSchema.parse(raw);
+      expect(result.orientation).toBeUndefined();
+      expect(result).not.toHaveProperty("landscape");
+      expect(legacyConfigNotes(raw)[0]).toMatch(/"orientation": "any"/);
+    });
+
+    it('keeps an explicit "orientation" over a legacy "landscape"', () => {
+      expect(WefterConfigSchema.parse({ environments, landscape: true, orientation: "any" }).orientation).toBe("any");
     });
   });
 });

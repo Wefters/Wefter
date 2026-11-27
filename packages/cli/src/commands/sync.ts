@@ -319,8 +319,8 @@ export async function sync(projectDir: string, options: SyncOptions = {}): Promi
     injectVersionIos(iosSharedXcconfigPath(projectDir), iosInfoPlistPathVar, appVersion);
     injectExportComplianceIos(iosInfoPlistPathVar, config.build.ios.usesNonExemptEncryption);
 
-    injectOrientationAndroid(manifestPath, buildGradlePath, Boolean(config.landscape));
-    injectOrientationIos(iosInfoPlistPathVar, iosBuildConfigPathVar, Boolean(config.landscape));
+    injectOrientationAndroid(manifestPath, buildGradlePath, config.orientation ?? "portrait");
+    injectOrientationIos(iosInfoPlistPathVar, iosBuildConfigPathVar, config.orientation ?? "portrait");
     injectKeyboardConfigIos(iosBuildConfigPathVar, config.keyboard?.accessoryBar ?? false);
 
     const deepLinks = Object.fromEntries(

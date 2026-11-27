@@ -86,8 +86,11 @@ class MainActivity : AppCompatActivity() {
     private lateinit var runtimePermissions: RuntimePermissions
     private lateinit var chromeClient: WefterChromeClient
     private lateinit var downloads: WebDownloads
+    private lateinit var geolocation: WebGeolocation
     /** Whether the download script must run after each page load (web views without document start scripts). */
     private var injectDownloadScriptAfterLoad = false
+    /** Whether the geolocation script must run after each page load, likewise. */
+    private var injectGeolocationScriptAfterLoad = false
 
     private val handler = Handler(Looper.getMainLooper())
     private var devServerWatchdog: Runnable? = null
@@ -148,6 +151,7 @@ class MainActivity : AppCompatActivity() {
                         isOwnOrigin = ::isOwnOrigin
                 )
         downloads = WebDownloads(this)
+        geolocation = WebGeolocation(this)
 
         webView = createPrimaryWebView()
         root.addView(
@@ -369,6 +373,7 @@ class MainActivity : AppCompatActivity() {
         newWebView.setBackgroundColor(launchBackground)
         newWebView.webChromeClient = chromeClient
         injectDownloadScriptAfterLoad = downloads.attach(newWebView, ownOrigins(), ::isOwnOrigin)
+        injectGeolocationScriptAfterLoad = geolocation.attach(newWebView, ownOrigins())
 
         newWebView.webViewClient =
                 object : WebViewClient() {
@@ -384,8 +389,9 @@ class MainActivity : AppCompatActivity() {
                      */
                     override fun onPageFinished(view: WebView, url: String) {
                         view.setBackgroundColor(Color.WHITE)
-                        if (injectDownloadScriptAfterLoad && isOwnOrigin(Uri.parse(url))) {
-                            downloads.injectInto(view)
+                        if (isOwnOrigin(Uri.parse(url))) {
+                            if (injectDownloadScriptAfterLoad) downloads.injectInto(view)
+                            if (injectGeolocationScriptAfterLoad) geolocation.injectInto(view)
                         }
 
                         if (usingDevServer) {

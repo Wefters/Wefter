@@ -1,6 +1,7 @@
 /**
  * `wefter run`: builds the app, installs it on a device or simulator and launches it. With `--watch` it
  * also starts the Vite dev server and points the app at it, so web changes hot-reload on the device.
+ * `wefter run all` does this for Android and then iOS, with one dev server for both.
  */
 
 import chalk from "chalk";
@@ -30,12 +31,18 @@ import { checkSyncFreshness } from "../plugins/sync-freshness.js";
 import { resolveRegisteredPlugins, unresolvedRegisteredPlugins } from "../plugins/registry.js";
 import { runHook } from "../hooks/run-hook.js";
 import { step } from "../ui/steps.js";
+import { writeLine } from "../ui/terminal.js";
 import logger from "../utils/logger.js";
 
 /** Which environment to run, and whether to use the dev server. */
 export interface RunOptions {
   watch: boolean;
   env: string;
+  /**
+   * With `watch`, a dev server that is already running (`run all` shares one) instead of starting one. It is
+   * left running when the run fails.
+   */
+  devServer?: DevServer;
 }
 
 /** iOS run options; `simulator` picks the simulator by name or UDID. */
@@ -48,7 +55,7 @@ export interface IosRunOptions extends RunOptions {
  * `restartApp`.
  */
 export interface RunSession {
-  platform: "android" | "ios";
+  platform: "android" | "ios" | "all";
   appName: string;
   targetName: string;
   devServer: DevServer | null;
@@ -89,12 +96,11 @@ function warnUnresolved(unresolved: string[]): void {
 }
 
 /** Picks the LAN address and starts the dev server on it. */
-async function startWatchServer(projectDir: string): Promise<{ devServer: DevServer; lanIp: string }> {
+async function startWatchServer(projectDir: string): Promise<DevServer> {
   const lanIp = await resolveLanIp();
-  const devServer = await step("Starting dev server", () => startDevServer(projectDir, lanIp), {
+  return step("Starting dev server", () => startDevServer(projectDir, lanIp), {
     done: (server) => `Dev server ready at ${chalk.cyan(server.url)}`,
   });
-  return { devServer, lanIp };
 }
 
 /**
@@ -142,8 +148,7 @@ export async function run(projectDir: string, options: RunOptions): Promise<RunS
   let devServer: DevServer | null = null;
   try {
     if (options.watch) {
-      const started = await startWatchServer(projectDir);
-      devServer = started.devServer;
+      devServer = options.devServer ?? (await startWatchServer(projectDir));
       const server = devServer;
       const buildGradlePath = androidBuildGradlePath(projectDir);
       const networkSecurityConfigPath = androidDebugNetworkSecurityConfigPath(projectDir);
@@ -186,7 +191,7 @@ export async function run(projectDir: string, options: RunOptions): Promise<RunS
       restartApp: () => restartAndroidApp(target),
     };
   } catch (err) {
-    devServer?.stop();
+    if (devServer !== options.devServer) devServer?.stop();
     throw err;
   }
 }
@@ -214,8 +219,7 @@ export async function runIos(projectDir: string, options: IosRunOptions): Promis
   let devServer: DevServer | null = null;
   try {
     if (options.watch) {
-      const started = await startWatchServer(projectDir);
-      devServer = started.devServer;
+      devServer = options.devServer ?? (await startWatchServer(projectDir));
       const appUrl = localhostUrl(devServer.url);
       const buildConfigPath = iosBuildConfigPath(projectDir);
       const infoPlistPath = iosInfoPlistPath(projectDir);
@@ -270,7 +274,118 @@ export async function runIos(projectDir: string, options: IosRunOptions): Promis
       restartApp: () => restartIosApp(bundleId, simulator.udid),
     };
   } catch (err) {
-    devServer?.stop();
+    if (devServer !== options.devServer) devServer?.stop();
     throw err;
   }
+}
+
+/** A platform `run all` runs. */
+export type RunPlatform = "android" | "ios";
+
+/** `run all` options. */
+export interface RunAllOptions extends IosRunOptions {
+  /**
+   * Reports a platform that could not run, when it fails and again when Ctrl+R retries it. The other
+   * platform keeps running.
+   */
+  onPlatformFailure(platform: RunPlatform, error: unknown): void;
+  /** Where the iOS app can run; defaults to this computer's OS. Replaced in tests. */
+  hostPlatform?: NodeJS.Platform;
+}
+
+const PLATFORM_LABELS: Record<RunPlatform, string> = { android: "Android", ios: "iOS" };
+
+/**
+ * Runs the app on an Android device and an iOS simulator, one after the other, with one dev server for
+ * both when watching. iOS is left out on computers other than Macs.
+ *
+ * A platform that fails is reported through `onPlatformFailure` and the other still runs; the session's
+ * `rebuild()` then tries the failed one again too.
+ *
+ * @returns The session of the apps that are running, or `null` when none could run (each failure has
+ *   been reported).
+ * @throws {Error} When the environment is unknown, the project needs a sync, or the dev server does not start.
+ */
+export async function runAll(projectDir: string, options: RunAllOptions): Promise<RunSession | null> {
+  const config = loadWefterConfig(projectDir);
+  const environment = environmentOf(config, options.env);
+  assertSynced(projectDir);
+
+  const platforms: RunPlatform[] = ["android"];
+  if ((options.hostPlatform ?? process.platform) === "darwin") {
+    platforms.push("ios");
+  } else {
+    logger.warn("iOS apps need a Mac with Xcode; running the Android app only.");
+  }
+
+  const startedAt = Date.now();
+  const devServer = options.watch ? await startWatchServer(projectDir) : null;
+  const shared: RunOptions = { watch: options.watch, env: options.env, devServer: devServer ?? undefined };
+  const start = (platform: RunPlatform) =>
+    platform === "android" ? run(projectDir, shared) : runIos(projectDir, { ...shared, simulator: options.simulator });
+
+  const running = new Map<RunPlatform, RunSession>();
+  /** Starts each of `toStart` in turn; returns the errors of those that failed. */
+  const startEach = async (toStart: RunPlatform[]) => {
+    const errors: { platform: RunPlatform; error: unknown }[] = [];
+    for (const platform of toStart) {
+      writeLine("");
+      writeLine(chalk.bold(PLATFORM_LABELS[platform]));
+      try {
+        running.set(platform, await start(platform));
+      } catch (error) {
+        errors.push({ platform, error });
+      }
+    }
+    return errors;
+  };
+
+  const failures = await startEach(platforms);
+  for (const { platform, error } of failures) options.onPlatformFailure(platform, error);
+  if (running.size === 0) {
+    devServer?.stop();
+    return null;
+  }
+  const buildMs = Date.now() - startedAt;
+  const sessions = () => platforms.flatMap((platform) => running.get(platform) ?? []);
+
+  return {
+    platform: "all",
+    appName: environment.appName,
+    get targetName() {
+      return sessions()
+        .map((session) => session.targetName)
+        .join(" and ");
+    },
+    devServer,
+    devtoolsUrl: sessions()[0].devtoolsUrl,
+    buildMs,
+    /**
+     * Rebuilds the running apps and tries the failed ones again. Every platform is tried; all failures but
+     * the last are reported through `onPlatformFailure`, and the last is thrown.
+     */
+    async rebuild() {
+      const errors: { platform: RunPlatform; error: unknown }[] = [];
+      for (const platform of platforms) {
+        const session = running.get(platform);
+        if (!session) {
+          errors.push(...(await startEach([platform])));
+          continue;
+        }
+        writeLine("");
+        writeLine(chalk.bold(PLATFORM_LABELS[platform]));
+        try {
+          await session.rebuild();
+        } catch (error) {
+          errors.push({ platform, error });
+        }
+      }
+      const last = errors.pop();
+      for (const { platform, error } of errors) options.onPlatformFailure(platform, error);
+      if (last) throw last.error;
+    },
+    async restartApp() {
+      await Promise.all(sessions().map((session) => session.restartApp()));
+    },
+  };
 }

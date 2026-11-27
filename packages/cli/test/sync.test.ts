@@ -527,10 +527,36 @@ describe("sync — iOS", () => {
     expect(registry).toContain("enum GeneratedRegistry");
   });
 
-  it("injects landscape orientation into Android and iOS shells when landscape: true in wefter.config.json", async () => {
+  it("locks phones to portrait by default", async () => {
+    await sync(projectDir);
+
+    expect(readFileSync(manifestPath, "utf-8")).toContain('android:screenOrientation="portrait"');
+    const [iphone] = readFileSync(join(iosAppDir, "Info.plist"), "utf-8").split(
+      "UISupportedInterfaceOrientations~ipad",
+    );
+    expect(iphone).toContain("UIInterfaceOrientationPortrait");
+    expect(iphone).not.toContain("UIInterfaceOrientationLandscape");
+  });
+
+  it('lets the app rotate with "orientation": "any"', async () => {
     const configPath = join(projectDir, "wefter.config.json");
     const config = JSON.parse(readFileSync(configPath, "utf-8"));
-    config.landscape = true;
+    config.orientation = "any";
+    writeFileSync(configPath, JSON.stringify(config, null, 2), "utf-8");
+
+    await sync(projectDir);
+
+    expect(readFileSync(manifestPath, "utf-8")).not.toContain("android:screenOrientation");
+    const [iphone] = readFileSync(join(iosAppDir, "Info.plist"), "utf-8").split(
+      "UISupportedInterfaceOrientations~ipad",
+    );
+    expect(iphone).toContain("UIInterfaceOrientationLandscapeLeft");
+  });
+
+  it('injects landscape orientation into Android and iOS shells for "orientation": "landscape"', async () => {
+    const configPath = join(projectDir, "wefter.config.json");
+    const config = JSON.parse(readFileSync(configPath, "utf-8"));
+    config.orientation = "landscape";
     writeFileSync(configPath, JSON.stringify(config, null, 2), "utf-8");
 
     await sync(projectDir);

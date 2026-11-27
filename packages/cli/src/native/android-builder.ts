@@ -6,6 +6,7 @@ import type { AndroidFormat, WefterConfig } from "../config/wefter-config-schema
 import { runProcess } from "../process/run-process.js";
 import { diagnoseGradle } from "./android-diagnostics.js";
 import { createGradleProgress } from "./build-progress.js";
+import { androidSdkDir } from "./android-verify.js";
 
 /**
  * What Gradle built: the APK and/or App Bundle (named after the app, see {@link artifactFileName}), and for
@@ -18,6 +19,16 @@ export interface AndroidBuildResult {
   mappingPath?: string;
   nativeSymbolsPath?: string;
   sizeBytes: number;
+}
+
+/**
+ * Points Gradle at the Android SDK when neither `ANDROID_HOME` nor `ANDROID_SDK_ROOT` is set but the SDK is
+ * in Android Studio's default folder, so builds work without setting either variable.
+ */
+function sdkEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  if (env.ANDROID_HOME || env.ANDROID_SDK_ROOT) return {};
+  const sdk = androidSdkDir(env);
+  return sdk ? { ANDROID_HOME: sdk } : {};
 }
 
 /** Upper-cases the first character, for Gradle task names. */
@@ -74,7 +85,7 @@ export async function buildAndroid(
   const progress = createGradleProgress(capitalize(variant));
   await runProcess("./gradlew", [...tasks, "--console=plain"], {
     cwd: projectRoot,
-    env: { ...withoutSigningVariables(process.env), ...signingEnv },
+    env: { ...withoutSigningVariables(process.env), ...sdkEnv(process.env), ...signingEnv },
     tool: "Gradle",
     diagnose: diagnoseGradle,
     failureMessage: (code) => `Gradle build failed with exit code ${code}`,

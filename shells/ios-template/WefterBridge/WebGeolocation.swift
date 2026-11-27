@@ -7,6 +7,9 @@ import WebKit
 /// the page's origin. This one asks once, with the app's usage description (`permissions.location` in
 /// `wefter.config.json`), and keeps the standard API: `getCurrentPosition`, `watchPosition` and
 /// `clearWatch` with their `enableHighAccuracy`, `timeout` and `maximumAge` options.
+///
+/// When Location Services are off, requests get `POSITION_UNAVAILABLE` ("Location services are off") rather
+/// than a denial, iOS offers to turn them on, and watches resume once they are.
 final class WebGeolocation: NSObject, WKScriptMessageHandler, CLLocationManagerDelegate {
     static let messageHandlerName = "wefterGeolocation"
 
@@ -118,6 +121,11 @@ final class WebGeolocation: NSObject, WKScriptMessageHandler, CLLocationManagerD
     private var highAccuracyIds: Set<Int> = []
     private var awaitingAuthorization = false
     private var updating = false
+    /// Whether updates were started only so that iOS offers to turn Location Services on; their failure is
+    /// not reported again.
+    private var offeringServices = false
+    /// Watches already told that Location Services are off.
+    private var watchesToldServicesOff: Set<Int> = []
 
     init(webView: WKWebView, isOwnOrigin: @escaping (WKSecurityOrigin) -> Bool) {
         self.webView = webView
@@ -144,6 +152,7 @@ final class WebGeolocation: NSObject, WKScriptMessageHandler, CLLocationManagerD
             pendingIds.remove(id)
             watchIds.remove(id)
             highAccuracyIds.remove(id)
+            watchesToldServicesOff.remove(id)
             stopIfIdle()
         default:
             break
@@ -165,13 +174,37 @@ final class WebGeolocation: NSObject, WKScriptMessageHandler, CLLocationManagerD
             awaitingAuthorization = true
             manager.requestWhenInUseAuthorization()
         case .denied, .restricted:
-            failAll(code: 1, message: "User denied Geolocation")
+            // iOS reports the app as denied while Location Services are off. Asking whether they are on can
+            // block, so it is not asked on the main thread.
+            DispatchQueue.global(qos: .userInitiated).async {
+                let servicesOn = CLLocationManager.locationServicesEnabled()
+                DispatchQueue.main.async { self.denied(servicesOn: servicesOn) }
+            }
         default:
             manager.desiredAccuracy = highAccuracyIds.isEmpty ? kCLLocationAccuracyHundredMeters : kCLLocationAccuracyBest
+            offeringServices = false
+            watchesToldServicesOff.removeAll()
             if !updating {
                 updating = true
                 manager.startUpdatingLocation()
             }
+        }
+    }
+
+    private func denied(servicesOn: Bool) {
+        guard !servicesOn else {
+            failAll(code: 1, message: "User denied Geolocation")
+            return
+        }
+        let ids = Array(pendingIds.union(watchIds.subtracting(watchesToldServicesOff)))
+        pendingIds.removeAll()
+        highAccuracyIds = highAccuracyIds.intersection(watchIds)
+        watchesToldServicesOff.formUnion(watchIds)
+        if !ids.isEmpty { send("error", ids: ids, arguments: [2, "Location services are off"]) }
+        // Starting updates while Location Services are off makes iOS offer to turn them on.
+        if !updating && !offeringServices {
+            offeringServices = true
+            manager.startUpdatingLocation()
         }
     }
 
@@ -181,13 +214,25 @@ final class WebGeolocation: NSObject, WKScriptMessageHandler, CLLocationManagerD
         manager.stopUpdatingLocation()
     }
 
+    /// Continues after the user answered the permission alert, and resumes watches once the app may use
+    /// location again (for example after Location Services were turned back on).
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        guard awaitingAuthorization, manager.authorizationStatus != .notDetermined else { return }
-        awaitingAuthorization = false
-        if !pendingIds.isEmpty || !watchIds.isEmpty { start() }
+        let status = manager.authorizationStatus
+        guard status != .notDetermined else { return }
+        let authorized = status == .authorizedWhenInUse || status == .authorizedAlways
+        if awaitingAuthorization {
+            awaitingAuthorization = false
+            if !pendingIds.isEmpty || !watchIds.isEmpty { start() }
+        } else if authorized, !watchIds.isEmpty, !updating {
+            start()
+        }
     }
 
     func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        if offeringServices {
+            offeringServices = false
+            if !updating { manager.stopUpdatingLocation() }
+        }
         guard let location = locations.last else { return }
         let ids = Array(pendingIds.union(watchIds))
         pendingIds.forEach { highAccuracyIds.remove($0) }
@@ -212,6 +257,11 @@ final class WebGeolocation: NSObject, WKScriptMessageHandler, CLLocationManagerD
     func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
         let code = (error as? CLError)?.code
         if code == .locationUnknown { return }
+        if offeringServices {
+            offeringServices = false
+            manager.stopUpdatingLocation()
+            if code == .denied { return }
+        }
         if code == .denied {
             failAll(code: 1, message: "User denied Geolocation")
         } else {
@@ -223,7 +273,10 @@ final class WebGeolocation: NSObject, WKScriptMessageHandler, CLLocationManagerD
     private func failAll(code: Int, message: String) {
         let ids = Array(pendingIds.union(watchIds))
         pendingIds.removeAll()
-        if code == 1 { watchIds.removeAll() }
+        if code == 1 {
+            watchIds.removeAll()
+            watchesToldServicesOff.removeAll()
+        }
         highAccuracyIds = highAccuracyIds.intersection(watchIds)
         stopIfIdle()
         if !ids.isEmpty { send("error", ids: ids, arguments: [code, message]) }

@@ -240,8 +240,23 @@ export function migrateLegacyConfig(raw: unknown): unknown {
     delete config.iosSigning;
   }
 
+  if (config.landscape !== undefined) {
+    if (config.landscape === true && config.orientation === undefined) config.orientation = "landscape";
+    delete config.landscape;
+  }
+
   return config;
 }
+
+/**
+ * The orientations the app is shown in:
+ *
+ * - `portrait` (the default): portrait only on phones. Tablets rotate freely, as the App Store requires of
+ *   iPad apps and Android 16 does for large screens.
+ * - `landscape`: landscape only, either way up, on phones and tablets.
+ * - `any`: every orientation the device allows.
+ */
+export const OrientationSchema = z.enum(["portrait", "landscape", "any"]);
 
 /** Messages for each setting written in an older shape, telling the developer what to change. */
 export function legacyConfigNotes(raw: unknown): string[] {
@@ -255,6 +270,14 @@ export function legacyConfigNotes(raw: unknown): string[] {
   if (config.iosSigning !== undefined) {
     notes.push('"iosSigning" has moved to "signing": { "ios": { … } }');
   }
+  if (config.landscape === true) {
+    notes.push('"landscape": true is now "orientation": "landscape"');
+  } else if (config.landscape !== undefined) {
+    notes.push(
+      '"landscape" has been replaced by "orientation". Apps are now portrait on phones by default; ' +
+        'set "orientation": "any" to let the app rotate',
+    );
+  }
   return notes;
 }
 
@@ -266,7 +289,7 @@ export function legacyConfigNotes(raw: unknown): string[] {
  * - `webDir`: the web app's build output.
  * - `pluginConfig`: values for `${key}` placeholders in plugin manifests.
  * - `environments`: app id, name, optional iOS bundle id and deep link overrides per environment.
- * - `icon`, `launchBackground`, `splash`, `landscape`: app look and orientation.
+ * - `icon`, `launchBackground`, `splash`, `orientation`: app look and orientation.
  * - `deepLinks`: custom URL schemes and verified web domains the app opens for.
  * - `keyboard`: keyboard behaviour in the web view.
  * - `permissions`: camera, microphone and location used by the web app itself, with the iOS messages.
@@ -292,7 +315,7 @@ export const WefterConfigSchema = z.preprocess(
       .regex(/^#[0-9A-Fa-f]{6}$/, "launchBackground must be a 6-digit hex color, e.g. #14161C")
       .optional(),
 
-    landscape: z.boolean().optional(),
+    orientation: OrientationSchema.optional(),
 
     deepLinks: DeepLinksSchema.optional(),
 
@@ -331,6 +354,9 @@ export type WefterConfig = z.infer<typeof WefterConfigSchema>;
 
 /** The `permissions` the web app uses, as written in the config. */
 export type AppPermissionsConfig = z.infer<typeof PermissionsSchema>;
+
+/** `orientation` from `wefter.config.json`. */
+export type AppOrientation = z.infer<typeof OrientationSchema>;
 
 /** Android signing settings as written in the config. */
 export type AndroidSigningConfig = z.infer<typeof AndroidSigningSchema>;

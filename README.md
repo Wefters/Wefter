@@ -31,7 +31,7 @@ pnpm add @yourorg/scanner-plugin     # install with your package manager
 wefter run android --watch           # build, install, launch, and live-reload
 ```
 
-The same workflow applies whether you target Android or iOS.
+The same workflow applies whether you target Android or iOS; `wefter run all --watch` runs both at once, with one dev server.
 
 ## How it works
 

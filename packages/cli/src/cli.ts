@@ -6,6 +6,7 @@
 
 import { statSync } from "node:fs";
 import { basename, relative, resolve } from "node:path";
+import chalk from "chalk";
 import { config as loadDotenv } from "dotenv";
 import { Command, type Help } from "commander";
 import { init } from "./commands/init.js";
@@ -17,10 +18,10 @@ import { setHookOutputToStderr } from "./hooks/run-hook.js";
 import { loadWefterConfig, readRawConfig } from "./config/project-paths.js";
 import { legacyConfigNotes } from "./config/wefter-config-schema.js";
 import { outputFolderIgnored, resolveOutputRoot } from "./app-build/artifacts.js";
-import { run, runIos } from "./commands/run.js";
+import { run, runAll, runIos, type RunPlatform } from "./commands/run.js";
 import { attachRunSession } from "./commands/run-interactive.js";
 import { openRunLog } from "./process/run-log.js";
-import { configureUi, setTerminalStreams } from "./ui/terminal.js";
+import { configureUi, setTerminalStreams, uiSettings, writeLine } from "./ui/terminal.js";
 import { debugRetryCommand, printBuildResult, printFailure, printWarning } from "./ui/report.js";
 import { eject } from "./commands/eject.js";
 import { audit } from "./commands/audit.js";
@@ -345,15 +346,21 @@ program
     }
   });
 
+/** "Android" or "iOS". */
+function runPlatformLabel(platform: RunPlatform): string {
+  return platform === "ios" ? "iOS" : "Android";
+}
+
 /**
  * `wefter run <platform>`: runs the app, logging everything to `.wefter/logs`. When it succeeds, the run session
  * takes over (summary and, with `--watch`, keyboard shortcuts); when it fails, the report suggests
- * the same command with `--debug`.
+ * the same command with `--debug`. `run all` runs Android and iOS with one dev server; when one of them
+ * fails, the other keeps running and the command exits with code 1 (without `--watch`).
  */
 program
   .command("run")
   .description("Sync, build, install and launch the app — optionally with hot reload")
-  .argument("<platform>", 'target platform: "android" or "ios"')
+  .argument("<platform>", 'target platform: "android", "ios" or "all" (both, with one dev server)')
   .argument("[projectDir]", "project root directory", process.cwd())
   .option("--watch", "enable hot reload via a local dev server", false)
   .option("--env <environment>", "environment to run (from wefter.config.json)", "development")
@@ -365,8 +372,8 @@ program
       projectDir: string,
       opts: { watch: boolean; env: string; simulator?: string; debug: boolean },
     ) => {
-      if (platform !== "android" && platform !== "ios") {
-        logger.error(`Unsupported platform "${platform}". Use "android" or "ios".`);
+      if (platform !== "android" && platform !== "ios" && platform !== "all") {
+        logger.error(`Unsupported platform "${platform}". Use "android", "ios" or "all".`);
         process.exitCode = 1;
         return;
       }
@@ -376,6 +383,36 @@ program
       const flags = commonFlags(projectDir, opts.env, opts.simulator, opts.watch ? ["--watch"] : []);
       const retryWithDebug = debugRetryCommand({ command: "run", platform, flags });
       try {
+        if (platform === "all") {
+          const failed = new Set<RunPlatform>();
+          const session = await runAll(root, {
+            watch: opts.watch,
+            env: opts.env,
+            simulator: opts.simulator,
+            onPlatformFailure: (failedPlatform, err) => {
+              failed.add(failedPlatform);
+              printFailure(`Couldn't run the ${runPlatformLabel(failedPlatform)} app`, err, retryWithDebug);
+            },
+          });
+          if (!session) {
+            process.exitCode = 1;
+            return;
+          }
+          const stop = attachRunSession(session, { retryWithDebug });
+          if (session.devServer) registerCleanup(stop);
+          if (failed.size > 0) {
+            const names = [...failed].map(runPlatformLabel).join(" and ");
+            const shortcuts = Boolean(session.devServer) && uiSettings().interactive && process.stdin.isTTY;
+            writeLine(
+              chalk.dim(
+                `The ${names} app isn't running.` +
+                  (shortcuts ? " Fix the problem, then press Ctrl+R to try again." : ""),
+              ),
+            );
+            if (!session.devServer) process.exitCode = 1;
+          }
+          return;
+        }
         const session =
           platform === "android"
             ? await run(root, { watch: opts.watch, env: opts.env })
@@ -383,7 +420,8 @@ program
         const stop = attachRunSession(session, { retryWithDebug });
         if (session.devServer) registerCleanup(stop);
       } catch (err) {
-        printFailure(`Couldn't run the ${platform === "ios" ? "iOS" : "Android"} app`, err, retryWithDebug);
+        const what = platform === "all" ? "the app" : `the ${runPlatformLabel(platform)} app`;
+        printFailure(`Couldn't run ${what}`, err, retryWithDebug);
         process.exitCode = 1;
       }
     },
