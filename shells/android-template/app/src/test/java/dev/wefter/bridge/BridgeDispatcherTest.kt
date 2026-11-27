@@ -1,352 +1,196 @@
 package dev.wefter.bridge
 
-import android.app.Activity
-import android.content.pm.PackageManager
-import android.webkit.WebView
-import androidx.core.app.ActivityCompat
 import org.json.JSONObject
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import org.mockito.ArgumentCaptor
-import org.mockito.ArgumentMatchers.any
-import org.mockito.ArgumentMatchers.eq
-import org.mockito.Mockito
-import org.mockito.Mockito.doAnswer
-import org.mockito.Mockito.mock
+
+private const val APP = "https://appassets.androidplatform.net"
+private const val PARTNER = "https://pay.example.com"
+private const val OTHER = "https://ads.example.net"
 
 class BridgeDispatcherTest {
 
-    private lateinit var webView: WebView
     private lateinit var dispatcher: BridgeDispatcher
-    private val evaluatedJs = mutableListOf<String>()
+    private val replies = mutableListOf<JSONObject>()
 
     @Before
     fun setUp() {
-        webView = mock(WebView::class.java)
-        doAnswer { invocation ->
-                    (invocation.arguments[0] as Runnable).run()
-                    true
-                }
-                .`when`(webView)
-                .post(org.mockito.ArgumentMatchers.any())
-        doAnswer { invocation ->
-                    evaluatedJs.add(invocation.arguments[0] as String)
-                    null
-                }
-                .`when`(webView)
-                .evaluateJavascript(
-                        org.mockito.ArgumentMatchers.anyString(),
-                        org.mockito.ArgumentMatchers.any()
+        val access =
+                BridgeAccess(
+                        ownOrigins = setOf(APP),
+                        grants = mapOf(PARTNER to listOf("biometric.authenticate", "haptics.*"))
                 )
-
-        dispatcher = BridgeDispatcher(webView)
-        evaluatedJs.clear()
+        dispatcher = BridgeDispatcher(access, "development", onMain = { it() }, inBackground = { it() })
+        replies.clear()
     }
 
-    private fun parseRejectedError(js: String): JSONObject {
-        val quotedArg = js.substringAfter("reject('0', ").removeSuffix(")")
-        return JSONObject(org.json.JSONTokener(quotedArg).nextValue() as String)
+    private fun call(origin: String, plugin: String, method: String, payload: String = "{}") {
+        val json = JSONObject().put("callId", "0").put("plugin", plugin).put("method", method).put("payload", payload)
+        dispatcher.handleCall(json.toString(), origin) { replies.add(JSONObject(it)) }
     }
 
-    @Test
-    fun `invoke resolves with a properly quoted JSON string, not a raw object literal`() {
+    private fun rejectedError(): JSONObject {
+        val reply = replies.single()
+        assertEquals("reject", reply.getString("type"))
+        assertEquals("0", reply.getString("callId"))
+        return JSONObject(reply.getString("data"))
+    }
+
+    private fun registerEcho(name: String) {
         dispatcher.register(
-                "device",
+                name,
                 object : NativeModule {
-                    override fun invoke(
-                            method: String,
-                            payload: JSONObject,
-                            callback: (Result<Any>) -> Unit
-                    ) {
-                        callback(Result.success(JSONObject().put("platform", "android")))
+                    override fun invoke(method: String, payload: JSONObject, callback: (Result<Any>) -> Unit) {
+                        callback(Result.success(JSONObject().put("method", method)))
                     }
                 }
         )
-
-        dispatcher.invoke("0", "device", "getInfo", "{}")
-
-        val js = evaluatedJs.single()
-        assertTrue(js.contains("resolve('0', \""))
-        val quotedArg = js.substringAfter("resolve('0', ").removeSuffix(")")
-        val parsed = JSONObject(org.json.JSONTokener(quotedArg).nextValue() as String)
-        assertEquals("android", parsed.getString("platform"))
     }
 
     @Test
-    fun `invoke on an unregistered plugin rejects cleanly instead of crashing`() {
-        dispatcher.invoke("0", "nope", "getInfo", "{}")
+    fun `a call from the app's own page resolves with the module's result as JSON`() {
+        registerEcho("device")
 
-        val js = evaluatedJs.single()
-        assertTrue(js.contains("window.__wefterNative.reject('0'"))
-        val error = parseRejectedError(js)
+        call(APP, "device", "getInfo")
+
+        val reply = replies.single()
+        assertEquals("resolve", reply.getString("type"))
+        assertEquals("getInfo", JSONObject(reply.getString("data")).getString("method"))
+    }
+
+    @Test
+    fun `another site cannot call any plugin, even one that exists`() {
+        registerEcho("secureStorage")
+
+        call(OTHER, "secureStorage", "get")
+
+        assertEquals("FORBIDDEN_ORIGIN", rejectedError().getString("code"))
+    }
+
+    @Test
+    fun `a granted site may call exactly the methods it was granted`() {
+        registerEcho("biometric")
+        registerEcho("haptics")
+
+        call(PARTNER, "biometric", "authenticate")
+        assertEquals("resolve", replies.removeAt(0).getString("type"))
+
+        call(PARTNER, "haptics", "vibrate")
+        assertEquals("resolve", replies.removeAt(0).getString("type"))
+
+        call(PARTNER, "biometric", "isAvailable")
+        assertEquals("FORBIDDEN_ORIGIN", rejectedError().getString("code"))
+    }
+
+    @Test
+    fun `a granted site never reaches the built-in system module`() {
+        registerEcho("__system")
+
+        call(PARTNER, "__system", "openAppSettings")
+
+        assertEquals("FORBIDDEN_ORIGIN", rejectedError().getString("code"))
+    }
+
+    @Test
+    fun `an unregistered plugin rejects cleanly instead of crashing`() {
+        call(APP, "nope", "getInfo")
+
+        val error = rejectedError()
         assertEquals("UNKNOWN_PLUGIN", error.getString("code"))
         assertEquals("No such plugin: nope", error.getString("message"))
     }
 
     @Test
-    fun `a plugin that throws synchronously before calling its callback rejects instead of crashing the Activity`() {
+    fun `a plugin that throws before calling its callback rejects instead of crashing the activity`() {
         dispatcher.register(
                 "buggy",
                 object : NativeModule {
-                    override fun invoke(
-                            method: String,
-                            payload: JSONObject,
-                            callback: (Result<Any>) -> Unit
-                    ) {
+                    override fun invoke(method: String, payload: JSONObject, callback: (Result<Any>) -> Unit) {
                         throw IllegalStateException("boom")
                     }
                 }
         )
 
-        dispatcher.invoke("0", "buggy", "whatever", "{}")
+        call(APP, "buggy", "whatever")
 
-        val js = evaluatedJs.single()
-        assertTrue(js.contains("window.__wefterNative.reject('0'"))
-        val error = parseRejectedError(js)
+        val error = rejectedError()
         assertEquals("PLUGIN_THREW", error.getString("code"))
-        assertTrue(error.getString("message").contains("Plugin threw"))
         assertTrue(error.getString("message").contains("boom"))
     }
 
     @Test
-    fun `invoke with malformed JSON payload rejects instead of throwing`() {
-        dispatcher.register(
-                "device",
-                object : NativeModule {
-                    override fun invoke(
-                            method: String,
-                            payload: JSONObject,
-                            callback: (Result<Any>) -> Unit
-                    ) {
-                        callback(Result.success(JSONObject()))
-                    }
-                }
-        )
+    fun `a malformed payload rejects instead of throwing`() {
+        registerEcho("device")
 
-        dispatcher.invoke("0", "device", "getInfo", "not valid json")
+        call(APP, "device", "getInfo", "not valid json")
 
-        val js = evaluatedJs.single()
-        assertTrue(js.contains("window.__wefterNative.reject('0'"))
-        val error = parseRejectedError(js)
+        val error = rejectedError()
         assertEquals("INVALID_PAYLOAD", error.getString("code"))
-        assertTrue(error.getString("message").contains("Invalid payload"))
     }
 
     @Test
-    fun `getEnvironment returns the build's flavor name synchronously, no bridge round trip`() {
-        assertEquals(BuildConfig.FLAVOR, dispatcher.getEnvironment())
-        assertTrue(evaluatedJs.isEmpty())
-    }
-
-    @Test
-    fun `a plugin failing with a WefterError propagates its real code instead of the generic UNKNOWN fallback`() {
+    fun `a plugin failing with a WefterError keeps its code`() {
         dispatcher.register(
                 "scanner",
                 object : NativeModule {
-                    override fun invoke(
-                            method: String,
-                            payload: JSONObject,
-                            callback: (Result<Any>) -> Unit
-                    ) {
-                        callback(
-                                Result.failure(
-                                        WefterError(
-                                                "PERMISSION_DENIED",
-                                                "Camera permission not granted"
-                                        )
-                                )
-                        )
+                    override fun invoke(method: String, payload: JSONObject, callback: (Result<Any>) -> Unit) {
+                        callback(Result.failure(WefterError("PERMISSION_DENIED", "Camera permission not granted")))
                     }
                 }
         )
 
-        dispatcher.invoke("0", "scanner", "open", "{}")
+        call(APP, "scanner", "open")
 
-        val js = evaluatedJs.single()
-        val error = parseRejectedError(js)
+        val error = rejectedError()
         assertEquals("PERMISSION_DENIED", error.getString("code"))
         assertEquals("Camera permission not granted", error.getString("message"))
     }
 
     @Test
-    fun `a plugin failing with a plain exception (not WefterError) still falls back to UNKNOWN`() {
+    fun `a plugin failing with a plain exception falls back to UNKNOWN`() {
         dispatcher.register(
                 "device",
                 object : NativeModule {
-                    override fun invoke(
-                            method: String,
-                            payload: JSONObject,
-                            callback: (Result<Any>) -> Unit
-                    ) {
+                    override fun invoke(method: String, payload: JSONObject, callback: (Result<Any>) -> Unit) {
                         callback(Result.failure(Exception("something else broke")))
                     }
                 }
         )
 
-        dispatcher.invoke("0", "device", "getInfo", "{}")
+        call(APP, "device", "getInfo")
 
-        val error = parseRejectedError(evaluatedJs.single())
-        assertEquals("UNKNOWN", error.getString("code"))
-        assertEquals("something else broke", error.getString("message"))
+        assertEquals("UNKNOWN", rejectedError().getString("code"))
     }
 
     @Test
-    fun `subscribeHook fires every subscriber registered under the same hook name`() {
-        var firstFired = false
-        var secondFired = false
-        dispatcher.subscribeHook("onPause") { firstFired = true }
-        dispatcher.subscribeHook("onPause") { secondFired = true }
+    fun `a message that is not JSON is ignored`() {
+        dispatcher.handleCall("not json", APP) { replies.add(JSONObject(it)) }
 
-        dispatcher.dispatchHook("onPause")
-
-        assertTrue(firstFired)
-        assertTrue(secondFired)
+        assertTrue(replies.isEmpty())
     }
 
     @Test
-    fun `dispatchHook does not fire subscribers registered under a different hook name`() {
-        var paused = false
+    fun `subscribeHook fires every subscriber of that hook and no other`() {
+        var paused = 0
         var resumed = false
-        dispatcher.subscribeHook("onPause") { paused = true }
+        dispatcher.subscribeHook("onPause") { paused++ }
+        dispatcher.subscribeHook("onPause") { paused++ }
         dispatcher.subscribeHook("onResume") { resumed = true }
 
         dispatcher.dispatchHook("onPause")
 
-        assertTrue(paused)
-        assertTrue(!resumed)
+        assertEquals(2, paused)
+        assertFalse(resumed)
     }
 
     @Test
-    fun `dispatchHook with no subscribers is a harmless no-op`() {
-        dispatcher.dispatchHook("onPause")
-    }
+    fun `grants are read from the JSON the CLI writes`() {
+        val grants = BridgeAccess.parseGrants("""{"https://pay.example.com":["biometric.authenticate"]}""")
 
-    @Test
-    fun `requestPermission delivers a granted result to the matching callback`() {
-        val activity = mock(Activity::class.java)
-        var result: Boolean? = null
-
-        val requestCode =
-                requestPermissionCapturingCode(activity, "android.permission.CAMERA") { granted ->
-                    result = granted
-                }
-
-        dispatcher.handlePermissionResult(
-                requestCode,
-                intArrayOf(PackageManager.PERMISSION_GRANTED)
-        )
-
-        assertEquals(true, result)
-    }
-
-    @Test
-    fun `requestPermission delivers a denied result when the grant result isn't PERMISSION_GRANTED`() {
-        val activity = mock(Activity::class.java)
-        var result: Boolean? = null
-
-        val requestCode =
-                requestPermissionCapturingCode(activity, "android.permission.CAMERA") { granted ->
-                    result = granted
-                }
-
-        dispatcher.handlePermissionResult(requestCode, intArrayOf(PackageManager.PERMISSION_DENIED))
-
-        assertEquals(false, result)
-    }
-
-    @Test
-    fun `an empty grantResults array (interaction interrupted) is treated as denied, not a crash`() {
-        val activity = mock(Activity::class.java)
-        var result: Boolean? = null
-
-        val requestCode =
-                requestPermissionCapturingCode(activity, "android.permission.CAMERA") { granted ->
-                    result = granted
-                }
-
-        dispatcher.handlePermissionResult(requestCode, intArrayOf())
-
-        assertEquals(false, result)
-    }
-
-    @Test
-    fun `each requestPermission call gets its own request code, even for the same permission`() {
-        val activity = mock(Activity::class.java)
-        val firstCode = requestPermissionCapturingCode(activity, "android.permission.CAMERA") {}
-        val secondCode = requestPermissionCapturingCode(activity, "android.permission.CAMERA") {}
-
-        assertTrue(firstCode != secondCode)
-    }
-
-    @Test
-    fun `a result for an unknown or already-resolved request code is a safe no-op, not a crash`() {
-        dispatcher.handlePermissionResult(9999, intArrayOf(PackageManager.PERMISSION_GRANTED))
-
-        val activity = mock(Activity::class.java)
-        var callCount = 0
-        val requestCode =
-                requestPermissionCapturingCode(activity, "android.permission.CAMERA") {
-                    callCount++
-                }
-
-        dispatcher.handlePermissionResult(
-                requestCode,
-                intArrayOf(PackageManager.PERMISSION_GRANTED)
-        )
-        dispatcher.handlePermissionResult(
-                requestCode,
-                intArrayOf(PackageManager.PERMISSION_GRANTED)
-        )
-
-        assertEquals(1, callCount)
-    }
-
-    @Test
-    fun `two concurrent permission requests from two different plugins resolve independently, not cross-resolved`() {
-        val cameraActivity = mock(Activity::class.java)
-        val locationActivity = mock(Activity::class.java)
-        var cameraResult: Boolean? = null
-        var locationResult: Boolean? = null
-
-        val cameraRequestCode =
-                requestPermissionCapturingCode(cameraActivity, "android.permission.CAMERA") {
-                        granted ->
-                    cameraResult = granted
-                }
-        val locationRequestCode =
-                requestPermissionCapturingCode(
-                        locationActivity,
-                        "android.permission.ACCESS_FINE_LOCATION"
-                ) { granted -> locationResult = granted }
-
-        dispatcher.handlePermissionResult(
-                locationRequestCode,
-                intArrayOf(PackageManager.PERMISSION_DENIED)
-        )
-        dispatcher.handlePermissionResult(
-                cameraRequestCode,
-                intArrayOf(PackageManager.PERMISSION_GRANTED)
-        )
-
-        assertEquals(true, cameraResult)
-        assertEquals(false, locationResult)
-    }
-
-    private fun requestPermissionCapturingCode(
-            activity: Activity,
-            permission: String,
-            onResult: (Boolean) -> Unit
-    ): Int {
-        Mockito.mockStatic(ActivityCompat::class.java).use { mockedStatic ->
-            dispatcher.requestPermission(activity, permission, onResult)
-
-            val requestCodeCaptor = ArgumentCaptor.forClass(Int::class.java)
-            mockedStatic.verify {
-                ActivityCompat.requestPermissions(eq(activity), any(), requestCodeCaptor.capture())
-            }
-            return requestCodeCaptor.value
-        }
+        assertEquals(listOf("biometric.authenticate"), grants["https://pay.example.com"])
+        assertTrue(BridgeAccess.parseGrants("").isEmpty())
     }
 }

@@ -44,7 +44,8 @@ function generateMethodDispatch(className: string, methods: ExtractedMethod[]): 
 
 /**
  * Generates `GeneratedRegistry.kt`, which creates every plugin, registers it with the bridge
- * dispatcher and subscribes its lifecycle hooks.
+ * dispatcher and subscribes its lifecycle hooks. `registerAll` returns the plugins, so the app's screen can
+ * tell them about its lifecycle.
  *
  * @param plugins The plugins to register.
  * @param packageName The Kotlin package of the app.
@@ -58,6 +59,7 @@ export function generateRegistryKotlin(
 ): string {
   const dispatchClasses: string[] = [];
   const registrationLines: string[] = [];
+  const pluginVars: string[] = [];
 
   for (const plugin of plugins) {
     const name = plugin.manifest.name;
@@ -75,6 +77,7 @@ export function generateRegistryKotlin(
     registrationLines.push(`        val ${varName} = ${className}(context, dispatcher)`);
     registrationLines.push(`        dispatcher.register("${name}", ${className}Dispatch(${varName}))`);
     registrationLines.push(`        WefterBridge.register("${name}", ${varName})`);
+    pluginVars.push(varName);
     for (const hook of ext.hooks) {
       registrationLines.push(
         `        dispatcher.subscribeHook("${hook.hookName}") { ${varName}.${hook.methodName}() }`,
@@ -93,8 +96,9 @@ import android.content.Context
 import org.json.JSONObject
 
 ${dispatchSection}object GeneratedRegistry {
-${suppressAnnotation}    fun registerAll(context: Context, dispatcher: BridgeDispatcher) {
+${suppressAnnotation}    fun registerAll(context: Context, dispatcher: BridgeDispatcher): List<WefterPlugin> {
 ${registrationLines.join("\n")}
+        return listOf(${pluginVars.join(", ")})
     }
 }
 `.trim();

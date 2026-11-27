@@ -3,7 +3,9 @@ import Foundation
 import UIKit
 
 enum GeneratedRegistry {
-    static func registerAll(dispatcher: BridgeDispatcher, viewController: UIViewController) {
+    @discardableResult
+    static func registerAll(dispatcher: BridgeDispatcher, viewController: UIViewController) -> [WefterPlugin] {
 
+        return []
     }
 }

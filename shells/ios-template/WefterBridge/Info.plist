@@ -14,6 +14,9 @@
 	<string>6.0</string>
 	<key>CFBundleName</key>
 	<string>$(PRODUCT_NAME)</string>
+	<!-- The environment (wefter.config.json "environments") this build is for, set per configuration. -->
+	<key>WefterEnvironment</key>
+	<string>$(WEFTER_ENVIRONMENT)</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

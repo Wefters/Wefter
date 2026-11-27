@@ -73,10 +73,12 @@ public final class AssetSchemeHandler: NSObject, WKURLSchemeHandler {
 
     /// Only the app's own code may run. Images, audio, video and network requests may also use HTTPS, and
     /// `blob:` and `data:` URLs the page makes itself (previews of picked files, downloads it creates).
+    /// Frames may show the app's own pages and the sites `frames.allow` in `wefter.config.json` lists.
     static let contentSecurityPolicy =
         "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; "
             + "img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; "
-            + "connect-src 'self' data: blob: https:; font-src 'self' data:;"
+            + "connect-src 'self' data: blob: https:; font-src 'self' data:; "
+            + "frame-src 'self'\(BuildConfig.frameSources.isEmpty ? "" : " " + BuildConfig.frameSources);"
 
     /// MIME type from the file extension.
     private static func mimeType(for url: URL) -> String {

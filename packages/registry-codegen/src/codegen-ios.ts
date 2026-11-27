@@ -37,6 +37,7 @@ function generateMethodDispatch(className: string, methods: ExtractedMethod[]): 
 /**
  * Generates `GeneratedRegistry.swift`, which creates every plugin, registers it with the bridge
  * dispatcher and subscribes its lifecycle hooks. Plugins without extracted Swift source are left out.
+ * `registerAll` returns the plugins, so the app can tell them about its lifecycle.
  */
 export function generateRegistrySwift(
   plugins: DiscoveredPlugin[],
@@ -44,6 +45,7 @@ export function generateRegistrySwift(
 ): string {
   const dispatchClasses: string[] = [];
   const registrationLines: string[] = [];
+  const pluginVars: string[] = [];
 
   for (const plugin of plugins) {
     const name = plugin.manifest.name;
@@ -59,6 +61,7 @@ export function generateRegistrySwift(
     );
     registrationLines.push(`        dispatcher.register("${name}", module: ${className}Dispatch(plugin: ${varName}))`);
     registrationLines.push(`        WefterBridge.register("${name}", plugin: ${varName})`);
+    pluginVars.push(varName);
     for (const hook of ext.hooks) {
       registrationLines.push(
         `        dispatcher.subscribeHook("${hook.hookName}") { ${varName}.${hook.methodName}() }`,
@@ -74,8 +77,10 @@ import Foundation
 import UIKit
 
 ${dispatchSection}enum GeneratedRegistry {
-    static func registerAll(dispatcher: BridgeDispatcher, viewController: UIViewController) {
+    @discardableResult
+    static func registerAll(dispatcher: BridgeDispatcher, viewController: UIViewController) -> [WefterPlugin] {
 ${registrationLines.join("\n")}
+        return [${pluginVars.join(", ")}]
     }
 }
 `.trim();

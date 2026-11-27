@@ -137,13 +137,10 @@ internal class WebGeolocation(private val activity: AppCompatActivity) {
         if (declined || offer?.isShowing == true || activity.isFinishing || activity.isDestroyed) return
         offer =
                 AlertDialog.Builder(activity, androidx.appcompat.R.style.Theme_AppCompat_DayNight_Dialog_Alert)
-                        .setTitle("Turn on location?")
-                        .setMessage(
-                                "Location is off on this device. Turn it on in Settings so the app can find " +
-                                        "where you are."
-                        )
-                        .setPositiveButton("Settings") { _, _ -> openSettings() }
-                        .setNegativeButton("Not now") { _, _ -> declined = true }
+                        .setTitle(WefterText.get(activity, "location.off.title"))
+                        .setMessage(WefterText.get(activity, "location.off.message"))
+                        .setPositiveButton(WefterText.get(activity, "location.off.settings")) { _, _ -> openSettings() }
+                        .setNegativeButton(WefterText.get(activity, "location.off.notNow")) { _, _ -> declined = true }
                         .setOnCancelListener { declined = true }
                         .create()
                         .apply { setCanceledOnTouchOutside(false) }

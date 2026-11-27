@@ -66,3 +66,29 @@ export function auditPermissionHandling(manifest: PluginManifest, androidSource:
 
   return [];
 }
+
+/**
+ * iOS usage descriptions whose permission has no status to check before using it: Face ID asks the first
+ * time it is used, and iOS can't tell "not asked yet" from "allowed".
+ */
+const IOS_KEYS_WITHOUT_STATUS = new Set(["NSFaceIDUsageDescription"]);
+
+/**
+ * Checks that a plugin requesting a dangerous Android permission, or declaring an iOS usage description,
+ * lets apps see and ask for it the way every Wefter plugin does: `checkPermissions()` and
+ * `requestPermissions()`, which report `granted`, `prompt`, `denied` or `limited`.
+ *
+ * @returns One warning per problem; empty when the plugin passes.
+ */
+export function permissionApiWarnings(manifest: PluginManifest): string[] {
+  const android = (manifest.permissions?.android ?? []).filter((p) => DANGEROUS_ANDROID_PERMISSIONS.has(p));
+  const ios = Object.keys(manifest.permissions?.ios ?? {}).filter((key) => !IOS_KEYS_WITHOUT_STATUS.has(key));
+  if (android.length === 0 && ios.length === 0) return [];
+  const missing = ["checkPermissions", "requestPermissions"].filter((m) => !(manifest.methods ?? []).includes(m));
+  if (missing.length === 0) return [];
+  return [
+    `Plugin "${manifest.name}" needs permissions (${[...android, ...ios].join(", ")}) but has no ` +
+      `${missing.join(" or ")} method. Add both, so apps can show where a permission stands and ask for it ` +
+      `before using the plugin.`,
+  ];
+}

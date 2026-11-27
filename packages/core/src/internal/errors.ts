@@ -8,6 +8,9 @@
  * - `INVALID_PAYLOAD`: the payload did not match what the method expects.
  * - `PLUGIN_THREW`: the native method threw.
  * - `PERMISSION_DENIED`: the user or OS refused a permission the method needs.
+ * - `FORBIDDEN_ORIGIN`: the page's origin may not call that plugin (another site in a frame, see
+ *   `frames` in `wefter.config.json`).
+ * - `UNKNOWN_METHOD`: the plugin has no such method.
  * - `UNKNOWN`: anything else.
  */
 export type WefterErrorCode =
@@ -18,6 +21,8 @@ export type WefterErrorCode =
   | "INVALID_PAYLOAD"
   | "PLUGIN_THREW"
   | "PERMISSION_DENIED"
+  | "FORBIDDEN_ORIGIN"
+  | "UNKNOWN_METHOD"
   | "UNKNOWN";
 
 /**

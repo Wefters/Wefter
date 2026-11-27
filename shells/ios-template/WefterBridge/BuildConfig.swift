@@ -21,6 +21,12 @@ enum BuildConfig {
     static let landscape = false
     // WEFTER-ORIENTATION-CONFIG-END
 
+    // Other sites the app's pages may embed (frame-src), and the plugin methods each may call ("frames").
+    // WEFTER-FRAMES-CONFIG-START
+    static let frameSources = ""
+    static let framePluginGrants: [String: [String]] = [:]
+    // WEFTER-FRAMES-CONFIG-END
+
     // WEFTER-KEYBOARD-CONFIG-START
     static let formAccessoryBar = false
     // WEFTER-KEYBOARD-CONFIG-END

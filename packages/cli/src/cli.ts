@@ -147,6 +147,8 @@ program
       const result = await sync(root, { updateLock: opts.updateLock });
       logger.success(`Synced ${result.plugins.length} plugin(s): ${result.plugins.join(", ")}`);
       for (const note of legacyConfigNotes(readRawConfig(root))) logger.warn(`wefter.config.json: ${note}`);
+      for (const warning of result.warnings) logger.warn(warning);
+      if (result.languages.length > 1) logger.info(`Languages: ${result.languages.join(", ")}`);
       const syncedConfig = loadWefterConfig(root);
       try {
         const outputRoot = resolveOutputRoot(root, syncedConfig.build.output, syncedConfig.webDir);
@@ -602,6 +604,7 @@ pluginCommand
       process.exitCode = 1;
       return;
     }
+    for (const warning of result.warnings ?? []) logger.warn(warning);
     logger.success("Plugin is valid.");
     process.exitCode = 0;
   });

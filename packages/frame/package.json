@@ -1,0 +1,32 @@
+{
+  "name": "@wefterjs/frame",
+  "version": "0.0.1",
+  "description": "Lets a website embedded in a Wefter app (in an iframe or a web window) call the app and exchange events with it.",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./script": "./dist/wefter-frame.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && esbuild src/global.ts --bundle --minify --format=iife --outfile=dist/wefter-frame.js",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "jsdom": "^30.0.1",
+    "typescript": "~6.0.3",
+    "vitest": "^5.0.0"
+  }
+}

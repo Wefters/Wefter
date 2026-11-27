@@ -24,7 +24,8 @@ export {
   type ExtractedHook,
 } from "./extract-wefter-plugin.js";
 export { auditPluginConsistency } from "./audit-plugin-consistency.js";
-export { auditPermissionHandling } from "./audit-permission-handling.js";
+export { auditPermissionHandling, permissionApiWarnings } from "./audit-permission-handling.js";
+export { i18nWarnings } from "./audit-i18n.js";
 export { generateRegistryKotlin, classNameFor, type PluginExtraction } from "./codegen-android.js";
 export { copyAndroidNativeSource } from "./copy-native-source.js";
 export { mergeGradleDeps, computeGradleMerge, type GradleMergeResult } from "./merge-gradle-deps.js";

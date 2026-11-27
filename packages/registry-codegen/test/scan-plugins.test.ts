@@ -13,6 +13,7 @@ describe("scanPlugins", () => {
       name: "valid-plugin",
       permissions: { android: [], ios: {} },
       nativeDependencies: {},
+      requiredFiles: { android: [], ios: [] },
       android: { manifestEntries: [] },
       methods: [],
       hooks: [],
@@ -26,7 +27,8 @@ describe("scanPlugins", () => {
     expect(discovered.manifest).toEqual({
       name: "full-plugin",
       permissions: { android: ["android.permission.CAMERA"], ios: {} },
-      nativeDependencies: { android: { gradle: ["com.google.zxing:core:3.5.3"] } },
+      nativeDependencies: { android: { gradle: ["com.google.zxing:core:3.5.3"], gradlePlugins: [] } },
+      requiredFiles: { android: [], ios: [] },
       android: { manifestEntries: [] },
       methods: ["scan", "cancel"],
       hooks: ["onActivityResult"],

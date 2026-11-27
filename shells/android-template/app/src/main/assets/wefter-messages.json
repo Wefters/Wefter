@@ -1,0 +1,26 @@
+{
+  "en": {
+    "app.crashed": "This app isn't working right now.\nPlease close and reopen it.",
+    "dialog.cancel": "Cancel",
+    "dialog.ok": "OK",
+    "downloads.downloading": "Downloading {name}…",
+    "downloads.failed": "Couldn't download {name}",
+    "downloads.failedFile": "Couldn't download the file",
+    "downloads.saveFailed": "Couldn't save the download",
+    "downloads.saved": "Saved {name} to Downloads",
+    "files.browse": "Browse files",
+    "files.recordVideo": "Record a video",
+    "files.takePhoto": "Take a photo",
+    "links.noApp": "No app can open this link",
+    "location.off.message": "Location is off on this device. Turn it on in Settings so the app can find where you are.",
+    "location.off.notNow": "Not now",
+    "location.off.settings": "Settings",
+    "location.off.title": "Turn on location?",
+    "webview.update.button": "Update",
+    "webview.update.message": "This app needs a newer version of Android System WebView. Update it, then open the app again.",
+    "webWindow.back": "Back",
+    "webWindow.close": "Close",
+    "webWindow.forward": "Forward",
+    "webWindow.reload": "Reload"
+  }
+}

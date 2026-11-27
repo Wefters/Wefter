@@ -103,13 +103,82 @@ const PermissionsSchema = z
  * One build environment, such as `development` or `production`. Each is installed as a separate app, and
  * may override the top-level `deepLinks` (for example a `myshop-dev` scheme for development builds).
  */
+/**
+ * Files a native SDK reads from the app, such as Firebase's `google-services.json` (Android) and
+ * `GoogleService-Info.plist` (iOS), as paths relative to the project.
+ */
+const NativeFilesSchema = z
+  .object({
+    android: z.array(z.string().min(1)).default([]),
+    ios: z.array(z.string().min(1)).default([]),
+  })
+  .strict();
+
 const EnvironmentSchema = z.object({
   appId: z.string().regex(/^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$/, "Invalid Android application ID"),
   appName: z.string(),
 
   iosBundleId: z.string().optional(),
   deepLinks: DeepLinksSchema.optional(),
+  /** This environment's native files; replaces the top-level `nativeFiles` for a platform it lists. */
+  nativeFiles: z
+    .object({ android: z.array(z.string().min(1)).optional(), ios: z.array(z.string().min(1)).optional() })
+    .strict()
+    .optional(),
 });
+
+/**
+ * A site the app's pages may embed: `https://host[:port]`, `https://*.example.com` for any subdomain, or
+ * `http://localhost[:port]` for development.
+ */
+const FrameOriginSchema = z
+  .string()
+  .regex(
+    /^(https:\/\/(\*\.)?[a-z0-9-]+(\.[a-z0-9-]+)*(:\d+)?|http:\/\/(localhost|127\.0\.0\.1)(:\d+)?)$/i,
+    'must be an origin such as "https://pay.example.com" or "https://*.example.com", without a path',
+  );
+
+/** A plugin method a site may call directly: `plugin.method`, or `plugin.*` for all of them. */
+const FramePluginMethodSchema = z
+  .string()
+  .regex(/^[a-zA-Z][\w-]*\.(\*|[a-zA-Z_]\w*)$/, 'must be "plugin.method" or "plugin.*"');
+
+/**
+ * Other sites the app's pages may show in iframes (`allow`), and the plugin methods some of them may call
+ * directly (`plugins`, by exact origin). Without `plugins`, a site talks to the app only through
+ * `exposeToFrames()` in `@wefterjs/core`.
+ */
+const FramesSchema = z
+  .object({
+    allow: z.array(FrameOriginSchema).default([]),
+    plugins: z
+      .record(
+        FrameOriginSchema.refine((origin) => !origin.includes("*"), {
+          message: "must be an exact origin; wildcards can't be granted plugins",
+        }),
+        z.array(FramePluginMethodSchema),
+      )
+      .default({}),
+  })
+  .strict();
+
+/** A language tag, such as `en`, `fr`, `pt-BR` or `zh-Hans`. */
+const LanguageSchema = z
+  .string()
+  .regex(/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/, 'must be a language tag such as "fr" or "pt-BR"');
+
+/**
+ * The languages the app is in (`languages`; English is always included), and text that replaces or adds
+ * to the shell's and plugins' (`messages`, by language and key). The keys `app.name`,
+ * `permissions.camera`, `permissions.microphone`, `permissions.location` and `infoPlist.<Key>` translate
+ * the app's name and permission messages.
+ */
+const LocalizationSchema = z
+  .object({
+    languages: z.array(LanguageSchema).optional(),
+    messages: z.record(LanguageSchema, z.record(z.string(), z.string())).default({}),
+  })
+  .strict();
 
 /**
  * Names Gradle reserves for its own source sets and build types, which an environment (a product flavor)
@@ -293,6 +362,9 @@ export function legacyConfigNotes(raw: unknown): string[] {
  * - `deepLinks`: custom URL schemes and verified web domains the app opens for.
  * - `keyboard`: keyboard behaviour in the web view.
  * - `permissions`: camera, microphone and location used by the web app itself, with the iOS messages.
+ * - `frames`: other sites the app's pages may embed, and plugin methods some of them may call.
+ * - `localization`: the app's languages, and text replacing the shell's and plugins'.
+ * - `nativeFiles`: files native SDKs read, such as Firebase's (also per environment).
  * - `version`, `buildNumber`: the app version (`1.4.0`) and build number (`42`) the stores see.
  * - `build`: output folder, Android format and iOS export settings.
  * - `signing`: release signing, `android` and `ios`.
@@ -316,6 +388,12 @@ export const WefterConfigSchema = z.preprocess(
       .optional(),
 
     orientation: OrientationSchema.optional(),
+
+    frames: FramesSchema.optional(),
+
+    localization: LocalizationSchema.optional(),
+
+    nativeFiles: NativeFilesSchema.optional(),
 
     deepLinks: DeepLinksSchema.optional(),
 
@@ -357,6 +435,15 @@ export type AppPermissionsConfig = z.infer<typeof PermissionsSchema>;
 
 /** `orientation` from `wefter.config.json`. */
 export type AppOrientation = z.infer<typeof OrientationSchema>;
+
+/** `frames` from `wefter.config.json`. */
+export type FramesConfig = z.infer<typeof FramesSchema>;
+
+/** `localization` from `wefter.config.json`. */
+export type LocalizationConfig = z.infer<typeof LocalizationSchema>;
+
+/** `nativeFiles` from `wefter.config.json`. */
+export type NativeFilesConfig = z.infer<typeof NativeFilesSchema>;
 
 /** Android signing settings as written in the config. */
 export type AndroidSigningConfig = z.infer<typeof AndroidSigningSchema>;

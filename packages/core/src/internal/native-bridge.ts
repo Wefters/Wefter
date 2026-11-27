@@ -18,6 +18,8 @@ interface BridgeState {
   hooks: Map<string, Set<(data: unknown) => void>>;
   nextCallId: number;
   sessionId: string;
+  /** Whether a copy of core already listens for held events arriving (see {@link takeHeldEvents}). */
+  listensForHeldEvents?: boolean;
 }
 
 /**
@@ -212,10 +214,46 @@ export function invokeNative<T = unknown>(
  * Subscribes to events a native plugin pushes to JavaScript (for example a scan result or a network
  * change).
  *
+ * Events a plugin held because they happened before anyone listened (a notification tap that launched
+ * the app) are delivered to the first listener for that name, right after it registers.
+ *
  * @returns A handle whose `remove()` unsubscribes the callback.
  */
 export function registerHook(hookName: string, callback: (data: unknown) => void) {
-  if (!hooks.has(hookName)) hooks.set(hookName, new Set());
-  hooks.get(hookName)!.add(callback);
+  const listeners = hooks.get(hookName) ?? new Set();
+  const isFirst = listeners.size === 0;
+  listeners.add(callback);
+  hooks.set(hookName, listeners);
+  if (isFirst) takeHeldEvents(hookName);
   return { remove: () => hooks.get(hookName)?.delete(callback) };
 }
+
+/**
+ * Takes the events the native side held under `hookName` and gives them to its listeners. Built-in
+ * `__system` events are never held, and nothing happens outside a native app or with a shell that does
+ * not hold events.
+ */
+function takeHeldEvents(hookName: string): void {
+  if (hookName.startsWith("__") || !isNativeBridgeAvailable()) return;
+  invokeNative<{ events?: unknown[] }>("__system", "takeEvents", { name: hookName }).then(
+    (result) => {
+      for (const event of result?.events ?? []) hooks.get(hookName)?.forEach((cb) => cb(event));
+    },
+    () => {},
+  );
+}
+
+/** When the native side holds a new event, takes it if anyone listens for its name. Set up once per page. */
+function listenForHeldEvents(): void {
+  const state = getBridgeState();
+  if (state.listensForHeldEvents) return;
+  state.listensForHeldEvents = true;
+  const listeners = hooks.get("__system:events") ?? new Set();
+  listeners.add((data) => {
+    const name = (data as { name?: unknown } | null)?.name;
+    if (typeof name === "string" && (hooks.get(name)?.size ?? 0) > 0) takeHeldEvents(name);
+  });
+  hooks.set("__system:events", listeners);
+}
+
+if (typeof window !== "undefined") listenForHeldEvents();

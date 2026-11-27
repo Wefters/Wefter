@@ -12,8 +12,8 @@ enum ExternalLinks {
         guard let scheme = url.scheme?.lowercased(), !blockedSchemes.contains(scheme) else { return }
         UIApplication.shared.open(url, options: [:]) { [weak viewController] opened in
             guard !opened, let viewController else { return }
-            let alert = UIAlertController(title: nil, message: "No app can open this link", preferredStyle: .alert)
-            alert.addAction(UIAlertAction(title: "OK", style: .default))
+            let alert = UIAlertController(title: nil, message: WefterText.get("links.noApp"), preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: WefterText.get("dialog.ok"), style: .default))
             viewController.presentOnTop(alert)
         }
     }

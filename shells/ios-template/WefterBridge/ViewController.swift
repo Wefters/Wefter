@@ -39,6 +39,10 @@ final class ViewController: UIViewController {
     private var splashShownAt: Date?
     private let splashNavigationDelegate = SplashNavigationDelegate()
     private lazy var downloads = WebDownloads(presenter: self)
+    /// Websites the app opens over itself with `openWebWindow()`.
+    private(set) lazy var webWindows = WebWindows(presenter: self) { [weak self] event in
+        self?.dispatcher.emit("__system:webWindow", event)
+    }
 
     private var usingDevServer = false
     private var renderProcessCrashCount = 0
@@ -54,27 +58,37 @@ final class ViewController: UIViewController {
         return url.host
     }()
 
-    /// Environment name reported to `getPlatformInfo()`.
-    private var environmentName: String {
-        #if DEBUG
-        return "development"
-        #else
-        return "production"
-        #endif
+    /// Scheme, host and port of the dev server: another server on the same host is not the app's own.
+    private let devServerOrigin: (scheme: String, host: String, port: Int)? = {
+        guard !BuildConfig.devServerURL.isEmpty, let url = URL(string: BuildConfig.devServerURL),
+              let scheme = url.scheme?.lowercased(), let host = url.host
+        else { return nil }
+        return (scheme, host, url.port ?? ViewController.defaultPort(for: scheme))
+    }()
+
+    private static func defaultPort(for scheme: String) -> Int {
+        scheme == "https" ? 443 : 80
     }
 
-    /// Locks the screen to landscape when `landscape` is set in `wefter.config.json`.
+    private func isDevServer(scheme: String?, host: String?, port: Int?) -> Bool {
+        guard let devServerOrigin, let scheme = scheme?.lowercased(), let host else { return false }
+        return scheme == devServerOrigin.scheme && host == devServerOrigin.host
+            && (port ?? Self.defaultPort(for: scheme)) == devServerOrigin.port
+    }
+
+    /// Environment name reported to `getPlatformInfo()`.
+    private var environmentName: String { WefterFiles.environment }
+
+    /// The app's orientations (`orientation` in `wefter.config.json`), or a lock a plugin set.
     override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
-        if BuildConfig.landscape {
-            return .landscape
-        }
-        return super.supportedInterfaceOrientations
+        OrientationLock.shared.supportedOrientations
     }
 
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = Self.launchBackground
 
+        setUpBridge()
         mainWebView = makePrimaryWebView()
         installFullBleed(mainWebView, at: 0)
 
@@ -169,20 +183,42 @@ final class ViewController: UIViewController {
     }
 
     /// Whether `url` is one of the app's own pages: the bundled app, or the dev server in debug builds.
+    /// Scheme, host and port must all match, so another server on the same host (`localhost:8787` next to
+    /// the dev server's `localhost:5173`) is not the app's own.
     func isOwnOrigin(_ url: URL) -> Bool {
         (url.scheme == AssetSchemeHandler.scheme && url.host == AssetSchemeHandler.host)
-            || (devServerHost != nil && url.host == devServerHost)
+            || isDevServer(scheme: url.scheme, host: url.host, port: url.port)
     }
 
     /// Whether `origin` is one of the app's own pages.
     func isOwnOrigin(_ origin: WKSecurityOrigin) -> Bool {
         (origin.protocol == AssetSchemeHandler.scheme && origin.host == AssetSchemeHandler.host)
-            || (devServerHost != nil && origin.host == devServerHost)
+            || isDevServer(scheme: origin.protocol, host: origin.host, port: origin.port == 0 ? nil : origin.port)
+    }
+
+    /// Creates the bridge and the plugins, once for this screen: the `__system` module, deep links and held
+    /// plugin events for the page, and ``PluginHost`` for the app's lifecycle.
+    private func setUpBridge() {
+        let access = BridgeAccess(
+            isOwnOrigin: { [weak self] origin in self?.isOwnOrigin(origin) ?? false },
+            grants: BuildConfig.framePluginGrants
+        )
+        let newDispatcher = BridgeDispatcher(access: access)
+        dispatcher = newDispatcher
+        let plugins = GeneratedRegistry.registerAll(dispatcher: newDispatcher, viewController: self)
+        newDispatcher.register("__system", module: SystemModule(viewController: self))
+        PluginHost.shared.setPlugins(plugins)
+        DeepLinkInbox.shared.setListener { [weak newDispatcher] in
+            newDispatcher?.emit("__system:deepLink", [:])
+        }
+        EventInbox.shared.setListener { [weak newDispatcher] name in
+            newDispatcher?.emit("__system:events", ["name": name])
+        }
     }
 
     /// Creates the main web view: injects the environment name, hides the keyboard's form bar unless the
-    /// config keeps it, registers the plugins and the `__system` module, tells the page about incoming deep
-    /// links, answers `navigator.geolocation` natively, and enables Safari inspection in debug builds.
+    /// config keeps it, connects the bridge, answers `navigator.geolocation` natively, and enables Safari
+    /// inspection in debug builds.
     private func makePrimaryWebView() -> WKWebView {
         let config = makeSchemeAwareConfiguration()
 
@@ -209,15 +245,8 @@ final class ViewController: UIViewController {
         Self.showLaunchBackground(in: webView)
         FormAccessoryBar.apply(to: webView)
 
-        let newDispatcher = BridgeDispatcher(webView: webView)
-        dispatcher = newDispatcher
-        GeneratedRegistry.registerAll(dispatcher: newDispatcher, viewController: self)
-        newDispatcher.register("__system", module: SystemModule(viewController: self))
-        DeepLinkInbox.shared.setListener { [weak newDispatcher] in
-            newDispatcher?.emit("__system:deepLink", [:])
-        }
-
-        config.userContentController.add(newDispatcher, name: BridgeDispatcher.messageHandlerName)
+        dispatcher.attach(webView)
+        config.userContentController.add(dispatcher, name: BridgeDispatcher.messageHandlerName)
 
         #if DEBUG
         if #available(iOS 16.4, *) {
@@ -359,7 +388,7 @@ final class ViewController: UIViewController {
     /// Shown when the web content keeps crashing.
     private func showRendererDeadFallback() {
         let label = UILabel()
-        label.text = "This app isn't working right now.\nPlease close and reopen it."
+        label.text = WefterText.get("app.crashed")
         label.textAlignment = .center
         label.numberOfLines = 0
         label.font = .systemFont(ofSize: 16)

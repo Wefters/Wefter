@@ -1,5 +1,6 @@
 package dev.wefter.bridge
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
@@ -17,7 +18,9 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Button
 import android.widget.FrameLayout
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
@@ -26,6 +29,7 @@ import androidx.core.graphics.ColorUtils
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
 import androidx.webkit.WebViewAssetLoader
+import androidx.webkit.WebViewFeature
 import org.json.JSONObject
 
 /**
@@ -50,12 +54,14 @@ private const val DEV_SERVER_RETRY_INTERVAL_MS = 3000L
 
 /**
  * Only the app's own code may run. Images, audio, video and network requests may also use HTTPS, and
- * `blob:` and `data:` URLs the page makes itself (previews of picked files, downloads it creates).
+ * `blob:` and `data:` URLs the page makes itself (previews of picked files, downloads it creates). Frames
+ * may show the app's own pages and the sites `frames.allow` in `wefter.config.json` lists.
  */
-private const val CONTENT_SECURITY_POLICY =
+private val CONTENT_SECURITY_POLICY =
         "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; " +
                 "img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; " +
-                "connect-src 'self' data: blob: https:; font-src 'self' data:;"
+                "connect-src 'self' data: blob: https:; font-src 'self' data:; " +
+                "frame-src 'self'${BuildConfig.FRAME_SOURCES.let { if (it.isBlank()) "" else " $it" }};"
 
 /**
  * The app's only screen: a full-screen web view running the web app, an optional splash web view on top,
@@ -72,6 +78,10 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
     private lateinit var dispatcher: BridgeDispatcher
+    /** The plugins, created once for this screen and told about its lifecycle. */
+    private var plugins: List<WefterPlugin> = emptyList()
+    /** Whether this device's web view is too old to run the app safely (see [showWebViewUpdateScreen]). */
+    private var webViewTooOld = false
     private var splashOverlay: WebView? = null
     private var splashDismissed = false
     /** When the splash page finished loading, so its minimum duration counts from when it is on screen. */
@@ -87,6 +97,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var chromeClient: WefterChromeClient
     private lateinit var downloads: WebDownloads
     private lateinit var geolocation: WebGeolocation
+    private lateinit var webWindows: WebWindows
     /** Whether the download script must run after each page load (web views without document start scripts). */
     private var injectDownloadScriptAfterLoad = false
     /** Whether the geolocation script must run after each page load, likewise. */
@@ -116,11 +127,18 @@ class MainActivity : AppCompatActivity() {
         if (BuildConfig.LANDSCAPE) {
             requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
         }
+        OrientationLock.attach(this)
 
         WindowCompat.setDecorFitsSystemWindows(window, false)
 
         root = FrameLayout(this)
         setContentView(root)
+
+        if (!isWebViewSupported()) {
+            webViewTooOld = true
+            showWebViewUpdateScreen()
+            return
+        }
 
         val backgroundLuminance = ColorUtils.calculateLuminance(getColor(R.color.splashBackground))
         WindowCompat.getInsetsController(window, root).apply {
@@ -142,6 +160,17 @@ class MainActivity : AppCompatActivity() {
         WebView.setWebContentsDebuggingEnabled(BuildConfig.DEBUG)
 
         runtimePermissions = RuntimePermissions(this)
+        dispatcher =
+                BridgeDispatcher(
+                        BridgeAccess(ownOrigins(), BridgeAccess.parseGrants(BuildConfig.FRAME_PLUGIN_GRANTS)),
+                        environment = BuildConfig.FLAVOR
+                )
+        dispatcher.permissions = runtimePermissions
+        plugins = GeneratedRegistry.registerAll(this, dispatcher)
+        registerSystemModule()
+        DeepLinkInbox.setListener { dispatcher.emit("__system:deepLink", JSONObject()) }
+        EventInbox.setListener { name -> dispatcher.emit("__system:events", JSONObject().put("name", name)) }
+
         chromeClient =
                 WefterChromeClient(
                         activity = this,
@@ -152,6 +181,20 @@ class MainActivity : AppCompatActivity() {
                 )
         downloads = WebDownloads(this)
         geolocation = WebGeolocation(this)
+        // A second chrome client for web windows: it registers a result launcher, which Android only allows
+        // before the activity starts.
+        val windowChromeClient =
+                WefterChromeClient(
+                        activity = this,
+                        permissions = runtimePermissions,
+                        fullscreenContainer = root,
+                        webView = { webWindows.webView ?: webView },
+                        isOwnOrigin = ::isOwnOrigin
+                )
+        webWindows =
+                WebWindows(this, root, windowChromeClient, downloads) { event ->
+                    dispatcher.emit("__system:webWindow", event)
+                }
 
         webView = createPrimaryWebView()
         root.addView(
@@ -186,10 +229,14 @@ class MainActivity : AppCompatActivity() {
         )
     }
 
-    /** A link opened while the app is running. `singleTask` routes it here instead of a new activity. */
+    /**
+     * The app opened again while running: `singleTask` routes it here instead of a new activity. Plugins
+     * see it first (a notification tap, for example); if none handles it, a link in it is a deep link.
+     */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        if (plugins.any { it.onNewIntent(intent) }) return
         deepLinkFrom(intent)?.let { DeepLinkInbox.receive(it) }
     }
 
@@ -199,7 +246,7 @@ class MainActivity : AppCompatActivity() {
      */
     override fun onSaveInstanceState(outState: Bundle) {
         super.onSaveInstanceState(outState)
-        if (::webView.isInitialized) {
+        if (!webViewTooOld && ::webView.isInitialized) {
             webView.saveState(outState)
         }
     }
@@ -215,9 +262,12 @@ class MainActivity : AppCompatActivity() {
         return webView.restoreState(savedInstanceState)?.let { it.size > 0 } ?: false
     }
 
-    /** Stops telling this activity's web view about new links. */
+    /** Stops telling this activity's web view about new links and events, and tells the plugins. */
     override fun onDestroy() {
         DeepLinkInbox.setListener(null)
+        EventInbox.setListener(null)
+        if (::webWindows.isInitialized) webWindows.closeAll()
+        plugins.forEach { it.onDestroy() }
         super.onDestroy()
     }
 
@@ -231,37 +281,79 @@ class MainActivity : AppCompatActivity() {
         return intent.dataString?.takeIf { it.isNotEmpty() }
     }
 
-    /** Passes permission results to the plugin that asked. */
-    override fun onRequestPermissionsResult(
-            requestCode: Int,
-            permissions: Array<out String>,
-            grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        dispatcher.handlePermissionResult(requestCode, grantResults)
-    }
-
-    /** Retries the dev server when the app returns to the foreground. */
+    /** Retries the dev server when the app returns to the foreground, and tells the plugins. */
     override fun onResume() {
         super.onResume()
         isForeground = true
+        if (webViewTooOld) return
         if (isDevServerBuild() && !usingDevServer) {
             loadInitialContent(preferDevServer = true)
         }
+        plugins.forEach { it.onResume() }
     }
 
-    /** Pauses dev server retries in the background. */
+    /** Pauses dev server retries in the background, and tells the plugins. */
     override fun onPause() {
         super.onPause()
         isForeground = false
         devServerRetry?.let { handler.removeCallbacks(it) }
+        plugins.forEach { it.onPause() }
     }
 
-    /** Whether [uri] is one of the app's own pages: the bundled app, or the dev server in debug builds. */
-    private fun isOwnOrigin(uri: Uri): Boolean {
-        val host = uri.host ?: return false
-        return (uri.scheme == "https" && host == ASSETS_ORIGIN) || (devServerHost != null && host == devServerHost)
+    /**
+     * Whether this device's web view can keep the bridge to the app's own pages: Android System WebView
+     * 82 or newer, with origin-checked message channels and scripts that run before a page's own. Older
+     * ones are not supported, since they cannot tell the app's pages from other sites.
+     */
+    private fun isWebViewSupported(): Boolean =
+            WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER) &&
+                    WebViewFeature.isFeatureSupported(WebViewFeature.DOCUMENT_START_SCRIPT)
+
+    /** Asks the user to update Android System WebView, with a button to its store page. */
+    private fun showWebViewUpdateScreen() {
+        val padding = (24 * resources.displayMetrics.density).toInt()
+        val layout =
+                LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
+                    gravity = Gravity.CENTER
+                    setPadding(padding, padding, padding, padding)
+                    setBackgroundColor(Color.WHITE)
+                }
+        layout.addView(
+                TextView(this).apply {
+                    text = WefterText.get(this@MainActivity, "webview.update.message")
+                    gravity = Gravity.CENTER
+                    textSize = 16f
+                    setTextColor(Color.BLACK)
+                }
+        )
+        layout.addView(
+                Button(this).apply {
+                    text = WefterText.get(this@MainActivity, "webview.update.button")
+                    setOnClickListener { openWebViewStorePage() }
+                }
+        )
+        root.addView(layout, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
     }
+
+    private fun openWebViewStorePage() {
+        val webViewPackage = "com.google.android.webview"
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$webViewPackage")))
+        } catch (_: ActivityNotFoundException) {
+            ExternalLinks.open(this, Uri.parse("https://play.google.com/store/apps/details?id=$webViewPackage"))
+        }
+    }
+
+    /**
+     * Whether [uri] is one of the app's own pages: the bundled app, or the dev server in debug builds.
+     * Scheme, host and port must all match, so another server on the same host (`localhost:8787` next to
+     * the dev server's `localhost:5173`) is not the app's own.
+     */
+    private fun isOwnOrigin(uri: Uri): Boolean = uri.host != null && BridgeAccess.originOf(uri) in ownOrigins
+
+    /** [ownOrigins()], computed once. */
+    private val ownOrigins: Set<String> by lazy { ownOrigins() }
 
     /** Origins of the app's own pages, as the web view's origin rules write them. */
     private fun ownOrigins(): Set<String> {
@@ -362,8 +454,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * Creates the main web view and its bridge: registers the plugins and the `__system` module, tells the
-     * page about incoming deep links, and exposes the dispatcher to JavaScript.
+     * Creates the main web view and connects the bridge to it. The plugins and the `__system` module were
+     * registered once in `onCreate`, so a web view rebuilt after a renderer crash reuses them.
      */
     private fun createPrimaryWebView(): WebView {
         val newWebView = WebView(this)
@@ -466,67 +558,84 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
 
-        dispatcher = BridgeDispatcher(newWebView)
-        GeneratedRegistry.registerAll(this, dispatcher)
-        /**
-         * Built-in module used by `@wefterjs/core`: debug flag, device info, the app-ready and hide-splash
-         * signals, the current orientation and deep links (from [DeepLinkInbox]).
-         */
+        dispatcher.attach(newWebView)
+
+        return newWebView
+    }
+
+    /**
+     * Registers the built-in `__system` module used by `@wefterjs/core`: debug flag, device info, the
+     * app-ready and hide-splash signals, the current orientation, deep links (from [DeepLinkInbox]), held
+     * plugin events (from [EventInbox]) and the app's settings page. Only the app's own pages reach it.
+     */
+    private fun registerSystemModule() {
         dispatcher.register(
                 "__system",
                 object : NativeModule {
-                    override fun invoke(
-                            method: String,
-                            payload: JSONObject,
-                            callback: (Result<Any>) -> Unit
-                    ) {
+                    override fun invoke(method: String, payload: JSONObject, callback: (Result<Any>) -> Unit) {
                         when (method) {
-                            "isDebug" -> {
-                                val result = JSONObject()
-                                result.put("debug", BuildConfig.DEBUG)
-                                callback(Result.success(result))
-                            }
-                            "getDeviceInfo" -> {
-                                val result = JSONObject()
-                                result.put("platform", "android")
-                                result.put("osVersion", android.os.Build.VERSION.RELEASE)
-                                callback(Result.success(result))
-                            }
-                            "appReady" -> {
-                                dispatcher.dispatchHook("appReady")
-                                callback(Result.success(JSONObject()))
-                            }
-                            "hideSplash" -> {
-                                dispatcher.dispatchHook("hideSplash")
-                                callback(Result.success(JSONObject()))
-                            }
+                            "isDebug" -> callback(Result.success(JSONObject().put("debug", BuildConfig.DEBUG)))
+                            "getDeviceInfo" ->
+                                    callback(
+                                            Result.success(
+                                                    JSONObject()
+                                                            .put("platform", "android")
+                                                            .put("osVersion", android.os.Build.VERSION.RELEASE)
+                                            )
+                                    )
+                            "appReady", "hideSplash" ->
+                                    runOnUiThread {
+                                        dispatcher.dispatchHook(method)
+                                        callback(Result.success(JSONObject()))
+                                    }
                             "isLandscape" -> {
-                                val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-                                val result = JSONObject()
-                                result.put("landscape", isLandscape)
-                                callback(Result.success(result))
+                                val isLandscape =
+                                        resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+                                callback(Result.success(JSONObject().put("landscape", isLandscape)))
                             }
-                            "getLaunchUrl" -> {
-                                val result = JSONObject()
-                                result.put("url", DeepLinkInbox.launchUrl ?: JSONObject.NULL)
-                                callback(Result.success(result))
+                            "getLaunchUrl" ->
+                                    callback(
+                                            Result.success(
+                                                    JSONObject().put("url", DeepLinkInbox.launchUrl ?: JSONObject.NULL)
+                                            )
+                                    )
+                            "takeDeepLinks" -> callback(Result.success(JSONObject().put("links", DeepLinkInbox.take())))
+                            "takeEvents" -> {
+                                val name = payload.optString("name")
+                                callback(Result.success(JSONObject().put("events", EventInbox.take(name))))
                             }
-                            "takeDeepLinks" -> {
-                                val result = JSONObject()
-                                result.put("links", DeepLinkInbox.take())
-                                callback(Result.success(result))
-                            }
-                            else -> callback(Result.failure(Exception("Unknown method: $method")))
+                            "openAppSettings" ->
+                                    runOnUiThread {
+                                        runtimePermissions.openAppSettings()
+                                        callback(Result.success(JSONObject()))
+                                    }
+                            "openWebWindow", "closeWebWindow", "webWindowPost", "webWindowInject", "webWindowLoad" ->
+                                    runOnUiThread { callback(handleWebWindowCall(method, payload)) }
+                            else ->
+                                    callback(
+                                            Result.failure(WefterError("UNKNOWN_METHOD", "No such method: $method"))
+                                    )
                         }
                     }
                 }
         )
-        newWebView.addJavascriptInterface(dispatcher, "AndroidBridge")
-        val linkDispatcher = dispatcher
-        DeepLinkInbox.setListener { linkDispatcher.emit("__system:deepLink", JSONObject()) }
-
-        return newWebView
     }
+
+    /** Runs a web window method of `__system` (see [WebWindows]). Must run on the main thread. */
+    private fun handleWebWindowCall(method: String, payload: JSONObject): Result<Any> =
+            try {
+                val id = payload.optString("id")
+                when (method) {
+                    "openWebWindow" -> webWindows.open(payload)
+                    "closeWebWindow" -> webWindows.close(id, "app")
+                    "webWindowPost" -> webWindows.post(id, payload.optString("message"))
+                    "webWindowInject" -> webWindows.inject(id, payload.optString("source"))
+                    "webWindowLoad" -> webWindows.load(id, payload.optString("url"))
+                }
+                Result.success(JSONObject())
+            } catch (e: IllegalArgumentException) {
+                Result.failure(WefterError("INVALID_PAYLOAD", e.message ?: "Invalid web window options"))
+            }
 
     /**
      * Loads the dev server when this build uses one, else the bundled app. A dev server build that is not
@@ -596,7 +705,7 @@ class MainActivity : AppCompatActivity() {
     private fun showRendererDeadFallback() {
         val message =
                 TextView(this).also {
-                    it.text = "This app isn't working right now.\nPlease close and reopen it."
+                    it.text = WefterText.get(this, "app.crashed")
                     it.gravity = Gravity.CENTER
                     it.textSize = 16f
                     it.setTextColor(Color.BLACK)

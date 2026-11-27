@@ -73,7 +73,7 @@ function copyShellTemplates() {
   const distShellsDir = join(rootDir, "dist/shells");
   if (existsSync(repoShellsDir)) {
     mkdirSync(distShellsDir, { recursive: true });
-    for (const shell of ["android-template", "ios-template"]) {
+    for (const shell of ["android-template", "ios-template", "i18n"]) {
       const src = join(repoShellsDir, shell);
       const dest = join(distShellsDir, shell);
       if (existsSync(src)) {
