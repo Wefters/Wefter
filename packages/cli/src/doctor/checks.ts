@@ -16,12 +16,16 @@ function execAsync(command: string): Promise<{ stdout: string; stderr: string }>
   });
 }
 
-/** Outcome of one check: what was found, and how to fix it when it failed. */
+/**
+ * Outcome of one check: what was found, and how to fix it when it failed. A `warning` passed but deserves
+ * attention; it does not fail `wefter doctor`.
+ */
 export interface CheckResult {
   name: string;
   passed: boolean;
   detail?: string;
   fix?: string;
+  warning?: boolean;
 }
 
 /** Node.js is at least the required major version. */

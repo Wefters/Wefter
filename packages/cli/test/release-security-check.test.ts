@@ -65,7 +65,7 @@ const baseConfig: WefterConfig = {
   pluginsDir: "node_modules",
   webDir: "dist",
   environments: { production: { appId: "com.example.app", appName: "Example" } },
-  signing: { keystorePath: "./keystore.jks", keyAlias: "release" },
+  signing: { android: { keystorePath: "./keystore.jks", keyAlias: "release", storePassword: "test-password" } },
 };
 
 describe("checkReleaseSecurity", () => {
@@ -134,5 +134,13 @@ describe("checkReleaseSecurity", () => {
 
     expect(result.passed).toBe(false);
     expect(result.issues.some((i) => i.includes("keystore not found"))).toBe(true);
+  });
+
+  it("flags a missing keystore password, and skips signing for an unsigned build", () => {
+    const projectDir = setUpProject();
+    const config = { ...baseConfig, signing: { android: { keystorePath: "./keystore.jks", keyAlias: "release" } } };
+
+    expect(checkReleaseSecurity(projectDir, config).issues.some((i) => i.includes("keystore password"))).toBe(true);
+    expect(checkReleaseSecurity(projectDir, config, { requireSigning: false }).passed).toBe(true);
   });
 });

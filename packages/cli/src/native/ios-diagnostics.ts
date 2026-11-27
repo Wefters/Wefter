@@ -16,6 +16,8 @@ function addUnique(list: string[], value: string): void {
 const COMPILER_ERROR = /^(\/\S.*?):(\d+)(?::(\d+))?: (?:fatal )?error: (.+)$/;
 /** `error: …` from xcodebuild and the tools it runs. */
 const TOOL_ERROR = /^(?:(?:xcodebuild|ld|clang|swift-frontend|codesign|actool|ibtool):\s*)?error:\s*(.+)$/;
+/** `<project>.xcodeproj: error: …`, how xcodebuild reports signing and project setting problems. */
+const PROJECT_ERROR = /^\/\S.*?\.xcodeproj: error: (.+?)(?: \(in target '[^']*' from project '[^']*'\))?$/;
 /** Heading of xcodebuild's list of failed build commands. */
 const FAILED_COMMANDS_HEADER = /^The following build commands failed:/;
 
@@ -35,6 +37,11 @@ export function diagnoseXcode(lines: string[]): Diagnosis {
     if (compiler) {
       const where = `${basename(compiler[1]!)}:${compiler[2]}${compiler[3] ? `:${compiler[3]}` : ""}`;
       addUnique(errors, `${where}: ${compiler[4]}`);
+      continue;
+    }
+    const project = PROJECT_ERROR.exec(trimmed);
+    if (project) {
+      addUnique(errors, project[1]!);
       continue;
     }
     const tool = TOOL_ERROR.exec(trimmed);
@@ -71,6 +78,12 @@ export function diagnoseXcode(lines: string[]): Diagnosis {
     )
   ) {
     hints.push("Code signing failed. Check the iOS signing settings (team and profile) in wefter.config.json.");
+  }
+  if (/No profiles for '.*' were found|Automatic signing is disabled and unable to generate a profile/i.test(text)) {
+    hints.push(
+      'No provisioning profile for this app. Add an App Store Connect API key ("signing": { "ios": { "appStoreConnect": … } }) so Xcode can create one, ' +
+        'name an installed profile in "provisioningProfile", or sign in to the team in Xcode › Settings › Accounts.',
+    );
   }
   if (/database is locked|Unable to write to info file|unable to attach DB/i.test(text)) {
     hints.push("Another build is using the same build folder. Wait for it (or quit Xcode's build) and run again.");

@@ -85,14 +85,15 @@ describe("init", () => {
     expect(existsSync(join(projectDir, "wefter.config.json"))).toBe(false);
   });
 
-  it("appends .wefter/ to an existing .gitignore", async () => {
+  it("appends .wefter/ and the build output folder to an existing .gitignore", async () => {
     setup();
     writeFileSync(join(projectDir, ".gitignore"), "node_modules/\n");
 
     const result = await init(projectDir, "1.0.0", defaultsPrompt);
 
     expect(result.gitignoreUpdated).toBe(true);
-    expect(readFileSync(join(projectDir, ".gitignore"), "utf-8")).toBe("node_modules/\n.wefter/\n");
+    expect(result.gitignoreEntries).toEqual([".wefter/", "build/"]);
+    expect(readFileSync(join(projectDir, ".gitignore"), "utf-8")).toBe("node_modules/\n.wefter/\nbuild/\n");
   });
 
   it("does not touch .gitignore if none exists", async () => {
@@ -101,6 +102,7 @@ describe("init", () => {
     const result = await init(projectDir, "1.0.0", defaultsPrompt);
 
     expect(result.gitignoreUpdated).toBe(false);
+    expect(result.gitignoreEntries).toEqual([]);
     expect(existsSync(join(projectDir, ".gitignore"))).toBe(false);
   });
 

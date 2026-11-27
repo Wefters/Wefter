@@ -147,7 +147,7 @@ export async function run(projectDir: string, options: RunOptions): Promise<RunS
       const { apkPath } = await step(`Building Android app (${options.env})`, (s) =>
         buildAndroid(projectDir, config, options.env, false, { onProgress: s.detail }),
       );
-      await step(`Installing on ${targetName}`, () => installAndroidApp(target, apkPath));
+      await step(`Installing on ${targetName}`, () => installAndroidApp(target, apkPath!));
       await step("Launching app", () => launchAndroidApp(target));
     };
 

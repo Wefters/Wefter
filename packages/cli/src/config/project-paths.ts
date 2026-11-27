@@ -55,6 +55,17 @@ export function loadWefterConfig(projectDir: string): WefterConfig {
   return result.data;
 }
 
+/** `wefter.config.json` as written, before validation and defaults; `{}` when missing or not valid JSON. */
+export function readRawConfig(projectDir: string): unknown {
+  const configPath = join(projectDir, "wefter.config.json");
+  if (!existsSync(configPath)) return {};
+  try {
+    return JSON.parse(readFileSync(configPath, "utf-8"));
+  } catch {
+    return {};
+  }
+}
+
 /** Absolute path of the folder plugins are installed in. */
 export function pluginsDirPath(projectDir: string, config: WefterConfig): string {
   return join(projectDir, config.pluginsDir);
@@ -154,6 +165,11 @@ export function iosXcodeProjectPath(projectDir: string): string {
 /** Folder of the per-environment `.xcconfig` files. */
 export function iosConfigDir(projectDir: string): string {
   return join(iosProjectRootDir(projectDir), "Config");
+}
+
+/** The `.xcconfig` every configuration includes, which holds the app version. */
+export function iosSharedXcconfigPath(projectDir: string): string {
+  return join(iosConfigDir(projectDir), "Shared.xcconfig");
 }
 
 /** The `.xcconfig` file of one environment. */

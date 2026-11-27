@@ -15,7 +15,8 @@ The shell is written in Swift using modern Apple frameworks:
 - `WefterPlugin.swift`: Protocol and base class that iOS plugins conform to. Provides references to the root view controller, bridge dispatcher, and promise resolution helpers.
 - `GeneratedRegistry.swift`: Emitted during `wefter sync`. Maps plugin names to Swift class initializers and provides direct method invocation without reflection.
 - `BuildConfig.swift`: Contains build-time variables such as developer server URLs and splash screen timeout configuration.
-- `Config/*.xcconfig`: Holds build settings, bundle identifiers, and display names corresponding to the active environment (`development` or `production`).
+- `Config/*.xcconfig`: Holds build settings, bundle identifiers, and display names corresponding to the active environment (`development`, `production`, and any others `wefter sync` adds build configurations for).
+- `Config/Shared.xcconfig`: Holds `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` between the `WEFTER-VERSION` markers, written by `wefter sync` from `version` and `buildNumber` in `wefter.config.json`. `Info.plist` reads both.
 
 ## Automatic source synchronization
 

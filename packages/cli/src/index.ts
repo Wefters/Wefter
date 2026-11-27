@@ -7,7 +7,18 @@ export { runAllChecks, type CheckResult } from "./doctor/checks.js";
 export { allPassed, buildReportLines } from "./doctor/report.js";
 export { REQUIREMENTS } from "./config/requirements.js";
 export { sync, type SyncResult, type SyncOptions } from "./commands/sync.js";
-export { build, type BuildResult, type BuildOptions } from "./commands/build.js";
+export {
+  build,
+  buildApp,
+  buildIosCommand,
+  type BuildResult,
+  type BuildOptions,
+  type BuildPlatform,
+  type PlatformBuildResult,
+} from "./commands/build.js";
+export { resolveAppVersion, type AppVersion } from "./app-build/app-version.js";
+export { runReleaseChecks, type ReleaseCheckResult } from "./app-build/release-checks.js";
+export { resolveAndroidSigning, resolveIosSigning } from "./config/signing-config.js";
 export { run, type RunOptions } from "./commands/run.js";
 export { eject } from "./commands/eject.js";
 export { buildAndroid, type AndroidBuildResult } from "./native/android-builder.js";

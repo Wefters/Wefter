@@ -1,11 +1,12 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import {
   androidAppModuleDir,
   androidBuildGradlePath,
   androidDebugNetworkSecurityConfigPath,
 } from "../config/project-paths.js";
 import type { WefterConfig } from "../config/wefter-config-schema.js";
+import { resolveAndroidSigning } from "../config/signing-config.js";
 
 /** Result of {@link checkReleaseSecurity}. */
 export interface ReleaseSecurityResult {
@@ -36,11 +37,22 @@ function readReleaseDevServerUrlField(buildGradlePath: string): string | null {
   return match ? match[1] : null;
 }
 
+/** Options for {@link checkReleaseSecurity}. */
+export interface ReleaseSecurityOptions {
+  /** Check the signing settings too (default `true`); `false` for `--unsigned` builds. */
+  requireSigning?: boolean;
+}
+
 /**
  * Checks that an Android release build is safe to ship: no release dev server URL, no unconditional
- * web view debugging, the debug-only network config in place, and a signing keystore that exists.
+ * web view debugging, the debug-only network config in place, and complete signing settings with a
+ * keystore that exists.
  */
-export function checkReleaseSecurity(projectDir: string, config: WefterConfig): ReleaseSecurityResult {
+export function checkReleaseSecurity(
+  projectDir: string,
+  config: WefterConfig,
+  options: ReleaseSecurityOptions = {},
+): ReleaseSecurityResult {
   const issues: string[] = [];
 
   const buildGradlePath = androidBuildGradlePath(projectDir);
@@ -64,14 +76,25 @@ export function checkReleaseSecurity(projectDir: string, config: WefterConfig): 
     issues.push(`Debug network security config missing or misplaced (expected at ${debugNetworkConfigPath})`);
   }
 
-  if (!config.signing) {
-    issues.push("No release signing config found in wefter.config.json");
-  } else {
-    const keystorePath = resolve(projectDir, config.signing.keystorePath);
-    if (!existsSync(keystorePath) || !statSync(keystorePath).isFile()) {
-      issues.push(`Signing keystore not found at ${keystorePath}`);
-    }
+  if (options.requireSigning ?? true) {
+    issues.push(...androidSigningIssues(projectDir, config));
   }
 
   return { passed: issues.length === 0, issues };
+}
+
+/**
+ * What is wrong with the Android signing settings: not configured, a value missing, or a keystore that does
+ * not exist. Empty when signing is ready.
+ */
+export function androidSigningIssues(projectDir: string, config: WefterConfig): string[] {
+  const signing = resolveAndroidSigning(projectDir, config);
+  if (!signing) {
+    return ['No release signing config found in wefter.config.json (add "signing": { "android": { … } })'];
+  }
+  const issues = [...signing.problems];
+  if (signing.keystorePath && (!existsSync(signing.keystorePath) || !statSync(signing.keystorePath).isFile())) {
+    issues.push(`Signing keystore not found at ${signing.keystorePath}`);
+  }
+  return issues;
 }

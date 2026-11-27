@@ -12,7 +12,7 @@ android {
         minSdk = 24
         targetSdk = 36
         versionCode = 1
-        versionName = "0.0.1"
+        versionName = "1.0.0"
 
         // WEFTER-SPLASH-CONFIG-START
         buildConfigField("boolean", "SPLASH_ENABLED", "false")
@@ -67,7 +67,8 @@ android {
                 storeFile = file(keystorePath)
                 storePassword = System.getenv("WEFTER_KEYSTORE_PASSWORD")
                 keyAlias = System.getenv("WEFTER_KEY_ALIAS")
-                keyPassword = System.getenv("WEFTER_KEYSTORE_PASSWORD")
+                // The key's own password; most keystores use the keystore password for both.
+                keyPassword = System.getenv("WEFTER_KEY_PASSWORD") ?: System.getenv("WEFTER_KEYSTORE_PASSWORD")
             }
         }
     }
@@ -80,6 +81,10 @@ android {
             buildConfigField("String", "DEV_SERVER_URL", "\"\"") // always empty in release — never shippable
             isMinifyEnabled = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+            // Symbols for plugins' native libraries, so Google Play can show readable native crash reports.
+            ndk {
+                debugSymbolLevel = "FULL"
+            }
             if (System.getenv("WEFTER_KEYSTORE_PATH") != null) {
                 signingConfig = signingConfigs.getByName("release")
             }

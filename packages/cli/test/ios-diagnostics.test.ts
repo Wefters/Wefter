@@ -82,3 +82,19 @@ Unable to lookup in current state: Shutdown`),
     expect(diagnoseSimctl(["Invalid device: AAA-1"]).hints[0]).toMatch(/--simulator/);
   });
 });
+
+describe("diagnoseXcode — signing", () => {
+  it("shows xcodebuild's project-level signing error and how to get a profile", async () => {
+    const { diagnoseXcode } = await import("../src/native/ios-diagnostics.js");
+    const diagnosis = diagnoseXcode([
+      "Archiving project WefterBridge with scheme WefterBridge",
+      "/Users/me/app/.wefter/native/ios/WefterBridge.xcodeproj: error: No profiles for 'com.example.app' were found: Xcode couldn't find any iOS App Development provisioning profiles matching 'com.example.app'. (in target 'WefterBridge' from project 'WefterBridge')",
+      "** ARCHIVE FAILED **",
+    ]);
+
+    expect(diagnosis.errors).toEqual([
+      "No profiles for 'com.example.app' were found: Xcode couldn't find any iOS App Development provisioning profiles matching 'com.example.app'.",
+    ]);
+    expect(diagnosis.hints.some((h) => h.includes("appStoreConnect"))).toBe(true);
+  });
+});

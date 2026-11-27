@@ -37,10 +37,13 @@ The template uses Gradle Kotlin DSL (`build.gradle.kts`) with specific marker co
 - `WEFTER-ENV-CONFIG`: Configures environment-specific variables, package names, and app titles across product flavors (`development` and `production`).
 - `WEFTER-PLUGIN-DEPS`: Appends Gradle dependencies declared by installed plugins.
 
-Release signing can be configured using environment variables:
+`wefter sync` also writes `versionCode` and `versionName` from `buildNumber` and `version` in `wefter.config.json`, and adds a product flavor for every environment beyond `development` and `production`.
+
+Release builds are signed from these environment variables, which `wefter build --release` sets from `signing.android` in `wefter.config.json`:
 
 - `WEFTER_KEYSTORE_PATH`: Path to the `.keystore` or `.jks` file.
-- `WEFTER_KEYSTORE_PASSWORD`: Keystore and key password.
+- `WEFTER_KEYSTORE_PASSWORD`: Keystore password.
+- `WEFTER_KEY_PASSWORD`: Key password. Falls back to `WEFTER_KEYSTORE_PASSWORD` when not set.
 - `WEFTER_KEY_ALIAS`: Keystore alias name.
 
 ## Requirements

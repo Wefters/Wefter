@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { EventEmitter } from "node:events";
-import { cpSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -11,14 +11,43 @@ vi.mock("../src/hooks/run-hook.js", () => ({
   runHook: (...args: unknown[]) => runHookMock(...args),
 }));
 
-const buildAndroidMock = vi.fn().mockResolvedValue({ apkPath: "/out/app.apk", sizeBytes: 123 });
-vi.mock("../src/native/android-builder.js", () => ({
-  buildAndroid: (...args: unknown[]) => buildAndroidMock(...args),
+/** A fake built APK on disk, as Gradle would leave it. */
+function fakeApk(): { apkPath: string; sizeBytes: number } {
+  const apkPath = join(projectDir, "gradle-out", "Example-development-release.apk");
+  mkdirSync(dirname(apkPath), { recursive: true });
+  writeFileSync(apkPath, "apk");
+  return { apkPath, sizeBytes: 3 };
+}
+
+/** A fake simulator app on disk, as xcodebuild would leave it. */
+function fakeApp(): { appPath: string; sizeBytes: number } {
+  const appPath = join(projectDir, "xcode-out", "Example.app");
+  mkdirSync(appPath, { recursive: true });
+  writeFileSync(join(appPath, "Example"), "binary");
+  return { appPath, sizeBytes: 6 };
+}
+
+const buildAndroidMock = vi.fn(async () => fakeApk());
+vi.mock("../src/native/android-builder.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../src/native/android-builder.js")>()),
+  buildAndroid: (...args: unknown[]) => buildAndroidMock(...(args as [])),
 }));
 
-const buildIosMock = vi.fn().mockResolvedValue({ appPath: "/out/App.app", sizeBytes: 456 });
-vi.mock("../src/native/ios-builder.js", () => ({
-  buildIos: (...args: unknown[]) => buildIosMock(...args),
+const buildIosMock = vi.fn(async () => fakeApp());
+vi.mock("../src/native/ios-builder.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../src/native/ios-builder.js")>()),
+  buildIos: (...args: unknown[]) => buildIosMock(...(args as [])),
+}));
+
+const syncMock = vi.fn(async () => ({ unresolvedRegisteredPlugins: [] }));
+vi.mock("../src/commands/sync.js", () => ({
+  sync: (...args: unknown[]) => syncMock(...(args as [])),
+}));
+
+vi.mock("../src/native/inject-version.js", () => ({
+  injectVersionAndroid: vi.fn(),
+  injectVersionIos: vi.fn(),
+  versionBuildSettings: () => [],
 }));
 
 const BOOTED_SIMULATOR = { udid: "AAA-1", name: "iPhone 15", state: "Booted", isAvailable: true };
@@ -73,8 +102,9 @@ beforeEach(async () => {
   writeSyncMarker(projectDir);
 
   runHookMock.mockReset().mockResolvedValue(undefined);
-  buildAndroidMock.mockReset().mockResolvedValue({ apkPath: "/out/app.apk", sizeBytes: 123 });
-  buildIosMock.mockReset().mockResolvedValue({ appPath: "/out/App.app", sizeBytes: 456 });
+  buildAndroidMock.mockReset().mockImplementation(async () => fakeApk());
+  buildIosMock.mockReset().mockImplementation(async () => fakeApp());
+  syncMock.mockClear();
   resolveSimulatorMock.mockReset().mockResolvedValue(BOOTED_SIMULATOR);
   installIosAppMock.mockReset().mockResolvedValue(undefined);
   launchIosAppMock.mockReset().mockResolvedValue(undefined);
@@ -86,31 +116,45 @@ afterEach(() => {
 });
 
 describe("build() hook wiring", () => {
-  it("fires wefter:build:before then wefter:build:after around a successful build, in order", async () => {
+  it("runs before, sync, the build, then after, in order, with the build's details", async () => {
     const { build } = await import("../src/commands/build.js");
     const order: string[] = [];
     runHookMock.mockImplementation(async (_dir, command, phase) => {
       order.push(`${command}:${phase}`);
     });
+    syncMock.mockImplementationOnce(async () => {
+      order.push("sync");
+      return { unresolvedRegisteredPlugins: [] };
+    });
     buildAndroidMock.mockImplementationOnce(async () => {
       order.push("buildAndroid");
-      return { apkPath: "/out/app.apk", sizeBytes: 1 };
+      return fakeApk();
     });
 
-    await build(projectDir, { release: false, env: "production" });
+    const result = await build(projectDir, { release: false, env: "production", appVersion: "2.1.0", buildNumber: 9 });
 
-    expect(order).toEqual(["build:before", "buildAndroid", "build:after"]);
+    expect(order).toEqual(["build:before", "sync", "buildAndroid", "build:after"]);
     expect(runHookMock).toHaveBeenCalledWith(projectDir, "build", "before", {
       platform: "android",
       environment: "production",
+      env: expect.objectContaining({ WEFTER_RELEASE: "false", WEFTER_APP_VERSION: "2.1.0", WEFTER_BUILD_NUMBER: "9" }),
     });
     expect(runHookMock).toHaveBeenCalledWith(projectDir, "build", "after", {
       platform: "android",
       environment: "production",
+      env: expect.objectContaining({ WEFTER_ARTIFACT: result.primary.path, WEFTER_BUILD_INFO: result.buildInfoPath }),
+    });
+    expect(result.outputDir).toBe(join(projectDir, "build", "android", "production", "2.1.0-9"));
+    expect(existsSync(result.primary.path)).toBe(true);
+    expect(JSON.parse(readFileSync(result.buildInfoPath, "utf-8"))).toMatchObject({
+      platform: "android",
+      environment: "production",
+      version: "2.1.0",
+      buildNumber: 9,
     });
   });
 
-  it("aborts before the real build starts if wefter:build:before fails", async () => {
+  it("aborts before syncing or building if wefter:build:before fails, and runs wefter:build:failed", async () => {
     runHookMock.mockImplementation(async (_dir, _command, phase) => {
       if (phase === "before") throw new Error('Hook "wefter:build:before" exited with code 1');
     });
@@ -119,34 +163,84 @@ describe("build() hook wiring", () => {
     await expect(build(projectDir, { release: false, env: "development" })).rejects.toThrow(
       'Hook "wefter:build:before" exited with code 1',
     );
+    expect(syncMock).not.toHaveBeenCalled();
     expect(buildAndroidMock).not.toHaveBeenCalled();
+    expect(runHookMock).toHaveBeenCalledWith(
+      projectDir,
+      "build",
+      "failed",
+      expect.objectContaining({
+        env: expect.objectContaining({ WEFTER_ERROR: expect.stringContaining("exited with code 1") }),
+      }),
+    );
   });
 
-  it("does not fire wefter:build:after if the build itself fails", async () => {
+  it("runs wefter:build:failed instead of after when the build itself fails", async () => {
     buildAndroidMock.mockRejectedValueOnce(new Error("Gradle build failed with exit code 1"));
     const { build } = await import("../src/commands/build.js");
 
     await expect(build(projectDir, { release: false, env: "development" })).rejects.toThrow("Gradle build failed");
     expect(runHookMock).toHaveBeenCalledWith(projectDir, "build", "before", expect.anything());
     expect(runHookMock).not.toHaveBeenCalledWith(projectDir, "build", "after", expect.anything());
+    expect(runHookMock).toHaveBeenCalledWith(projectDir, "build", "failed", expect.anything());
   });
 
-  it("fires iOS build hooks with platform: ios", async () => {
+  it("stops when a hook starts another build, instead of looping", async () => {
+    const { build } = await import("../src/commands/build.js");
+    runHookMock.mockImplementation(async (_dir, _command, phase) => {
+      if (phase === "before") await build(projectDir, { release: false, env: "development" });
+    });
+
+    await expect(build(projectDir, { release: false, env: "development" })).rejects.toThrow(/already running/);
+    expect(process.env.WEFTER_BUILD_ACTIVE).toBeUndefined();
+  });
+
+  it("rejects an unknown environment, listing the configured ones, before any hook runs", async () => {
+    const { build } = await import("../src/commands/build.js");
+
+    await expect(build(projectDir, { release: false, env: "staging" })).rejects.toThrow(
+      /Unknown environment "staging"\. Configured environments: development, production/,
+    );
+    expect(runHookMock).not.toHaveBeenCalled();
+  });
+
+  it("uses the production environment for a release unless --env is given", async () => {
+    const { resolveBuildEnvironment } = await import("../src/commands/build.js");
+    const { loadWefterConfig } = await import("../src/config/project-paths.js");
+    const config = loadWefterConfig(projectDir);
+
+    expect(resolveBuildEnvironment(config, { release: true })).toBe("production");
+    expect(resolveBuildEnvironment(config, { release: false })).toBe("development");
+    expect(resolveBuildEnvironment(config, { release: true, env: "development" })).toBe("development");
+  });
+
+  it("fails a release early when Android signing is missing, unless --unsigned", async () => {
+    const { build } = await import("../src/commands/build.js");
+
+    await expect(build(projectDir, { release: true })).rejects.toThrow(/Android release signing is not ready/);
+    expect(runHookMock).not.toHaveBeenCalled();
+  });
+
+  it.skipIf(process.platform !== "darwin")("fires iOS build hooks with platform: ios", async () => {
     const { buildIosCommand } = await import("../src/commands/build.js");
 
     await buildIosCommand(projectDir, { release: false, env: "development" });
 
-    expect(runHookMock).toHaveBeenCalledWith(projectDir, "build", "before", {
-      platform: "ios",
-      environment: "development",
-    });
-    expect(runHookMock).toHaveBeenCalledWith(projectDir, "build", "after", {
-      platform: "ios",
-      environment: "development",
-    });
+    expect(runHookMock).toHaveBeenCalledWith(
+      projectDir,
+      "build",
+      "before",
+      expect.objectContaining({ platform: "ios" }),
+    );
+    expect(runHookMock).toHaveBeenCalledWith(
+      projectDir,
+      "build",
+      "after",
+      expect.objectContaining({ platform: "ios" }),
+    );
   });
 
-  it("does not fire the iOS wefter:build:after if buildIos fails", async () => {
+  it.skipIf(process.platform !== "darwin")("does not fire the iOS wefter:build:after if buildIos fails", async () => {
     buildIosMock.mockRejectedValueOnce(new Error("xcodebuild failed"));
     const { buildIosCommand } = await import("../src/commands/build.js");
 
@@ -155,6 +249,23 @@ describe("build() hook wiring", () => {
     );
     expect(runHookMock).not.toHaveBeenCalledWith(projectDir, "build", "after", expect.anything());
   });
+
+  it.skipIf(process.platform !== "darwin")(
+    "builds both platforms with one before hook and sync, and an after hook per platform",
+    async () => {
+      const { buildApp } = await import("../src/commands/build.js");
+      const phases: string[] = [];
+      runHookMock.mockImplementation(async (_dir, _command, phase, context) => {
+        phases.push(`${phase}:${(context as { platform: string }).platform}`);
+      });
+
+      const results = await buildApp(projectDir, ["android", "ios"], { release: false });
+
+      expect(results.map((r) => r.platform)).toEqual(["android", "ios"]);
+      expect(syncMock).toHaveBeenCalledTimes(1);
+      expect(phases).toEqual(["before:all", "after:android", "after:ios"]);
+    },
+  );
 });
 
 describe("run() hook wiring", () => {

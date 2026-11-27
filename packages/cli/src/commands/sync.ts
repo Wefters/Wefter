@@ -66,7 +66,10 @@ import { generateSplash } from "../native/splash-generator.js";
 import { resolveSplash, SPLASH_DEFAULTS } from "../native/resolve-splash.js";
 import { resolveLaunchBackground } from "../native/resolve-launch-background.js";
 import { injectLaunchBackgroundAndroid } from "../native/inject-launch-background.js";
-import { injectLaunchBackgroundBuildConfigIos, injectLaunchBackgroundIos } from "../native/inject-launch-background-ios.js";
+import {
+  injectLaunchBackgroundBuildConfigIos,
+  injectLaunchBackgroundIos,
+} from "../native/inject-launch-background-ios.js";
 import { injectOrientationAndroid, injectOrientationIos } from "../native/inject-orientation.js";
 import { injectKeyboardConfigIos } from "../native/inject-keyboard-ios.js";
 import {
@@ -81,6 +84,11 @@ import { resolveRegisteredPlugins, unresolvedRegisteredPlugins } from "../plugin
 import { checkLockDrift, writeLockfile } from "../plugins/lockfile.js";
 import { writeSyncMarker } from "../plugins/sync-freshness.js";
 import { runHook } from "../hooks/run-hook.js";
+import { resolveAppVersion } from "../app-build/app-version.js";
+import { injectVersionAndroid, injectVersionIos } from "../native/inject-version.js";
+import { injectExportComplianceIos } from "../native/inject-export-compliance-ios.js";
+import { iosSharedXcconfigPath, iosXcodeProjectPath } from "../config/project-paths.js";
+import { ensureAndroidFlavors, ensureIosConfigurations } from "../native/inject-environments.js";
 
 /** Everything a sync added or changed, for the summary. */
 export interface SyncResult {
@@ -162,7 +170,8 @@ export interface SyncOptions {
  * 2. Regenerates both native projects from the templates (ejected projects are updated in place).
  * 3. Copies the web app, plugin sources and splash screen in, and resets dev server settings.
  * 4. Merges plugin dependencies, permissions, components and ProGuard rules.
- * 5. Applies environments, icons, splash, launch background, orientation and deep link schemes.
+ * 5. Applies environments (adding native setups for ones beyond development and production), icons, splash, launch background, version, export compliance, orientation and
+ *    deep link schemes.
  * 6. Generates the plugin registries and writes the lockfile and sync marker.
  *
  * The `wefter:sync` hooks run before and after. In an ejected project the changed files are restored if
@@ -194,6 +203,7 @@ export async function sync(projectDir: string, options: SyncOptions = {}): Promi
   const iosWebAssetsDirPath = iosWebAssetsDir(projectDir);
   const iosNativeDependenciesPackagePathVar = iosNativeDependenciesPackagePath(projectDir);
   const iosAppIconSetDir = join(iosAppDir(projectDir), "Assets.xcassets/AppIcon.appiconset");
+  const iosPbxprojPath = join(iosXcodeProjectPath(projectDir), "project.pbxproj");
 
   /** The sync itself; wrapped in a transaction for ejected projects. */
   const doSync = async (): Promise<SyncResult> => {
@@ -263,6 +273,10 @@ export async function sync(projectDir: string, options: SyncOptions = {}): Promi
     const proguardRulesAdded = mergeProguardRules(androidPlugins, proguardRulesPath);
     const iosPermissionsAdded = mergeInfoPlist(iosPlugins, iosInfoPlistPathVar);
 
+    const envNames = Object.keys(config.environments);
+    ensureAndroidFlavors(buildGradlePath, envNames);
+    if (existsSync(iosPbxprojPath)) ensureIosConfigurations(iosPbxprojPath, iosConfigDir(projectDir), envNames);
+
     for (const [env, values] of Object.entries(config.environments)) {
       injectEnvironmentConfig(buildGradlePath, env, values);
 
@@ -294,6 +308,11 @@ export async function sync(projectDir: string, options: SyncOptions = {}): Promi
     injectLaunchBackgroundAndroid(androidColorsPath(projectDir), launchBackground);
     injectLaunchBackgroundIos(iosLaunchScreenStoryboardPath(projectDir), launchBackground);
     injectLaunchBackgroundBuildConfigIos(iosBuildConfigPathVar, launchBackground);
+
+    const appVersion = resolveAppVersion(projectDir, config);
+    injectVersionAndroid(buildGradlePath, appVersion);
+    injectVersionIos(iosSharedXcconfigPath(projectDir), iosInfoPlistPathVar, appVersion);
+    injectExportComplianceIos(iosInfoPlistPathVar, config.build.ios.usesNonExemptEncryption);
 
     injectOrientationAndroid(manifestPath, buildGradlePath, Boolean(config.landscape));
     injectOrientationIos(iosInfoPlistPathVar, iosBuildConfigPathVar, Boolean(config.landscape));
@@ -353,6 +372,8 @@ export async function sync(projectDir: string, options: SyncOptions = {}): Promi
           iosWebAssetsDirPath,
           iosNativeDependenciesPackagePathVar,
           iosConfigDir(projectDir),
+          iosSharedXcconfigPath(projectDir),
+          iosPbxprojPath,
           ...Object.keys(config.environments).flatMap((env) => [
             androidFlavorManifestPath(androidAppModuleDir(projectDir), env),
             iosEntitlementsPath(iosAppDir(projectDir), env),

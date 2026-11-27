@@ -84,6 +84,82 @@ export function printBuildSummary(summary: BuildSummary): void {
   writeLine("");
 }
 
+/** Size in megabytes (or kilobytes for small files), such as `12.4 MB`. */
+export function formatSize(bytes: number): string {
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+/** How long ago a time was, such as `3 min ago`. */
+export function formatAge(date: Date, now = new Date()): string {
+  const seconds = Math.max(0, Math.round((now.getTime() - date.getTime()) / 1000));
+  if (seconds < 60) return "just now";
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 48) return `${hours} h ago`;
+  return `${Math.round(hours / 24)} days ago`;
+}
+
+/** Prints a warning found during a build, as it is found. */
+export function printWarning(message: string): void {
+  writeLine(`${chalk.yellow("!")} ${chalk.yellow(message)}`);
+}
+
+/** One built file in {@link BuildResultSummary}. */
+export interface BuildFileSummary {
+  name: string;
+  sizeBytes: number;
+}
+
+/** What {@link printBuildResult} shows for one platform. */
+export interface BuildResultSummary {
+  appName: string;
+  versionLabel: string;
+  platformLabel: string;
+  outputDir: string;
+  files: BuildFileSummary[];
+  signingFingerprint?: string;
+  webDir: string;
+  webBuiltAt?: Date;
+  plugins: string[];
+  warningCount: number;
+}
+
+/**
+ * Prints a finished build: app, version, platform and environment, the output folder with each file and
+ * its size, the signing certificate, how old the bundled web app is, the plugins, and how many warnings
+ * there were.
+ */
+export function printBuildResult(summary: BuildResultSummary): void {
+  const sym = symbols();
+  writeLine("");
+  writeLine(
+    `${chalk.green(sym.ok)} Built ${chalk.bold(summary.appName)} ${chalk.bold(summary.versionLabel)} ${chalk.dim(`· ${summary.platformLabel}`)}`,
+  );
+  writeLine(`  ${chalk.cyan(summary.outputDir.endsWith("/") ? summary.outputDir : `${summary.outputDir}/`)}`);
+  const width = Math.max(...summary.files.map((f) => f.name.length), 0);
+  for (const file of summary.files) {
+    writeLine(`    ${file.name.padEnd(width)}  ${chalk.dim(formatSize(file.sizeBytes))}`);
+  }
+  writeLine("");
+  if (summary.signingFingerprint) {
+    writeLine(`  ${chalk.dim("Signed".padEnd(8))}  SHA-256 ${summary.signingFingerprint}`);
+  }
+  if (summary.webBuiltAt) {
+    writeLine(`  ${chalk.dim("Web app".padEnd(8))}  ${summary.webDir}/ built ${formatAge(summary.webBuiltAt)}`);
+  }
+  if (summary.plugins.length > 0) {
+    writeLine(`  ${chalk.dim("Plugins".padEnd(8))}  ${summary.plugins.length}: ${summary.plugins.join(", ")}`);
+  }
+  if (summary.warningCount > 0) {
+    writeLine(
+      `  ${chalk.yellow("!".padEnd(8))}  ${summary.warningCount} warning${summary.warningCount === 1 ? "" : "s"}, listed above`,
+    );
+  }
+  writeLine("");
+}
+
 /**
  * The same command with `--debug` added, suggested after a failure.
  *

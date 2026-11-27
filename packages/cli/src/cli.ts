@@ -4,18 +4,24 @@
  * readable reports and exit codes.
  */
 
-import { resolve } from "node:path";
+import { statSync } from "node:fs";
+import { basename, relative, resolve } from "node:path";
 import { config as loadDotenv } from "dotenv";
 import { Command, type Help } from "commander";
 import { init } from "./commands/init.js";
 import { CLI_VERSION, CORE_VERSION } from "./internal/version.js";
 import { sync } from "./commands/sync.js";
-import { build, buildIosCommand } from "./commands/build.js";
+import { buildApp, type BuildPlatform, type PlatformBuildResult } from "./commands/build.js";
+import { formatAppVersion } from "./app-build/app-version.js";
+import { setHookOutputToStderr } from "./hooks/run-hook.js";
+import { loadWefterConfig, readRawConfig } from "./config/project-paths.js";
+import { legacyConfigNotes } from "./config/wefter-config-schema.js";
+import { outputFolderIgnored, resolveOutputRoot } from "./app-build/artifacts.js";
 import { run, runIos } from "./commands/run.js";
 import { attachRunSession } from "./commands/run-interactive.js";
 import { openRunLog } from "./process/run-log.js";
-import { configureUi } from "./ui/terminal.js";
-import { debugRetryCommand, printBuildSummary, printFailure } from "./ui/report.js";
+import { configureUi, setTerminalStreams } from "./ui/terminal.js";
+import { debugRetryCommand, printBuildResult, printFailure, printWarning } from "./ui/report.js";
 import { eject } from "./commands/eject.js";
 import { audit } from "./commands/audit.js";
 import { add } from "./commands/add.js";
@@ -32,11 +38,6 @@ import { printInitSuccessSummary } from "./utils/banner.js";
 import logger from "./utils/logger.js";
 
 loadDotenv({ quiet: true });
-
-/** Size in megabytes, such as `12.4 MB`. */
-function formatBytes(bytes: number): string {
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
 
 /**
  * The arguments needed to repeat a `run` or `build` command, used for the `--debug` retry suggestion.
@@ -88,7 +89,7 @@ program
         appId: result.appId,
         webDir: result.webDir,
         packageManager: result.packageManager,
-        gitignoreUpdated: result.gitignoreUpdated,
+        gitignoreEntries: result.gitignoreEntries,
         coreVersion: CORE_VERSION,
         cliVersion: CLI_VERSION,
       });
@@ -141,8 +142,21 @@ program
   .option("--update-lock", "accept plugin versions that drifted from wefter.lock.json and re-lock them", false)
   .action(async (projectDir: string, opts: { updateLock: boolean }) => {
     try {
-      const result = await sync(resolve(projectDir), { updateLock: opts.updateLock });
+      const root = resolve(projectDir);
+      const result = await sync(root, { updateLock: opts.updateLock });
       logger.success(`Synced ${result.plugins.length} plugin(s): ${result.plugins.join(", ")}`);
+      for (const note of legacyConfigNotes(readRawConfig(root))) logger.warn(`wefter.config.json: ${note}`);
+      const syncedConfig = loadWefterConfig(root);
+      try {
+        const outputRoot = resolveOutputRoot(root, syncedConfig.build.output, syncedConfig.webDir);
+        if (!outputFolderIgnored(root, outputRoot)) {
+          logger.warn(
+            `.gitignore does not list the build output folder "${syncedConfig.build.output}/"; add it so built apps stay out of git.`,
+          );
+        }
+      } catch (error) {
+        logger.warn(error instanceof Error ? error.message : String(error));
+      }
       for (const [env, links] of Object.entries(result.deepLinks)) {
         const targets = [...links.schemes.map((s) => `${s}://`), ...links.domains.map((d) => `https://${d}`)];
         if (targets.length > 0) logger.info(`Deep links (${env}): ${targets.join(", ")}`);
@@ -167,63 +181,169 @@ program
     }
   });
 
+/** Options of `wefter build`, as Commander gives them. */
+interface BuildCliOptions {
+  release: boolean;
+  env?: string;
+  appVersion?: string;
+  buildNumber?: string;
+  format?: string;
+  output?: string;
+  unsigned: boolean;
+  exportMethod?: string;
+  simulator?: string;
+  strict: boolean;
+  clean: boolean;
+  json: boolean;
+  debug: boolean;
+}
+
+/** The arguments needed to repeat a `build` command, for the `--debug` retry suggestion. */
+function buildFlags(projectDir: string, opts: BuildCliOptions): string[] {
+  const flags: string[] = [];
+  if (resolve(projectDir) !== process.cwd()) flags.push(JSON.stringify(projectDir));
+  if (opts.release) flags.push("--release");
+  const valued: [string, string | undefined][] = [
+    ["--env", opts.env],
+    ["--app-version", opts.appVersion],
+    ["--build-number", opts.buildNumber],
+    ["--format", opts.format],
+    ["--output", opts.output],
+    ["--export-method", opts.exportMethod],
+    ["--simulator", opts.simulator],
+  ];
+  for (const [flag, value] of valued) if (value !== undefined) flags.push(flag, JSON.stringify(value));
+  if (opts.unsigned) flags.push("--unsigned");
+  if (opts.strict) flags.push("--strict");
+  if (opts.clean) flags.push("--clean");
+  return flags;
+}
+
+/** A build result as `--json` prints it. */
+function buildResultJson(result: PlatformBuildResult) {
+  return {
+    platform: result.platform,
+    app: { name: result.appName, id: result.appId },
+    environment: result.env,
+    release: result.release,
+    version: result.appVersion.version,
+    buildNumber: result.appVersion.buildNumber,
+    ...(result.target ? { target: result.target } : {}),
+    ...(result.format ? { format: result.format } : {}),
+    outputDir: result.outputDir,
+    buildInfo: result.buildInfoPath,
+    artifacts: result.artifacts.map((a) => ({ kind: a.kind, path: a.path, sizeBytes: a.sizeBytes, sha256: a.sha256 })),
+    ...(result.signingCertificateSha256 ? { signingCertificateSha256: result.signingCertificateSha256 } : {}),
+    warnings: result.warnings,
+  };
+}
+
+/** `Android · release · production`, `iOS · release · production · device` and the like. */
+function platformLabel(result: PlatformBuildResult): string {
+  const parts = [result.platform === "ios" ? "iOS" : "Android", result.release ? "release" : "debug", result.env];
+  if (result.target) parts.push(result.target);
+  return parts.join(" · ");
+}
+
 /**
- * `wefter build <platform>`: builds the app, logging everything to `.wefter/logs`, and prints where the result
- * is. When it fails, the report suggests the same command with `--debug`.
+ * `wefter build <platform>`: builds the app (see `commands/build.ts` for the steps), logging everything to
+ * `.wefter/logs`, and prints what was built and where. With `--json`, progress goes to stderr and stdout
+ * gets one JSON document, also on failure. When it fails, the report suggests the same command with
+ * `--debug`.
  */
 program
   .command("build")
-  .description("Sync and build the native app")
-  .argument("<platform>", 'target platform: "android" or "ios"')
+  .description("Build the app for testing or for the stores")
+  .argument("<platform>", '"android", "ios" or "all"')
   .argument("[projectDir]", "project root directory", process.cwd())
-  .option("--release", "build a release artifact instead of debug", false)
-  .option("--env <environment>", "environment to build (from wefter.config.json)", "development")
-  .option("--simulator <name>", "iOS only: xcrun simctl device name/UDID to build for")
+  .option("--release", "build a signed release for the stores (uses the production environment)", false)
+  .option("--env <environment>", "environment to build (default: production with --release, else development)")
+  .option("--app-version <version>", 'app version such as 1.4.0, instead of "version" in wefter.config.json')
+  .option("--build-number <number>", 'build number such as 42, instead of "buildNumber" in wefter.config.json')
+  .option("--format <format>", "Android: apk, aab or both (default: both for --release, else apk)")
+  .option("--output <dir>", 'folder for the built files (default: "build", or build.output in wefter.config.json)')
+  .option("--unsigned", "build a release without signing it, to sign it elsewhere", false)
+  .option(
+    "--export-method <method>",
+    "iOS: app-store-connect, release-testing, enterprise or debugging (default: app-store-connect)",
+  )
+  .option("--simulator <name>", "iOS: build for this simulator (name or UDID) instead of devices")
+  .option("--strict", "treat release check warnings as errors", false)
+  .option("--clean", "clean the native build caches first", false)
+  .option("--json", "print the result as JSON on stdout (progress goes to stderr)", false)
   .option("--debug", "stream the full Xcode/Gradle output instead of a progress spinner", false)
-  .action(
-    async (
-      platform: string,
-      projectDir: string,
-      opts: { release: boolean; env: string; simulator?: string; debug: boolean },
-    ) => {
-      if (platform !== "android" && platform !== "ios") {
-        logger.error(`Unsupported platform "${platform}". Use "android" or "ios".`);
-        process.exitCode = 1;
-        return;
-      }
-      configureUi({ debug: opts.debug });
-      const root = resolve(projectDir);
-      openRunLog(root, `build-${platform}`);
-      const flags = commonFlags(projectDir, opts.env, opts.simulator, opts.release ? ["--release"] : []);
-      try {
-        const result =
-          platform === "android"
-            ? await build(root, { release: opts.release, env: opts.env })
-            : await buildIosCommand(root, { release: opts.release, env: opts.env, simulator: opts.simulator });
+  .action(async (platform: string, projectDir: string, opts: BuildCliOptions) => {
+    if (platform !== "android" && platform !== "ios" && platform !== "all") {
+      logger.error(`Unsupported platform "${platform}". Use "android", "ios" or "all".`);
+      process.exitCode = 1;
+      return;
+    }
+    configureUi({ debug: opts.debug });
+    if (opts.json) {
+      const toStderr = (chunk: string) => process.stderr.write(chunk);
+      setTerminalStreams({ out: toStderr, err: toStderr, columns: () => process.stderr.columns || 80 });
+      setHookOutputToStderr(true);
+    }
+    const root = resolve(projectDir);
+    const platforms: BuildPlatform[] = platform === "all" ? ["android", "ios"] : [platform];
+    const label = platform === "all" ? "Build" : `${platform === "ios" ? "iOS" : "Android"} build`;
+    openRunLog(root, `build-${platform}`);
+    try {
+      const results = await buildApp(root, platforms, {
+        release: opts.release,
+        env: opts.env,
+        appVersion: opts.appVersion,
+        buildNumber: opts.buildNumber,
+        format: opts.format,
+        output: opts.output,
+        unsigned: opts.unsigned,
+        exportMethod: opts.exportMethod,
+        simulator: opts.simulator,
+        strict: opts.strict,
+        clean: opts.clean,
+        onWarning: printWarning,
+      });
+      const config = loadWefterConfig(root);
+      for (const result of results) {
         if (result.unresolvedRegisteredPlugins.length > 0) {
-          logger.warn(
+          printWarning(
             `Registered plugin(s) not found in node_modules: ${result.unresolvedRegisteredPlugins.join(", ")}. ` +
               `Run \`wefter sync\` to refresh the registry.`,
           );
         }
-        printBuildSummary({
+        printBuildResult({
           appName: result.appName,
-          platformLabel: `${platform === "ios" ? "iOS" : "Android"} · ${opts.release ? "release" : "debug"} · ${opts.env}`,
-          artifactPath: "apkPath" in result ? result.apkPath : result.appPath,
-          sizeLabel: formatBytes(result.sizeBytes),
+          versionLabel: formatAppVersion(result.appVersion),
+          platformLabel: platformLabel(result),
+          outputDir: relative(process.cwd(), result.outputDir) || ".",
+          files: [
+            ...result.artifacts,
+            { path: result.buildInfoPath, sizeBytes: statSync(result.buildInfoPath).size },
+          ].map((a) => ({ name: basename(a.path), sizeBytes: a.sizeBytes })),
+          signingFingerprint: result.signingCertificateSha256,
+          webDir: config.webDir,
+          webBuiltAt: result.webBuiltAt,
           plugins: result.syncedPlugins,
+          warningCount: result.warnings.length,
         });
-        process.exitCode = 0;
-      } catch (err) {
-        printFailure(
-          `${platform === "ios" ? "iOS" : "Android"} build failed`,
-          err,
-          debugRetryCommand({ command: "build", platform, flags }),
-        );
-        process.exitCode = 1;
       }
-    },
-  );
+      if (opts.json) {
+        process.stdout.write(JSON.stringify({ ok: true, builds: results.map(buildResultJson) }, null, 2) + "\n");
+      }
+      process.exitCode = 0;
+    } catch (err) {
+      printFailure(
+        `${label} failed`,
+        err,
+        debugRetryCommand({ command: "build", platform, flags: buildFlags(projectDir, opts) }),
+      );
+      if (opts.json) {
+        const message = err instanceof Error ? err.message : String(err);
+        process.stdout.write(JSON.stringify({ ok: false, error: message }, null, 2) + "\n");
+      }
+      process.exitCode = 1;
+    }
+  });
 
 /**
  * `wefter run <platform>`: runs the app, logging everything to `.wefter/logs`. When it succeeds, the run session

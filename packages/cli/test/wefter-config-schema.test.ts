@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { WefterConfigSchema } from "../src/config/wefter-config-schema.js";
+import { legacyConfigNotes, WefterConfigSchema } from "../src/config/wefter-config-schema.js";
 
 describe("WefterConfigSchema — iOS fields", () => {
   it("accepts a config with no iOS-specific fields at all — fully backward compatible", () => {
@@ -27,19 +27,19 @@ describe("WefterConfigSchema — iOS fields", () => {
     }
   });
 
-  it("accepts iosSigning with just a teamId (automatic signing — no provisioning profile)", () => {
+  it("accepts signing.ios with just a teamId (automatic signing — no provisioning profile)", () => {
     const result = WefterConfigSchema.safeParse({
       environments: { production: { appId: "com.example.app", appName: "Example" } },
-      iosSigning: { teamId: "ABCDE12345" },
+      signing: { ios: { teamId: "ABCDE12345" } },
     });
 
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.iosSigning).toEqual({ teamId: "ABCDE12345" });
+      expect(result.data.signing?.ios).toEqual({ teamId: "ABCDE12345" });
     }
   });
 
-  it("accepts iosSigning with a provisioning profile for manual signing", () => {
+  it("moves the older iosSigning block to signing.ios", () => {
     const result = WefterConfigSchema.safeParse({
       environments: { production: { appId: "com.example.app", appName: "Example" } },
       iosSigning: { teamId: "ABCDE12345", provisioningProfile: "MyApp Distribution" },
@@ -47,7 +47,8 @@ describe("WefterConfigSchema — iOS fields", () => {
 
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.iosSigning?.provisioningProfile).toBe("MyApp Distribution");
+      expect(result.data.signing?.ios?.provisioningProfile).toBe("MyApp Distribution");
+      expect("iosSigning" in result.data).toBe(false);
     }
   });
 
@@ -60,18 +61,22 @@ describe("WefterConfigSchema — iOS fields", () => {
     expect(result.success).toBe(false);
   });
 
-  it("leaves the existing Android `signing` field untouched by the new iosSigning field", () => {
-    const result = WefterConfigSchema.safeParse({
+  it("moves the older flat Android signing and iosSigning into signing.android and signing.ios", () => {
+    const raw = {
       environments: { production: { appId: "com.example.app", appName: "Example" } },
       signing: { keystorePath: "release.jks", keyAlias: "release" },
       iosSigning: { teamId: "ABCDE12345" },
-    });
+    };
+    const result = WefterConfigSchema.safeParse(raw);
 
     expect(result.success).toBe(true);
     if (result.success) {
-      expect(result.data.signing).toEqual({ keystorePath: "release.jks", keyAlias: "release" });
-      expect(result.data.iosSigning).toEqual({ teamId: "ABCDE12345" });
+      expect(result.data.signing).toEqual({
+        android: { keystorePath: "release.jks", keyAlias: "release" },
+        ios: { teamId: "ABCDE12345" },
+      });
     }
+    expect(legacyConfigNotes(raw)).toHaveLength(2);
   });
 
   describe("landscape field", () => {
@@ -137,5 +142,67 @@ describe("WefterConfigSchema — deepLinks", () => {
 
   it("rejects a scheme listed twice", () => {
     expect(WefterConfigSchema.safeParse({ ...base, deepLinks: { schemes: ["myshop", "myshop"] } }).success).toBe(false);
+  });
+});
+
+describe("WefterConfigSchema — version, build and environments", () => {
+  const environments = { production: { appId: "com.example.app", appName: "Example" } };
+
+  it("accepts a version and a build number", () => {
+    const result = WefterConfigSchema.safeParse({ environments, version: "1.4.0", buildNumber: 42 });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects a version that is not three numbers, and a build number out of range", () => {
+    expect(WefterConfigSchema.safeParse({ environments, version: "1.4" }).success).toBe(false);
+    expect(WefterConfigSchema.safeParse({ environments, version: "1.4.0+42" }).success).toBe(false);
+    expect(WefterConfigSchema.safeParse({ environments, buildNumber: 0 }).success).toBe(false);
+    expect(WefterConfigSchema.safeParse({ environments, buildNumber: 2_100_000_001 }).success).toBe(false);
+    expect(WefterConfigSchema.safeParse({ environments, buildNumber: 1.5 }).success).toBe(false);
+  });
+
+  it("fills in build defaults: output build, export method app-store-connect", () => {
+    const result = WefterConfigSchema.safeParse({ environments });
+    expect(result.success && result.data.build).toEqual({
+      output: "build",
+      android: {},
+      ios: { exportMethod: "app-store-connect" },
+    });
+  });
+
+  it("maps the older export method names to the current ones", () => {
+    const result = WefterConfigSchema.safeParse({ environments, build: { ios: { exportMethod: "ad-hoc" } } });
+    expect(result.success && result.data.build.ios.exportMethod).toBe("release-testing");
+    expect(WefterConfigSchema.safeParse({ environments, build: { ios: { exportMethod: "store" } } }).success).toBe(
+      false,
+    );
+  });
+
+  it("accepts an Android format and rejects unknown ones", () => {
+    expect(WefterConfigSchema.safeParse({ environments, build: { android: { format: "aab" } } }).success).toBe(true);
+    expect(WefterConfigSchema.safeParse({ environments, build: { android: { format: "zip" } } }).success).toBe(false);
+  });
+
+  it("accepts environment names Gradle and Xcode can use, and rejects the rest", () => {
+    const env = { appId: "com.example.app", appName: "Example" };
+    expect(WefterConfigSchema.safeParse({ environments: { staging: env, qaEu: env } }).success).toBe(true);
+    for (const name of ["Staging", "pre-prod", "release", "test", "2fast"]) {
+      expect(WefterConfigSchema.safeParse({ environments: { [name]: env } }).success).toBe(false);
+    }
+  });
+
+  it("accepts signing.android with passwords read from the environment", () => {
+    const result = WefterConfigSchema.safeParse({
+      environments,
+      signing: {
+        android: {
+          keystorePath: "keys/upload.jks",
+          keyAlias: "upload",
+          storePassword: "${WEFTER_KEYSTORE_PASSWORD}",
+          keyPassword: "${WEFTER_KEY_PASSWORD}",
+        },
+      },
+    });
+    expect(result.success && result.data.signing?.android?.storePassword).toBe("${WEFTER_KEYSTORE_PASSWORD}");
   });
 });

@@ -49,7 +49,7 @@ const baseConfig: WefterConfig = {
   pluginsDir: "node_modules",
   webDir: "dist",
   environments: { production: { appId: "com.example.app", appName: "Example" } },
-  iosSigning: { teamId: "ABCDE12345" },
+  signing: { ios: { teamId: "ABCDE12345" } },
 };
 
 describe("checkReleaseSecurityIos", () => {
@@ -97,12 +97,12 @@ describe("checkReleaseSecurityIos", () => {
     expect(result.issues.some((i) => i.includes("iOS native project not found"))).toBe(true);
   });
 
-  it("flags a missing iosSigning config", () => {
+  it("flags a missing signing.ios config", () => {
     const projectDir = setUpProject();
 
-    const result = checkReleaseSecurityIos(projectDir, { ...baseConfig, iosSigning: undefined });
+    const result = checkReleaseSecurityIos(projectDir, { ...baseConfig, signing: undefined });
 
     expect(result.passed).toBe(false);
-    expect(result.issues.some((i) => i.includes("iosSigning"))).toBe(true);
+    expect(result.issues.some((i) => i.includes('"ios"'))).toBe(true);
   });
 });

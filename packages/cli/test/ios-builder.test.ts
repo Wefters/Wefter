@@ -84,7 +84,7 @@ describe("buildIos", () => {
 
     fakeSpawn(0);
 
-    const signedConfig: WefterConfig = { ...baseConfig, iosSigning: { teamId: "ABCDE12345" } };
+    const signedConfig: WefterConfig = { ...baseConfig, signing: { ios: { teamId: "ABCDE12345" } } };
     await buildIos(dir, signedConfig, "production", true);
 
     expect(spawnMock).toHaveBeenCalledWith(

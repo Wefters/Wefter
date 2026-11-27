@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { runReleaseReadinessChecks } from "../src/doctor/release-readiness.js";
+import { allPassed } from "../src/doctor/report.js";
 import { iosAppDir } from "../src/config/project-paths.js";
 
 const GRADLE_FIXTURE = `buildTypes {
@@ -75,101 +76,101 @@ function setUpProject(): string {
   return dir;
 }
 
+/** Writes `wefter.config.json` and a built web app (`dist/index.html`, plus `extraWebFiles`). */
+function writeProjectConfig(config: Record<string, unknown>, extraWebFiles: Record<string, string> = {}): void {
+  writeFileSync(join(dir, "wefter.config.json"), JSON.stringify(config));
+  mkdirSync(join(dir, "dist"), { recursive: true });
+  writeFileSync(join(dir, "dist/index.html"), "<!doctype html><title>App</title>");
+  for (const [name, contents] of Object.entries(extraWebFiles)) writeFileSync(join(dir, "dist", name), contents);
+}
+
+const PRODUCTION = { production: { appId: "com.example.shop", appName: "Shop" } };
+
+const READY_SIGNING = {
+  android: { keystorePath: "release.jks", keyAlias: "release", storePassword: "${WEFTER_KEYSTORE_PASSWORD}" },
+  ios: { teamId: "ABCDE12345" },
+};
+
 describe("runReleaseReadinessChecks", () => {
-  it("fails clearly on a project with no signing config at all", async () => {
-    const projectDir = setUpProject();
-    writeFileSync(
-      join(projectDir, "wefter.config.json"),
-      JSON.stringify({ environments: { production: { appId: "com.example.app", appName: "Example" } } }),
-    );
-
-    const results = await runReleaseReadinessChecks(projectDir);
-
-    const signingCheck = results.find((r) => r.name === "Signing config");
-    expect(signingCheck?.passed).toBe(false);
-  });
-
-  it("passes every check when the project is fully release-ready on both platforms", async () => {
-    const projectDir = setUpProject();
-    writeFileSync(join(projectDir, "keystore.jks"), "fake keystore bytes");
-    writeFileSync(
-      join(projectDir, "wefter.config.json"),
-      JSON.stringify({
-        environments: { production: { appId: "com.example.app", appName: "Example" } },
-        signing: { keystorePath: "./keystore.jks", keyAlias: "release" },
-        iosSigning: { teamId: "ABCDE12345" },
-      }),
-    );
-    process.env.WEFTER_KEYSTORE_PASSWORD = "hunter2";
-    process.env.WEFTER_IOS_SIGNING_IDENTITY = "Apple Distribution: Example Inc (ABCDE12345)";
-
-    const results = await runReleaseReadinessChecks(projectDir);
-
-    expect(results.every((r) => r.passed)).toBe(true);
-  });
-
-  it("flags a missing WEFTER_KEYSTORE_PASSWORD even when the keystore file itself is present", async () => {
-    const projectDir = setUpProject();
-    writeFileSync(join(projectDir, "keystore.jks"), "fake keystore bytes");
-    writeFileSync(
-      join(projectDir, "wefter.config.json"),
-      JSON.stringify({
-        environments: { production: { appId: "com.example.app", appName: "Example" } },
-        signing: { keystorePath: "./keystore.jks", keyAlias: "release" },
-      }),
-    );
-
-    const results = await runReleaseReadinessChecks(projectDir);
-
-    const passwordCheck = results.find((r) => r.name === "WEFTER_KEYSTORE_PASSWORD set");
-    expect(passwordCheck?.passed).toBe(false);
-  });
-});
-
-describe("runReleaseReadinessChecks — iOS", () => {
-  it("fails clearly on a project with no iosSigning config at all", async () => {
-    const projectDir = setUpProject();
-    writeFileSync(
-      join(projectDir, "wefter.config.json"),
-      JSON.stringify({ environments: { production: { appId: "com.example.app", appName: "Example" } } }),
-    );
-
-    const results = await runReleaseReadinessChecks(projectDir);
-
-    const iosSigningCheck = results.find((r) => r.name === "iOS signing config");
-    expect(iosSigningCheck?.passed).toBe(false);
-  });
-
-  it("flags a missing WEFTER_IOS_SIGNING_IDENTITY even when iosSigning is configured", async () => {
-    const projectDir = setUpProject();
-    writeFileSync(
-      join(projectDir, "wefter.config.json"),
-      JSON.stringify({
-        environments: { production: { appId: "com.example.app", appName: "Example" } },
-        iosSigning: { teamId: "ABCDE12345" },
-      }),
-    );
-
-    const results = await runReleaseReadinessChecks(projectDir);
-
-    const identityCheck = results.find((r) => r.name === "WEFTER_IOS_SIGNING_IDENTITY set");
-    expect(identityCheck?.passed).toBe(false);
-  });
-
-  it("flags the iOS release security lint when the iOS native project is missing entirely", async () => {
-    dir = mkdtempSync(join(tmpdir(), "wefter-release-readiness-"));
-    writeFileSync(
-      join(dir, "wefter.config.json"),
-      JSON.stringify({
-        environments: { production: { appId: "com.example.app", appName: "Example" } },
-        iosSigning: { teamId: "ABCDE12345" },
-      }),
-    );
+  it("fails when there is no production environment, which release builds use", async () => {
+    setUpProject();
+    writeProjectConfig({ environments: { development: { appId: "com.example.dev", appName: "Dev" } } });
 
     const results = await runReleaseReadinessChecks(dir);
 
-    const lintCheck = results.find((r) => r.name === "iOS release security lint");
-    expect(lintCheck?.passed).toBe(false);
-    expect(lintCheck?.detail).toContain("iOS native project not found");
+    expect(allPassed(results)).toBe(false);
+    expect(results[0].name).toContain('"production" environment');
+  });
+
+  it("fails clearly on a project with no signing config at all, on both platforms", async () => {
+    setUpProject();
+    writeProjectConfig({ environments: PRODUCTION, version: "1.0.0" });
+
+    const results = await runReleaseReadinessChecks(dir);
+    const failed = results.filter((r) => !r.passed).map((r) => r.name);
+
+    expect(failed.some((n) => n.startsWith("Android:") && n.includes("signing"))).toBe(true);
+    expect(failed.some((n) => n.startsWith("iOS:") && n.includes("signing"))).toBe(true);
+  });
+
+  it("passes when the project is release-ready on both platforms; store notes are warnings only", async () => {
+    setUpProject();
+    writeFileSync(join(dir, "release.jks"), "fake keystore");
+    process.env.WEFTER_KEYSTORE_PASSWORD = "hunter2";
+    writeProjectConfig({ environments: PRODUCTION, version: "1.2.0", buildNumber: 7, signing: READY_SIGNING });
+
+    const results = await runReleaseReadinessChecks(dir);
+
+    expect(results.filter((r) => !r.passed)).toEqual([]);
+    expect(allPassed(results)).toBe(true);
+    expect(results.find((r) => r.name === "App version")?.detail).toBe("1.2.0 (7)");
+    expect(results.some((r) => r.warning && r.name.startsWith("iOS:"))).toBe(true);
+  });
+
+  it("flags a missing keystore password even when the keystore file itself is present", async () => {
+    setUpProject();
+    writeFileSync(join(dir, "release.jks"), "fake keystore");
+    writeProjectConfig({ environments: PRODUCTION, version: "1.0.0", signing: READY_SIGNING });
+
+    const results = await runReleaseReadinessChecks(dir);
+
+    expect(results.some((r) => !r.passed && r.name.includes("WEFTER_KEYSTORE_PASSWORD"))).toBe(true);
+  });
+
+  it("fails on the template's app id and reports web app problems as warnings", async () => {
+    setUpProject();
+    writeFileSync(join(dir, "release.jks"), "fake keystore");
+    process.env.WEFTER_KEYSTORE_PASSWORD = "hunter2";
+    writeProjectConfig(
+      {
+        environments: { production: { appId: "dev.wefter.bridge", appName: "Shop" } },
+        version: "1.0.0",
+        signing: READY_SIGNING,
+      },
+      {
+        "index.js.map": "{}",
+        "page.html": '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter">',
+        "api.js": 'fetch("http://192.168.1.20:3000/api")',
+      },
+    );
+
+    const results = await runReleaseReadinessChecks(dir, { platforms: ["android"] });
+    const failed = results.filter((r) => !r.passed).map((r) => r.name);
+    const warnings = results.filter((r) => r.warning).map((r) => r.name);
+
+    expect(failed.some((n) => n.includes("template's app id"))).toBe(true);
+    expect(warnings.some((n) => n.includes("source map"))).toBe(true);
+    expect(warnings.some((n) => n.includes("fonts.googleapis.com"))).toBe(true);
+    expect(warnings.some((n) => n.includes("192.168.1.20"))).toBe(true);
+  });
+
+  it("flags the iOS release security lint when the iOS native project is missing entirely", async () => {
+    setUpProject();
+    rmSync(iosAppDir(dir), { recursive: true, force: true });
+    writeProjectConfig({ environments: PRODUCTION, version: "1.0.0", signing: READY_SIGNING });
+
+    const results = await runReleaseReadinessChecks(dir, { platforms: ["ios"] });
+
+    expect(results.some((r) => !r.passed && r.name.includes("iOS native project not found"))).toBe(true);
   });
 });

@@ -15,6 +15,7 @@ import { appleComponents, resolveDeepLinks } from "../config/deep-links.js";
 import type { WefterConfig } from "../config/wefter-config-schema.js";
 import type { CheckResult } from "../doctor/checks.js";
 import { DEBUG_KEYSTORE, normalizeFingerprint, readKeystoreFingerprint } from "../native/certificate-fingerprint.js";
+import { resolveAndroidSigning, resolveIosSigning } from "../config/signing-config.js";
 
 /** The relation that lets an app open every link of a domain. */
 const HANDLE_ALL_URLS = "delegate_permission/common.handle_all_urls";
@@ -60,7 +61,7 @@ function environmentsByDomain(config: WefterConfig): Map<string, string[]> {
  * on Android by app id with `fingerprints`.
  */
 export function buildDomainFiles(config: WefterConfig, fingerprints: string[]): DomainFiles[] {
-  const teamId = config.iosSigning?.teamId;
+  const teamId = resolveIosSigning(".", config)?.teamId || undefined;
   return [...environmentsByDomain(config)].map(([domain, envs]) => ({
     domain,
     apple: teamId
@@ -93,8 +94,8 @@ export interface FingerprintOptions {
 }
 
 /**
- * The certificate fingerprints to list in `assetlinks.json`: the release keystore from `signing` (when
- * `WEFTER_KEYSTORE_PASSWORD` is set), the local debug keystore with `debug`, and any `extra` ones.
+ * The certificate fingerprints to list in `assetlinks.json`: the release keystore from `signing.android`
+ * (when its password is available), the local debug keystore with `debug`, and any `extra` ones.
  *
  * @returns The fingerprints, and warnings about the ones that could not be read.
  * @throws {Error} When an `extra` value is not a SHA-256 fingerprint.
@@ -107,14 +108,15 @@ export async function collectFingerprints(
   const fingerprints: string[] = [];
   const warnings: string[] = [];
 
-  if (config.signing) {
-    const keystorePath = resolve(projectDir, config.signing.keystorePath);
-    const password = process.env.WEFTER_KEYSTORE_PASSWORD;
-    if (!password) {
-      warnings.push("WEFTER_KEYSTORE_PASSWORD is not set, so the release keystore's fingerprint was left out");
+  const signing = resolveAndroidSigning(projectDir, config);
+  if (signing) {
+    if (!signing.storePassword) {
+      warnings.push(
+        "the keystore password is not set (signing.android.storePassword or WEFTER_KEYSTORE_PASSWORD), so the release keystore's fingerprint was left out",
+      );
     } else {
       try {
-        fingerprints.push(await readKeystoreFingerprint(keystorePath, config.signing.keyAlias, password));
+        fingerprints.push(await readKeystoreFingerprint(signing.keystorePath, signing.keyAlias, signing.storePassword));
       } catch (error) {
         warnings.push(error instanceof Error ? error.message : String(error));
       }
@@ -196,8 +198,8 @@ export async function deepLinkFiles(
   if (files.length === 0) {
     throw new Error('No verified domains: add "deepLinks": { "domains": [...] } to wefter.config.json first.');
   }
-  if (!config.iosSigning) {
-    warnings.push('apple-app-site-association needs your Apple team id: add "iosSigning": { "teamId": ... }');
+  if (!resolveIosSigning(projectDir, config)?.teamId) {
+    warnings.push('apple-app-site-association needs your Apple team id: add "signing": { "ios": { "teamId": ... } }');
   }
   const outDir = resolve(projectDir, options.outDir ?? ".wefter/deep-links");
   return { written: writeDomainFiles(outDir, files), warnings };
@@ -230,7 +232,7 @@ async function fetchVerificationFile(
 
 /** Checks a served `apple-app-site-association` against the app ids it should list. */
 function checkAppleFile(json: unknown, expected: AppleAppSiteAssociation | null): string | null {
-  if (!expected) return 'the Apple team id is unknown; add "iosSigning": { "teamId": ... } to check this file';
+  if (!expected) return 'the Apple team id is unknown; add "signing": { "ios": { "teamId": ... } } to check this file';
   const details = (json as { applinks?: { details?: { appIDs?: string[]; appID?: string }[] } }).applinks?.details;
   if (!Array.isArray(details)) return "has no applinks.details";
   const served = new Set(details.flatMap((d) => [...(d.appIDs ?? []), ...(d.appID ? [d.appID] : [])]));

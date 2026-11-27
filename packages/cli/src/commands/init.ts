@@ -31,6 +31,8 @@ export interface InitResult {
   packageManager: PackageManager;
   envWritten: boolean;
   gitignoreUpdated: boolean;
+  /** The entries added to `.gitignore`, such as `.wefter/` and `build/`. */
+  gitignoreEntries: string[];
   appId: string;
   appName: string;
   webDir: string;
@@ -42,6 +44,18 @@ const LOCKFILES: { file: string; packageManager: PackageManager }[] = [
   { file: "yarn.lock", packageManager: "yarn" },
   { file: "pnpm-lock.yaml", packageManager: "pnpm" },
 ];
+
+/** Where `wefter build` puts built apps unless the web app already uses that folder. */
+const DEFAULT_BUILD_OUTPUT = "build";
+
+/**
+ * The build output folder for a project whose web app builds into `webDir`: `build`, or `native-build` when
+ * the web app itself builds into `build` (as Create React App does).
+ */
+function buildOutputFor(webDir: string): string {
+  const first = webDir.replace(/^\.\//, "").split(/[\\/]/)[0];
+  return first === DEFAULT_BUILD_OUTPUT ? "native-build" : DEFAULT_BUILD_OUTPUT;
+}
 
 /** Variables `init` writes to `.env`, between {@link ENV_START_MARKER} and {@link ENV_END_MARKER}. */
 const ENV_KEYS = ["WEFTER_APP_ID", "WEFTER_APP_NAME", "WEFTER_WEB_DIR"] as const;
@@ -185,19 +199,26 @@ function writeEnvBlock(projectDir: string, values: { appId: string; appName: str
   }
 }
 
+/** Whether `.gitignore` content already lists `entry` (with or without its trailing slash). */
+function gitignoreLists(content: string, entry: string): boolean {
+  const name = entry.replace(/\/$/, "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|\\n)/?${name}/?\\s*(\\n|$)`).test(content);
+}
+
 /**
- * Adds `.wefter/` to `.gitignore` if it exists and does not list it yet.
+ * Adds `.wefter/` and the build output folder to `.gitignore` if it exists and does not list them yet.
  *
- * @returns Whether `.gitignore` was changed.
+ * @returns The entries added; empty when `.gitignore` was not changed.
  */
-function appendGitignore(projectDir: string): boolean {
+function appendGitignore(projectDir: string, outputDir = DEFAULT_BUILD_OUTPUT): string[] {
   const gitignorePath = join(projectDir, ".gitignore");
-  if (!existsSync(gitignorePath)) return false;
+  if (!existsSync(gitignorePath)) return [];
   const content = readFileSync(gitignorePath, "utf-8");
-  if (/(^|\n)\.wefter\/?\s*(\n|$)/.test(content)) return false;
+  const missing = [".wefter/", `${outputDir.replace(/\/$/, "")}/`].filter((entry) => !gitignoreLists(content, entry));
+  if (missing.length === 0) return [];
   const sep = content === "" || content.endsWith("\n") ? "" : "\n";
-  writeFileSync(gitignorePath, content + sep + ".wefter/\n");
-  return true;
+  writeFileSync(gitignorePath, content + sep + missing.join("\n") + "\n");
+  return missing;
 }
 
 /**
@@ -263,10 +284,12 @@ export async function init(
   });
   const { appId, appName, webDir } = promptFn ? await askAnswers(promptFn) : await withRealPrompt(askAnswers);
 
+  const outputDir = buildOutputFor(webDir);
   const candidateConfig = {
     webDir,
     environments: { development: { appId, appName } },
     plugins: [],
+    ...(outputDir !== DEFAULT_BUILD_OUTPUT ? { build: { output: outputDir } } : {}),
   };
   const validation = WefterConfigSchema.safeParse(candidateConfig);
   if (!validation.success) {
@@ -276,14 +299,26 @@ export async function init(
   return runTransactionalSync(
     [configPath, packageJsonPath, join(projectDir, ".env"), join(projectDir, ".gitignore")],
     async () => {
-      writeFileSync(configPath, JSON.stringify(validation.data, null, 2) + "\n");
+      const { build: buildDefaults, ...written } = validation.data;
+      const config =
+        outputDir !== DEFAULT_BUILD_OUTPUT ? { ...written, build: { output: buildDefaults.output } } : written;
+      writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n");
 
       updatePackageJson(projectDir, resolvedVersions);
 
       writeEnvBlock(projectDir, { appId, appName, webDir });
-      const gitignoreUpdated = appendGitignore(projectDir);
+      const gitignoreEntries = appendGitignore(projectDir, outputDir);
 
-      return { configPath, packageManager, envWritten: true, gitignoreUpdated, appId, appName, webDir };
+      return {
+        configPath,
+        packageManager,
+        envWritten: true,
+        gitignoreUpdated: gitignoreEntries.length > 0,
+        gitignoreEntries,
+        appId,
+        appName,
+        webDir,
+      };
     },
   );
 }

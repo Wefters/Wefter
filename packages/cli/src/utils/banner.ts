@@ -17,7 +17,8 @@ export interface InitSuccessInfo {
   appId: string;
   webDir: string;
   packageManager: string;
-  gitignoreUpdated: boolean;
+  /** The entries `init` added to `.gitignore`. */
+  gitignoreEntries: string[];
   coreVersion: string;
   cliVersion: string;
 }
@@ -35,8 +36,9 @@ export function printInitSuccessSummary(info: InitSuccessInfo): void {
     `    ${chalk.green("✓")} Added ${chalk.cyan(`@wefterjs/core@${info.coreVersion}`)} and ${chalk.cyan(`@wefterjs/cli@${info.cliVersion}`)} to package.json`,
   );
   console.log(`    ${chalk.green("✓")} Wrote ${chalk.cyan("WEFTER_*")} variables to ${chalk.cyan(".env")}`);
-  if (info.gitignoreUpdated) {
-    console.log(`    ${chalk.green("✓")} Added ${chalk.cyan(".wefter/")} to ${chalk.cyan(".gitignore")}`);
+  if (info.gitignoreEntries.length > 0) {
+    const entries = info.gitignoreEntries.map((entry) => chalk.cyan(entry)).join(" and ");
+    console.log(`    ${chalk.green("✓")} Added ${entries} to ${chalk.cyan(".gitignore")}`);
   }
   console.log("");
 

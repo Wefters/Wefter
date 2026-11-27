@@ -53,3 +53,42 @@ describe("nameBuiltApk", () => {
     expect(existsSync(join(dir, "Shop-production-release.apk"))).toBe(true);
   });
 });
+
+describe("artifactFileName and gradleTasks", () => {
+  it("puts the version and build number in release file names", async () => {
+    const { artifactFileName } = await import("../src/native/android-builder.js");
+    const naming = {
+      appName: "Wefter Demo",
+      env: "production",
+      release: true,
+      version: { version: "1.4.0", buildNumber: 42 },
+    };
+
+    expect(artifactFileName(naming, "aab")).toBe("Wefter-Demo-production-1.4.0-42-release.aab");
+    expect(artifactFileName(naming, "apk", true)).toBe("Wefter-Demo-production-1.4.0-42-release-unsigned.apk");
+  });
+
+  it("runs assemble for an APK, bundle for an App Bundle, and both for both", async () => {
+    const { gradleTasks } = await import("../src/native/android-builder.js");
+
+    expect(gradleTasks("production", true, "apk")).toEqual(["assembleProductionRelease"]);
+    expect(gradleTasks("production", true, "aab")).toEqual(["bundleProductionRelease"]);
+    expect(gradleTasks("staging", false, "both")).toEqual(["assembleStagingDebug", "bundleStagingDebug"]);
+  });
+
+  it("renames Gradle's App Bundle", async () => {
+    const { nameBuiltFile } = await import("../src/native/android-builder.js");
+    dir = mkdtempSync(join(tmpdir(), "wefter-aab-name-"));
+    writeFileSync(join(dir, "app-production-release.aab"), "aab");
+
+    const path = nameBuiltFile(dir, "app-production-release", "aab", {
+      appName: "Shop",
+      env: "production",
+      release: true,
+      version: { version: "2.0.0", buildNumber: 3 },
+    });
+
+    expect(path).toBe(join(dir, "Shop-production-2.0.0-3-release.aab"));
+    expect(existsSync(path)).toBe(true);
+  });
+});

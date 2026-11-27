@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { iosAppDir, iosBuildConfigPath, iosInfoPlistPath } from "../config/project-paths.js";
 import type { WefterConfig } from "../config/wefter-config-schema.js";
+import { resolveIosSigning } from "../config/signing-config.js";
 
 /** Result of {@link checkReleaseSecurityIos}. */
 export interface ReleaseSecurityResultIos {
@@ -27,9 +28,13 @@ function ansExceptionDomainCount(infoPlistPath: string): number {
 
 /**
  * Checks that an iOS release build cannot reach a dev server: no release dev server URL, no ATS exceptions,
- * an existing native project and a signing config.
+ * an existing native project and complete signing settings.
  */
-export function checkReleaseSecurityIos(projectDir: string, config: WefterConfig): ReleaseSecurityResultIos {
+export function checkReleaseSecurityIos(
+  projectDir: string,
+  config: WefterConfig,
+  options: { requireSigning?: boolean } = {},
+): ReleaseSecurityResultIos {
   const issues: string[] = [];
 
   const buildConfigPath = iosBuildConfigPath(projectDir);
@@ -52,9 +57,22 @@ export function checkReleaseSecurityIos(projectDir: string, config: WefterConfig
     issues.push(`iOS native project not found at ${iosAppDir(projectDir)} — run \`wefter sync\` first`);
   }
 
-  if (!config.iosSigning) {
-    issues.push('No iOS release signing config found in wefter.config.json (missing "iosSigning")');
+  if (options.requireSigning ?? true) {
+    issues.push(...iosSigningIssues(projectDir, config));
   }
 
   return { passed: issues.length === 0, issues };
+}
+
+/** What is wrong with the iOS signing settings. Empty when signing is ready. */
+export function iosSigningIssues(projectDir: string, config: WefterConfig): string[] {
+  const signing = resolveIosSigning(projectDir, config);
+  if (!signing) {
+    return ['No iOS release signing config found in wefter.config.json (add "signing": { "ios": { "teamId": … } })'];
+  }
+  const issues = [...signing.problems];
+  if (signing.appStoreConnect && !existsSync(signing.appStoreConnect.keyPath)) {
+    issues.push(`App Store Connect API key not found at ${signing.appStoreConnect.keyPath}`);
+  }
+  return issues;
 }
