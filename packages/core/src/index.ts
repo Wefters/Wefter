@@ -15,6 +15,22 @@ export { hideSplash } from "./internal/hide-splash.js";
 export { getDeviceInfo, type DeviceInfo } from "./internal/device-info.js";
 export { isLandscape } from "./internal/landscape.js";
 export { onDeepLink, getLaunchUrl, type DeepLink, type DeepLinkSubscription } from "./internal/deep-links.js";
+export { openAppSettings, type PermissionState, type PermissionStatus } from "./internal/permissions.js";
+export {
+  exposeToFrames,
+  type FrameCallContext,
+  type FrameHost,
+  type FrameMethod,
+  type FrameMethods,
+} from "./internal/frames.js";
+export {
+  openWebWindow,
+  type WebWindow,
+  type WebWindowCallContext,
+  type WebWindowCloseReason,
+  type WebWindowEvents,
+  type WebWindowOptions,
+} from "./internal/web-window.js";
 
 import "./internal/devtools/console-patch.js";
 import "./internal/devtools/uncaught.js";

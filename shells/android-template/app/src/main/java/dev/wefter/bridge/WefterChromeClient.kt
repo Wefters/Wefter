@@ -87,7 +87,7 @@ internal class WefterChromeClient(
         }
         dialogBuilder()
                 .setMessage(message)
-                .setPositiveButton(android.R.string.ok) { _, _ -> result.confirm() }
+                .setPositiveButton(WefterText.get(activity, "dialog.ok")) { _, _ -> result.confirm() }
                 .setOnCancelListener { result.cancel() }
                 .create()
                 .apply { setCanceledOnTouchOutside(false) }
@@ -102,8 +102,8 @@ internal class WefterChromeClient(
         }
         dialogBuilder()
                 .setMessage(message)
-                .setPositiveButton(android.R.string.ok) { _, _ -> result.confirm() }
-                .setNegativeButton(android.R.string.cancel) { _, _ -> result.cancel() }
+                .setPositiveButton(WefterText.get(activity, "dialog.ok")) { _, _ -> result.confirm() }
+                .setNegativeButton(WefterText.get(activity, "dialog.cancel")) { _, _ -> result.cancel() }
                 .setOnCancelListener { result.cancel() }
                 .create()
                 .apply { setCanceledOnTouchOutside(false) }
@@ -137,8 +137,8 @@ internal class WefterChromeClient(
         dialogBuilder()
                 .setMessage(message)
                 .setView(frame)
-                .setPositiveButton(android.R.string.ok) { _, _ -> result.confirm(input.text.toString()) }
-                .setNegativeButton(android.R.string.cancel) { _, _ -> result.cancel() }
+                .setPositiveButton(WefterText.get(activity, "dialog.ok")) { _, _ -> result.confirm(input.text.toString()) }
+                .setNegativeButton(WefterText.get(activity, "dialog.cancel")) { _, _ -> result.cancel() }
                 .setOnCancelListener { result.cancel() }
                 .create()
                 .apply {
@@ -190,9 +190,9 @@ internal class WefterChromeClient(
             return
         }
         val options = mutableListOf<Pair<String, () -> Unit>>()
-        if (canTakePhoto) options += "Take a photo" to { launchCamera(MediaStore.ACTION_IMAGE_CAPTURE, "jpg") }
-        if (canRecordVideo) options += "Record a video" to { launchCamera(MediaStore.ACTION_VIDEO_CAPTURE, "mp4") }
-        options += "Browse files" to { launch(content) }
+        if (canTakePhoto) options += WefterText.get(activity, "files.takePhoto") to { launchCamera(MediaStore.ACTION_IMAGE_CAPTURE, "jpg") }
+        if (canRecordVideo) options += WefterText.get(activity, "files.recordVideo") to { launchCamera(MediaStore.ACTION_VIDEO_CAPTURE, "mp4") }
+        options += WefterText.get(activity, "files.browse") to { launch(content) }
 
         dialogBuilder()
                 .setItems(options.map { it.first }.toTypedArray()) { _, which -> options[which].second() }
@@ -222,7 +222,7 @@ internal class WefterChromeClient(
             onReady(true)
             return
         }
-        permissions.request(listOf(Manifest.permission.CAMERA)) { granted ->
+        permissions.requestGranted(listOf(Manifest.permission.CAMERA)) { granted ->
             onReady(Manifest.permission.CAMERA in granted)
         }
     }
@@ -333,7 +333,7 @@ internal class WefterChromeClient(
         warnIfUndeclared(Manifest.permission.CAMERA, "camera", "getUserMedia({ video })", androidPermissions)
         warnIfUndeclared(Manifest.permission.RECORD_AUDIO, "microphone", "getUserMedia({ audio })", androidPermissions)
 
-        permissions.request(androidPermissions) { granted ->
+        permissions.requestGranted(androidPermissions) { granted ->
             val grantable = needed.filterValues { it != null && it in granted }.keys.toTypedArray()
             if (grantable.isEmpty()) request.deny() else request.grant(grantable)
         }
@@ -348,7 +348,7 @@ internal class WefterChromeClient(
         if (location.none { permissions.isDeclared(it) }) {
             warnInConsole(undeclaredMessage("location", "navigator.geolocation"))
         }
-        permissions.request(location) { granted -> callback.invoke(origin, granted.isNotEmpty(), false) }
+        permissions.requestGranted(location) { granted -> callback.invoke(origin, granted.isNotEmpty(), false) }
     }
 
     private fun warnIfUndeclared(permission: String, feature: String, api: String, requested: List<String>) {

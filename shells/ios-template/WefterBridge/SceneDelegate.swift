@@ -20,15 +20,16 @@ final class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         window.makeKeyAndVisible()
     }
 
-    /// A custom-scheme link opened while the app is running.
+    /// A custom-scheme link opened while the app is running. Plugins see it first.
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
-        for context in URLContexts {
+        for context in URLContexts where !PluginHost.shared.handleOpenURL(context.url) {
             DeepLinkInbox.shared.receive(context.url)
         }
     }
 
-    /// A Universal Link opened while the app is running.
+    /// A Universal Link (or other user activity) continued while the app is running. Plugins see it first.
     func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
+        if PluginHost.shared.handleUserActivity(userActivity) { return }
         if let url = Self.webLink(from: userActivity) {
             DeepLinkInbox.shared.receive(url)
         }

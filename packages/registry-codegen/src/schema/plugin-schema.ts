@@ -54,7 +54,10 @@ export type IntentFilterData = z.infer<typeof IntentFilterDataSchema>;
  * - `name`: the bridge name, which also gives the native class name (see `classNameFor`).
  * - `permissions.android`: Android permissions to add to the manifest.
  * - `permissions.ios`: `Info.plist` usage descriptions, by key.
- * - `nativeDependencies`: Gradle coordinates, ProGuard rules and Swift packages the plugin needs.
+ * - `nativeDependencies`: Gradle coordinates, Gradle plugins, ProGuard rules and Swift packages the plugin
+ *   needs.
+ * - `requiredFiles`: files the app must provide through `nativeFiles` in `wefter.config.json`, by name
+ *   (such as Firebase's `google-services.json`).
  * - `android.manifestEntries`: components to add to the Android manifest.
  * - `methods`, `hooks`, `events`: what the plugin exposes; checked against its native source.
  */
@@ -72,6 +75,14 @@ export const PluginManifestSchema = z.object({
       android: z
         .object({
           gradle: z.array(z.string()).default([]),
+          gradlePlugins: z
+            .array(
+              z.object({
+                id: z.string().regex(/^[a-zA-Z][\w.-]*$/),
+                version: z.string().min(1),
+              }),
+            )
+            .default([]),
           proguardRules: z.string().optional(),
         })
         .optional(),
@@ -90,6 +101,12 @@ export const PluginManifestSchema = z.object({
         .optional(),
     })
     .default({}),
+  requiredFiles: z
+    .object({
+      android: z.array(z.string()).default([]),
+      ios: z.array(z.string()).default([]),
+    })
+    .default({ android: [], ios: [] }),
   android: z
     .object({
       manifestEntries: z.array(ManifestEntrySchema).default([]),

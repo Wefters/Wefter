@@ -17,7 +17,7 @@ extension ViewController: WKUIDelegate {
         completionHandler: @escaping () -> Void
     ) {
         let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
-        let ok = UIAlertAction(title: "OK", style: .default) { _ in completionHandler() }
+        let ok = UIAlertAction(title: WefterText.get("dialog.ok"), style: .default) { _ in completionHandler() }
         alert.addAction(ok)
         alert.preferredAction = ok
         if !presentOnTop(alert) { completionHandler() }
@@ -30,8 +30,8 @@ extension ViewController: WKUIDelegate {
         completionHandler: @escaping (Bool) -> Void
     ) {
         let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { _ in completionHandler(false) })
-        let ok = UIAlertAction(title: "OK", style: .default) { _ in completionHandler(true) }
+        alert.addAction(UIAlertAction(title: WefterText.get("dialog.cancel"), style: .cancel) { _ in completionHandler(false) })
+        let ok = UIAlertAction(title: WefterText.get("dialog.ok"), style: .default) { _ in completionHandler(true) }
         alert.addAction(ok)
         alert.preferredAction = ok
         if !presentOnTop(alert) { completionHandler(false) }
@@ -46,8 +46,8 @@ extension ViewController: WKUIDelegate {
     ) {
         let alert = UIAlertController(title: nil, message: prompt, preferredStyle: .alert)
         alert.addTextField { $0.text = defaultText }
-        alert.addAction(UIAlertAction(title: "Cancel", style: .cancel) { _ in completionHandler(nil) })
-        let ok = UIAlertAction(title: "OK", style: .default) { [weak alert] _ in
+        alert.addAction(UIAlertAction(title: WefterText.get("dialog.cancel"), style: .cancel) { _ in completionHandler(nil) })
+        let ok = UIAlertAction(title: WefterText.get("dialog.ok"), style: .default) { [weak alert] _ in
             completionHandler(alert?.textFields?.first?.text ?? "")
         }
         alert.addAction(ok)

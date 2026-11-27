@@ -6,7 +6,8 @@ import org.json.JSONObject
 
 object GeneratedRegistry {
     @Suppress("UNUSED_PARAMETER")
-    fun registerAll(context: Context, dispatcher: BridgeDispatcher) {
+    fun registerAll(context: Context, dispatcher: BridgeDispatcher): List<WefterPlugin> {
 
+        return listOf()
     }
 }

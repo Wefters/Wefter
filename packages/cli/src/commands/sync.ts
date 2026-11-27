@@ -91,6 +91,22 @@ import { injectExportComplianceIos } from "../native/inject-export-compliance-io
 import { iosSharedXcconfigPath, iosXcodeProjectPath } from "../config/project-paths.js";
 import { ensureAndroidFlavors, ensureIosConfigurations } from "../native/inject-environments.js";
 
+import { injectFramesAndroid, injectFramesIos, framesWarnings, resolveFrames } from "../native/inject-frames.js";
+import {
+  injectLocalizationAndroid,
+  injectLocalizationIos,
+  resolveMessages,
+  writeMessagesAndroid,
+  writeMessagesIos,
+} from "../native/inject-localization.js";
+import {
+  checkNativeFiles,
+  copyNativeFilesAndroid,
+  copyNativeFilesIos,
+  injectGradlePlugins,
+  resolveGradlePlugins,
+} from "../native/native-files.js";
+import { shellMessagesDir } from "../native/shell-template.js";
 /** Everything a sync added or changed, for the summary. */
 export interface SyncResult {
   plugins: string[];
@@ -111,6 +127,10 @@ export interface SyncResult {
   iosPluginsWithNativeSource: string[];
   iosPermissionsAdded: Record<string, string>;
   iosWebAssetsDir: string;
+  /** The app's languages, English first. */
+  languages: string[];
+  /** Problems with `frames`, `localization` and plugins' Gradle plugins that don't stop the sync. */
+  warnings: string[];
 }
 
 /** Build caches kept when the native project is regenerated, so rebuilds stay incremental. */
@@ -239,6 +259,7 @@ export async function sync(projectDir: string, options: SyncOptions = {}): Promi
 
     const androidPlugins = plugins.filter((p) => existsSync(join(p.packageDir, "android")));
     const iosPlugins = plugins.filter((p) => existsSync(join(p.packageDir, "ios")));
+    checkNativeFiles(projectDir, config, plugins);
 
     if (!ejected) {
       recreateNativeShell(projectDir);
@@ -288,6 +309,7 @@ export async function sync(projectDir: string, options: SyncOptions = {}): Promi
       injectEnvironmentConfigIos(iosXcconfigPath(projectDir, `Environment-${env}`), {
         bundleId: iosBundleId(config, env),
         appName: values.appName,
+        environment: env,
       });
     }
 
@@ -322,6 +344,39 @@ export async function sync(projectDir: string, options: SyncOptions = {}): Promi
     injectOrientationAndroid(manifestPath, buildGradlePath, config.orientation ?? "portrait");
     injectOrientationIos(iosInfoPlistPathVar, iosBuildConfigPathVar, config.orientation ?? "portrait");
     injectKeyboardConfigIos(iosBuildConfigPathVar, config.keyboard?.accessoryBar ?? false);
+
+    const frames = resolveFrames(config.frames);
+    injectFramesAndroid(buildGradlePath, frames);
+    injectFramesIos(iosBuildConfigPathVar, frames);
+
+    const iosResourcesDir = join(iosAppDir(projectDir), "Resources");
+    const messages = resolveMessages(
+      shellMessagesDir(),
+      plugins.map((p) => ({ name: p.manifest.name, dir: p.packageDir })),
+      config.localization,
+    );
+    writeMessagesAndroid(dirname(webAssetsDir), messages);
+    writeMessagesIos(iosResourcesDir, messages);
+    injectLocalizationAndroid(resDir, manifestPath, messages);
+    injectLocalizationIos(iosInfoPlistPathVar, iosResourcesDir, messages);
+
+    copyNativeFilesAndroid(projectDir, config, androidAppModuleDir(projectDir));
+    copyNativeFilesIos(projectDir, config, iosResourcesDir);
+    const gradlePlugins = resolveGradlePlugins(androidPlugins);
+    injectGradlePlugins(
+      join(androidProjectRootDir(projectDir), "build.gradle.kts"),
+      buildGradlePath,
+      gradlePlugins.plugins,
+    );
+
+    const warnings = [
+      ...framesWarnings(
+        frames,
+        plugins.map((p) => p.manifest.name),
+      ),
+      ...messages.warnings,
+      ...gradlePlugins.conflicts.map((c) => `Gradle plugin version conflict: ${c}`),
+    ];
 
     const deepLinks = Object.fromEntries(
       Object.keys(config.environments).map((env) => [env, resolveDeepLinks(config, env)]),
@@ -358,6 +413,8 @@ export async function sync(projectDir: string, options: SyncOptions = {}): Promi
       iosPluginsWithNativeSource,
       iosPermissionsAdded,
       iosWebAssetsDir: iosWebAssetsDirPath,
+      languages: messages.languages,
+      warnings,
     };
   };
 
@@ -379,6 +436,10 @@ export async function sync(projectDir: string, options: SyncOptions = {}): Promi
           iosConfigDir(projectDir),
           iosSharedXcconfigPath(projectDir),
           iosPbxprojPath,
+          resDir,
+          join(dirname(webAssetsDir), "wefter-messages.json"),
+          join(iosAppDir(projectDir), "Resources"),
+          join(androidProjectRootDir(projectDir), "build.gradle.kts"),
           ...Object.keys(config.environments).flatMap((env) => [
             androidFlavorManifestPath(androidAppModuleDir(projectDir), env),
             iosEntitlementsPath(iosAppDir(projectDir), env),

@@ -7,6 +7,14 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2438E6937943BEBD2BBB5E1A /* WebWindow.swift in Sources */ = {isa = PBXBuildFile; fileRef = 033E1FE9C3A7A6FF272D3A34 /* WebWindow.swift */; };
+		AF2956B52295DEA922DB3B7D /* WefterFiles.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F898AA92465BA288374E306 /* WefterFiles.swift */; };
+		3517AEFE0C31BCD0941BA02A /* PluginHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA899DE990D3D150B2804157 /* PluginHost.swift */; };
+		632628727EFF6AF5955E138F /* WefterText.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA61DAED1656055178DB6285 /* WefterText.swift */; };
+		C63A03B05CE85B19DAFCB81D /* OrientationLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9250BC61202DB9CA0FDFD7E7 /* OrientationLock.swift */; };
+		2B4B395E603CC06717A63C7A /* Permissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DDB09974D4E21E2C28839AB /* Permissions.swift */; };
+		9787FFC33B9EA78B32395203 /* EventInbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6BB0F3EA39293D08D7E0EA0 /* EventInbox.swift */; };
+		F8167CAD929F34D11E70360E /* BridgeAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4C7C07BA65820663A8DFBC8 /* BridgeAccess.swift */; };
 		26CDEA5B9A2145128EDFED86 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 30877432D1026706D7E805DA /* PrivacyInfo.xcprivacy */; };
 		3BD39F917C10696489A30FD5 /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 7E38E74319CD75AA65FEF9F0 /* LaunchScreen.storyboard */; };
 		7A3C5E1F9B2D4068A1C3E5F7 /* DeepLinkInbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B8D2F4A6C1E3907B2D4F6A8 /* DeepLinkInbox.swift */; };
@@ -32,6 +40,14 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		033E1FE9C3A7A6FF272D3A34 /* WebWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WebWindow.swift; sourceTree = "<group>"; };
+		9F898AA92465BA288374E306 /* WefterFiles.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WefterFiles.swift; sourceTree = "<group>"; };
+		DA899DE990D3D150B2804157 /* PluginHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PluginHost.swift; sourceTree = "<group>"; };
+		BA61DAED1656055178DB6285 /* WefterText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WefterText.swift; sourceTree = "<group>"; };
+		9250BC61202DB9CA0FDFD7E7 /* OrientationLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrientationLock.swift; sourceTree = "<group>"; };
+		9DDB09974D4E21E2C28839AB /* Permissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Permissions.swift; sourceTree = "<group>"; };
+		B6BB0F3EA39293D08D7E0EA0 /* EventInbox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventInbox.swift; sourceTree = "<group>"; };
+		D4C7C07BA65820663A8DFBC8 /* BridgeAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeAccess.swift; sourceTree = "<group>"; };
 		1B6EE7B3BB1C863E2601A746 /* Environment-development.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "Environment-development.xcconfig"; sourceTree = "<group>"; };
 		2667A40844853040B7A05814 /* GeneratedRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneratedRegistry.swift; sourceTree = "<group>"; };
 		29CFDD24A2EEB454D134955A /* Debug-Development.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = "Debug-Development.xcconfig"; sourceTree = "<group>"; };
@@ -68,6 +84,7 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		EB7ED594781243889BAF5A99 /* Resources */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (EnvironmentFiles, ); path = Resources; sourceTree = "<group>"; };
 		196161A9CF8169B1A83BDCEC /* Plugins */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Plugins; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
@@ -146,11 +163,20 @@
 				E203DE96A67195CBDCE24B8B /* WebDownloads.swift */,
 				65339183128662F5B0B05063 /* WebGeolocation.swift */,
 				2667A40844853040B7A05814 /* GeneratedRegistry.swift */,
+				033E1FE9C3A7A6FF272D3A34 /* WebWindow.swift */,
+				9F898AA92465BA288374E306 /* WefterFiles.swift */,
+				DA899DE990D3D150B2804157 /* PluginHost.swift */,
+				BA61DAED1656055178DB6285 /* WefterText.swift */,
+				9250BC61202DB9CA0FDFD7E7 /* OrientationLock.swift */,
+				9DDB09974D4E21E2C28839AB /* Permissions.swift */,
+				B6BB0F3EA39293D08D7E0EA0 /* EventInbox.swift */,
+				D4C7C07BA65820663A8DFBC8 /* BridgeAccess.swift */,
 				42DB0B956AF67442931A4C45 /* Assets.xcassets */,
 				30877432D1026706D7E805DA /* PrivacyInfo.xcprivacy */,
 				5D2CCE8038A39D5E0853964B /* www */,
 				7D1AFCC4F14A3E3E04D42F8A /* Info.plist */,
 				196161A9CF8169B1A83BDCEC /* Plugins */,
+				EB7ED594781243889BAF5A99 /* Resources */,
 			);
 			path = WefterBridge;
 			sourceTree = "<group>";
@@ -172,6 +198,7 @@
 			);
 			fileSystemSynchronizedGroups = (
 				196161A9CF8169B1A83BDCEC /* Plugins */,
+				EB7ED594781243889BAF5A99 /* Resources */,
 			);
 			name = WefterBridge;
 			productName = WefterBridge;
@@ -247,6 +274,14 @@
 				A6C92BEEA66AAEC5E3072F73 /* WebDownloads.swift in Sources */,
 				DFCA4BDDBCEC56496B6764CC /* WebGeolocation.swift in Sources */,
 				5AE36F2E1E4DE1E90C80621D /* GeneratedRegistry.swift in Sources */,
+				2438E6937943BEBD2BBB5E1A /* WebWindow.swift in Sources */,
+				AF2956B52295DEA922DB3B7D /* WefterFiles.swift in Sources */,
+				3517AEFE0C31BCD0941BA02A /* PluginHost.swift in Sources */,
+				632628727EFF6AF5955E138F /* WefterText.swift in Sources */,
+				C63A03B05CE85B19DAFCB81D /* OrientationLock.swift in Sources */,
+				2B4B395E603CC06717A63C7A /* Permissions.swift in Sources */,
+				9787FFC33B9EA78B32395203 /* EventInbox.swift in Sources */,
+				F8167CAD929F34D11E70360E /* BridgeAccess.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -1,6 +1,8 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
+    // WEFTER-GRADLE-PLUGINS-START
+    // WEFTER-GRADLE-PLUGINS-END
 }
 
 android {
@@ -25,6 +27,13 @@ android {
         // WEFTER-ORIENTATION-CONFIG-START
         buildConfigField("boolean", "LANDSCAPE", "false")
         // WEFTER-ORIENTATION-CONFIG-END
+
+        // Other sites the app's pages may embed (frame-src) and the plugin methods each may call, from
+        // "frames" in wefter.config.json.
+        // WEFTER-FRAMES-CONFIG-START
+        buildConfigField("String", "FRAME_SOURCES", "\"\"")
+        buildConfigField("String", "FRAME_PLUGIN_GRANTS", "\"\"")
+        // WEFTER-FRAMES-CONFIG-END
     }
 
     compileOptions {

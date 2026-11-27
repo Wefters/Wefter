@@ -81,6 +81,6 @@ internal object ExternalLinks {
             }
 
     private fun noAppFound(activity: Activity) {
-        Toast.makeText(activity, "No app can open this link", Toast.LENGTH_SHORT).show()
+        Toast.makeText(activity, WefterText.get(activity, "links.noApp"), Toast.LENGTH_SHORT).show()
     }
 }

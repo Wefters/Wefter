@@ -138,8 +138,8 @@ final class WebDownloads: NSObject, WKDownloadDelegate, UIDocumentPickerDelegate
         if let file = destinations.removeValue(forKey: ObjectIdentifier(download)) {
             try? FileManager.default.removeItem(at: file.deletingLastPathComponent())
         }
-        let alert = UIAlertController(title: nil, message: "Couldn't download the file", preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "OK", style: .default))
+        let alert = UIAlertController(title: nil, message: WefterText.get("downloads.failedFile"), preferredStyle: .alert)
+        alert.addAction(UIAlertAction(title: WefterText.get("dialog.ok"), style: .default))
         presenter?.presentOnTop(alert)
     }
 

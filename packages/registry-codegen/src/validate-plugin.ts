@@ -17,7 +17,8 @@ import {
   findMalformedWefterMethodsSwift,
 } from "./extract-wefter-plugin-swift.js";
 import { auditPluginConsistency } from "./audit-plugin-consistency.js";
-import { auditPermissionHandling } from "./audit-permission-handling.js";
+import { auditPermissionHandling, permissionApiWarnings } from "./audit-permission-handling.js";
+import { i18nWarnings } from "./audit-i18n.js";
 import type { PluginExtraction } from "./codegen-android.js";
 import type { PluginExtractionSwift } from "./codegen-ios.js";
 
@@ -28,6 +29,8 @@ import type { PluginExtractionSwift } from "./codegen-ios.js";
 export interface PluginValidationResult {
   valid: boolean;
   issues: string[];
+  /** Problems that don't make the plugin unusable, such as missing permission methods or i18n keys. */
+  warnings?: string[];
   manifest?: PluginManifest;
   extraction?: PluginExtraction;
   iosExtraction?: PluginExtractionSwift;
@@ -156,6 +159,7 @@ export function validatePluginDirectory(pluginDir: string): PluginValidationResu
   return {
     valid: true,
     issues: [],
+    warnings: [...permissionApiWarnings(manifest), ...i18nWarnings(manifest.name, pluginDir)],
     manifest,
     extraction: hasAndroid ? { methods: androidMethods, hooks: androidHooks } : undefined,
     iosExtraction: hasIos ? { methods: iosMethods, hooks: iosHooks } : undefined,

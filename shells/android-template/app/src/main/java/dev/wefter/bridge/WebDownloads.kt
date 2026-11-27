@@ -192,9 +192,9 @@ internal class WebDownloads(private val activity: AppCompatActivity) {
         }
         try {
             (activity.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager).enqueue(request)
-            toast("Downloading $name…")
+            toast(WefterText.get(activity, "downloads.downloading", mapOf("name" to name)))
         } catch (e: Exception) {
-            toast("Couldn't download $name")
+            toast(WefterText.get(activity, "downloads.failed", mapOf("name" to name)))
         }
     }
 
@@ -215,12 +215,16 @@ internal class WebDownloads(private val activity: AppCompatActivity) {
                     "end" -> finish(id)
                     "error" -> {
                         discard(id)
-                        toast("Couldn't download ${message.optString("name").ifEmpty { "the file" }}")
+                        toast(
+                                message.optString("name").takeIf { it.isNotEmpty() }
+                                        ?.let { WefterText.get(activity, "downloads.failed", mapOf("name" to it)) }
+                                        ?: WefterText.get(activity, "downloads.failedFile")
+                        )
                     }
                 }
             } catch (e: Exception) {
                 discard(id)
-                toast("Couldn't save the download")
+                toast(WefterText.get(activity, "downloads.saveFailed"))
             }
         }
     }
@@ -242,7 +246,7 @@ internal class WebDownloads(private val activity: AppCompatActivity) {
         download.output.close()
         try {
             save(download.file, download.name, download.mimeType)
-            toast("Saved ${download.name} to Downloads")
+            toast(WefterText.get(activity, "downloads.saved", mapOf("name" to download.name)))
         } finally {
             download.file.delete()
         }
