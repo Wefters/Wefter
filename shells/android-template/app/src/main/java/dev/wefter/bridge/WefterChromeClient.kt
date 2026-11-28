@@ -27,9 +27,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
-import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
 import java.io.File
 import org.json.JSONObject
 
@@ -57,6 +54,8 @@ internal class WefterChromeClient(
         private val fullscreenContainer: FrameLayout,
         private val webView: () -> WebView,
         private val isOwnOrigin: (Uri) -> Boolean,
+        /** Fullscreen started (`true`) or ended: the system bars hide while it shows (see [SystemUI]). */
+        private val onFullscreenChange: (Boolean) -> Unit = {},
 ) : WebChromeClient() {
     private var fileCallback: ValueCallback<Array<Uri>>? = null
     /** Where the camera app writes the photo or video it takes for the open file picker. */
@@ -387,10 +386,7 @@ internal class WefterChromeClient(
                 view,
                 ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         )
-        WindowCompat.getInsetsController(activity.window, view).apply {
-            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            hide(WindowInsetsCompat.Type.systemBars())
-        }
+        onFullscreenChange(true)
         fullscreenBack =
                 object : OnBackPressedCallback(true) {
                     override fun handleOnBackPressed() {
@@ -405,8 +401,7 @@ internal class WefterChromeClient(
         fullscreenBack?.remove()
         fullscreenBack = null
         fullscreenContainer.removeView(view)
-        WindowCompat.getInsetsController(activity.window, fullscreenContainer)
-                .show(WindowInsetsCompat.Type.systemBars())
+        onFullscreenChange(false)
         fullscreenCallback?.onCustomViewHidden()
         fullscreenCallback = null
     }

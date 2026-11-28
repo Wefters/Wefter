@@ -1,7 +1,7 @@
 import Foundation
 
 /// Settings the CLI writes at sync and run time: the dev server URL (debug only), the splash screen, the
-/// orientation, the keyboard and the launch colour. Edit `wefter.config.json` instead of this file.
+/// orientation, the keyboard, the system bars and gestures, and the launch colour. Edit `wefter.config.json` instead of this file.
 enum BuildConfig {
     #if DEBUG
     static let devServerURL = "" // WEFTER overridden per-run by the CLI
@@ -30,6 +30,12 @@ enum BuildConfig {
     // WEFTER-KEYBOARD-CONFIG-START
     static let formAccessoryBar = false
     // WEFTER-KEYBOARD-CONFIG-END
+
+    // The system bars, gestures, audio and text settings, from "profile", "systemBars", "gestures", "audio"
+    // and "text", as JSON (see SystemUI.swift).
+    // WEFTER-SYSTEM-UI-CONFIG-START
+    static let systemUI = ""
+    // WEFTER-SYSTEM-UI-CONFIG-END
 
     // WEFTER-LAUNCH-BACKGROUND-START
     static let launchBackground: (red: Double, green: Double, blue: Double) = (1, 1, 1)

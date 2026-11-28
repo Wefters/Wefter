@@ -64,6 +64,11 @@
 	</array>
 	<!-- WEFTER-ORIENTATIONS-END -->
 
+	<!-- UIStatusBarHidden while "systemBars": { "hidden": true } (or "profile": "game"), so the status bar
+	     is hidden from launch; ViewController decides afterwards. Replaced on every sync. -->
+	<!-- WEFTER-SYSTEM-UI-START -->
+	<!-- WEFTER-SYSTEM-UI-END -->
+
 	<!-- Privacy usage-description keys merged in here by registry-codegen's
 	     merge-info-plist.ts, one <key>NSFooUsageDescription</key><string>...</string> pair per
 	     entry in an installed plugin's plugin.json "permissions.ios" map. Unlike Android's

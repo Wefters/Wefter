@@ -3,7 +3,8 @@ import UIKit
 
 /// Built-in `__system` module used by `@wefterjs/core`: debug flag, device info, the app-ready and
 /// hide-splash signals, the current orientation, deep links (from ``DeepLinkInbox``), held plugin events
-/// (from ``EventInbox``) and the app's settings page. Only the app's own pages reach it.
+/// (from ``EventInbox``), the app's settings page, web windows, back (``BackNavigation``) and the system
+/// bars, gestures and safe area (``SystemUI``). Only the app's own pages reach it.
 final class SystemModule: NativeModule {
     private weak var viewController: ViewController?
 
@@ -69,6 +70,31 @@ final class SystemModule: NativeModule {
                     callback(.success([:]))
                 } catch {
                     callback(.failure(error))
+                }
+            }
+        case "setBackListening", "backResult", "getSystemBars", "setSystemBars", "getGestures", "setGestures",
+             "getSafeArea":
+            DispatchQueue.main.async { [weak self] in
+                guard let screen = self?.viewController else {
+                    callback(.failure(WefterError(code: "NO_SCREEN", message: "The app's screen is gone")))
+                    return
+                }
+                switch method {
+                case "setBackListening":
+                    screen.backNavigation.setListening(payload["listening"] as? Bool ?? false)
+                    callback(.success([:]))
+                case "backResult":
+                    screen.backNavigation.onResult(
+                        id: payload["id"] as? Int ?? -1,
+                        handled: payload["handled"] as? Bool ?? false,
+                        pending: payload["pending"] as? Bool ?? false
+                    )
+                    callback(.success([:]))
+                case "getSystemBars": callback(.success(screen.systemUI.barsState()))
+                case "setSystemBars": callback(.success(screen.systemUI.setBars(payload)))
+                case "getGestures": callback(.success(screen.systemUI.gesturesState()))
+                case "setGestures": callback(.success(screen.systemUI.setGestures(payload)))
+                default: callback(.success(SystemUI.safeArea(of: screen.view)))
                 }
             }
         default:

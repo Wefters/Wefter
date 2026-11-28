@@ -32,6 +32,23 @@ export {
   type WebWindowOptions,
 } from "./internal/web-window.js";
 
+export { onBack, type BackEvent, type BackListener } from "./internal/back.js";
+export {
+  getSystemBars,
+  setSystemBars,
+  getGestures,
+  setGestures,
+  getSafeArea,
+  onSafeAreaChange,
+  type SafeArea,
+  type SystemBars,
+  type SystemBarsState,
+  type Gestures,
+  type GesturesState,
+  type GestureArea,
+  type Supported,
+} from "./internal/system-ui.js";
+
 import "./internal/devtools/console-patch.js";
 import "./internal/devtools/uncaught.js";
 import "./internal/devtools/network-patch.js";

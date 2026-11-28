@@ -5,6 +5,12 @@
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "sideEffects": [
+    "./dist/index.js",
+    "./dist/internal/native-bridge.js",
+    "./dist/internal/deep-links.js",
+    "./dist/internal/devtools/*.js"
+  ],
   "publishConfig": {
     "access": "public"
   },

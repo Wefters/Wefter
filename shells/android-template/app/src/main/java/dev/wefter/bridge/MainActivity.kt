@@ -23,9 +23,7 @@ import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
-import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.graphics.ColorUtils
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.core.view.WindowCompat
 import androidx.webkit.WebViewAssetLoader
@@ -98,6 +96,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var downloads: WebDownloads
     private lateinit var geolocation: WebGeolocation
     private lateinit var webWindows: WebWindows
+    private lateinit var systemUI: SystemUI
+    private lateinit var backNavigation: BackNavigation
     /** Whether the download script must run after each page load (web views without document start scripts). */
     private var injectDownloadScriptAfterLoad = false
     /** Whether the geolocation script must run after each page load, likewise. */
@@ -110,9 +110,8 @@ class MainActivity : AppCompatActivity() {
     private var devServerUnreachableNotified = false
 
     /**
-     * Sets up edge-to-edge drawing, system bar colours that suit the launch background, the asset loader,
-     * the web view and splash, then loads the app. Back navigates inside the web view before leaving the
-     * app. A fresh start passes its launch link (if any) to [DeepLinkInbox]; a recreated activity (after a
+     * Sets up edge-to-edge drawing, the system bars and gestures ([SystemUI]), back ([BackNavigation]), the
+     * asset loader, the web view and splash, then loads the app. A fresh start passes its launch link (if any) to [DeepLinkInbox]; a recreated activity (after a
      * configuration change) keeps the links it already had and reopens the page it was on, without the
      * splash. Rotation and resizing do not recreate it (see `configChanges` in the manifest).
      */
@@ -140,11 +139,16 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        val backgroundLuminance = ColorUtils.calculateLuminance(getColor(R.color.splashBackground))
-        WindowCompat.getInsetsController(window, root).apply {
-            isAppearanceLightStatusBars = backgroundLuminance > 0.5
-            isAppearanceLightNavigationBars = backgroundLuminance > 0.5
-        }
+        systemUI =
+                SystemUI(this, root, launchBackground) { area ->
+                    dispatcher.emit("__system:safeArea", area)
+                }
+        systemUI.attach()
+        backNavigation =
+                BackNavigation(this, { if (::webView.isInitialized) webView else null }) { event ->
+                    dispatcher.emit("__system:back", event)
+                }
+        backNavigation.attach()
 
         val bundledAssets = WebViewAssetLoader.AssetsPathHandler(this)
         assetLoader =
@@ -177,7 +181,8 @@ class MainActivity : AppCompatActivity() {
                         permissions = runtimePermissions,
                         fullscreenContainer = root,
                         webView = { webView },
-                        isOwnOrigin = ::isOwnOrigin
+                        isOwnOrigin = ::isOwnOrigin,
+                        onFullscreenChange = systemUI::setFullscreen
                 )
         downloads = WebDownloads(this)
         geolocation = WebGeolocation(this)
@@ -189,10 +194,11 @@ class MainActivity : AppCompatActivity() {
                         permissions = runtimePermissions,
                         fullscreenContainer = root,
                         webView = { webWindows.webView ?: webView },
-                        isOwnOrigin = ::isOwnOrigin
+                        isOwnOrigin = ::isOwnOrigin,
+                        onFullscreenChange = systemUI::setFullscreen
                 )
         webWindows =
-                WebWindows(this, root, windowChromeClient, downloads) { event ->
+                WebWindows(this, root, windowChromeClient, downloads, systemUI::setWindowIcons) { event ->
                     dispatcher.emit("__system:webWindow", event)
                 }
 
@@ -212,21 +218,7 @@ class MainActivity : AppCompatActivity() {
         if (!restored) {
             loadInitialContent()
         }
-
-        onBackPressedDispatcher.addCallback(
-                this,
-                object : OnBackPressedCallback(true) {
-                    override fun handleOnBackPressed() {
-                        if (webView.canGoBack()) {
-                            webView.goBack()
-                        } else {
-                            isEnabled = false
-                            onBackPressedDispatcher.onBackPressed()
-                            isEnabled = true
-                        }
-                    }
-                }
-        )
+        backNavigation.update()
     }
 
     /**
@@ -281,23 +273,38 @@ class MainActivity : AppCompatActivity() {
         return intent.dataString?.takeIf { it.isNotEmpty() }
     }
 
-    /** Retries the dev server when the app returns to the foreground, and tells the plugins. */
+    /**
+     * Resumes the web view and re-applies the system bars, retries the dev server when the app returns to
+     * the foreground, and tells the plugins.
+     */
     override fun onResume() {
         super.onResume()
         isForeground = true
         if (webViewTooOld) return
+        webView.onResume()
+        systemUI.onResume()
         if (isDevServerBuild() && !usingDevServer) {
             loadInitialContent(preferDevServer = true)
         }
         plugins.forEach { it.onResume() }
     }
 
-    /** Pauses dev server retries in the background, and tells the plugins. */
+    /**
+     * Pauses the web view (its media, animations and location updates), pauses dev server retries in the
+     * background, and tells the plugins. The page still runs; it hears `visibilitychange`.
+     */
     override fun onPause() {
         super.onPause()
         isForeground = false
         devServerRetry?.let { handler.removeCallbacks(it) }
+        if (!webViewTooOld && ::webView.isInitialized) webView.onPause()
         plugins.forEach { it.onPause() }
+    }
+
+    /** Hides the bars again when the app gets the screen back from a dialog or the notification shade. */
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (hasFocus && !webViewTooOld && ::systemUI.isInitialized) systemUI.onResume()
     }
 
     /**
@@ -466,6 +473,7 @@ class MainActivity : AppCompatActivity() {
         newWebView.webChromeClient = chromeClient
         injectDownloadScriptAfterLoad = downloads.attach(newWebView, ownOrigins(), ::isOwnOrigin)
         injectGeolocationScriptAfterLoad = geolocation.attach(newWebView, ownOrigins())
+        systemUI.configure(newWebView, ownOrigins())
 
         newWebView.webViewClient =
                 object : WebViewClient() {
@@ -473,6 +481,21 @@ class MainActivity : AppCompatActivity() {
                             view: WebView,
                             request: WebResourceRequest
                     ) = interceptWithCsp(request)
+
+                    /** A new page started: it registers its own back listeners. */
+                    override fun onPageStarted(view: WebView, url: String, favicon: android.graphics.Bitmap?) {
+                        backNavigation.onPageStarted()
+                    }
+
+                    /** Back is enabled once there is history to go back to. */
+                    override fun doUpdateVisitedHistory(view: WebView, url: String, isReload: Boolean) {
+                        backNavigation.update()
+                    }
+
+                    /** The new page is about to show: it gets the safe area and gesture CSS. */
+                    override fun onPageCommitVisible(view: WebView, url: String) {
+                        if (isOwnOrigin(Uri.parse(url))) systemUI.onPageCommitted(view)
+                    }
 
                     /**
                      * A page finished loading: the dev server is reachable again, and plugins get the
@@ -566,7 +589,8 @@ class MainActivity : AppCompatActivity() {
     /**
      * Registers the built-in `__system` module used by `@wefterjs/core`: debug flag, device info, the
      * app-ready and hide-splash signals, the current orientation, deep links (from [DeepLinkInbox]), held
-     * plugin events (from [EventInbox]) and the app's settings page. Only the app's own pages reach it.
+     * plugin events (from [EventInbox]), the app's settings page, web windows, back ([BackNavigation]) and
+     * the system bars, gestures and safe area ([SystemUI]). Only the app's own pages reach it.
      */
     private fun registerSystemModule() {
         dispatcher.register(
@@ -611,6 +635,25 @@ class MainActivity : AppCompatActivity() {
                                     }
                             "openWebWindow", "closeWebWindow", "webWindowPost", "webWindowInject", "webWindowLoad" ->
                                     runOnUiThread { callback(handleWebWindowCall(method, payload)) }
+                            "setBackListening" ->
+                                    runOnUiThread {
+                                        backNavigation.setListening(payload.optBoolean("listening"))
+                                        callback(Result.success(JSONObject()))
+                                    }
+                            "backResult" ->
+                                    runOnUiThread {
+                                        backNavigation.onResult(
+                                                payload.optInt("id"),
+                                                payload.optBoolean("handled"),
+                                                payload.optBoolean("pending")
+                                        )
+                                        callback(Result.success(JSONObject()))
+                                    }
+                            "getSystemBars" -> runOnUiThread { callback(Result.success(systemUI.barsState())) }
+                            "setSystemBars" -> runOnUiThread { callback(Result.success(systemUI.setBars(payload))) }
+                            "getGestures" -> runOnUiThread { callback(Result.success(systemUI.gesturesState())) }
+                            "setGestures" -> runOnUiThread { callback(Result.success(systemUI.setGestures(payload))) }
+                            "getSafeArea" -> runOnUiThread { callback(Result.success(systemUI.safeAreaState())) }
                             else ->
                                     callback(
                                             Result.failure(WefterError("UNKNOWN_METHOD", "No such method: $method"))

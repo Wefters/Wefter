@@ -12,6 +12,8 @@
 		3517AEFE0C31BCD0941BA02A /* PluginHost.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA899DE990D3D150B2804157 /* PluginHost.swift */; };
 		632628727EFF6AF5955E138F /* WefterText.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA61DAED1656055178DB6285 /* WefterText.swift */; };
 		C63A03B05CE85B19DAFCB81D /* OrientationLock.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9250BC61202DB9CA0FDFD7E7 /* OrientationLock.swift */; };
+		4C799C864082B38EDC749567 /* BackNavigation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 320F37C7702F503A0706E01D /* BackNavigation.swift */; };
+		AC44D4BA00EE5608A304144F /* SystemUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = D368E62A824CA4D6E32B458F /* SystemUI.swift */; };
 		2B4B395E603CC06717A63C7A /* Permissions.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9DDB09974D4E21E2C28839AB /* Permissions.swift */; };
 		9787FFC33B9EA78B32395203 /* EventInbox.swift in Sources */ = {isa = PBXBuildFile; fileRef = B6BB0F3EA39293D08D7E0EA0 /* EventInbox.swift */; };
 		F8167CAD929F34D11E70360E /* BridgeAccess.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4C7C07BA65820663A8DFBC8 /* BridgeAccess.swift */; };
@@ -45,6 +47,8 @@
 		DA899DE990D3D150B2804157 /* PluginHost.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PluginHost.swift; sourceTree = "<group>"; };
 		BA61DAED1656055178DB6285 /* WefterText.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WefterText.swift; sourceTree = "<group>"; };
 		9250BC61202DB9CA0FDFD7E7 /* OrientationLock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OrientationLock.swift; sourceTree = "<group>"; };
+		320F37C7702F503A0706E01D /* BackNavigation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackNavigation.swift; sourceTree = "<group>"; };
+		D368E62A824CA4D6E32B458F /* SystemUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemUI.swift; sourceTree = "<group>"; };
 		9DDB09974D4E21E2C28839AB /* Permissions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Permissions.swift; sourceTree = "<group>"; };
 		B6BB0F3EA39293D08D7E0EA0 /* EventInbox.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EventInbox.swift; sourceTree = "<group>"; };
 		D4C7C07BA65820663A8DFBC8 /* BridgeAccess.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeAccess.swift; sourceTree = "<group>"; };
@@ -168,6 +172,8 @@
 				DA899DE990D3D150B2804157 /* PluginHost.swift */,
 				BA61DAED1656055178DB6285 /* WefterText.swift */,
 				9250BC61202DB9CA0FDFD7E7 /* OrientationLock.swift */,
+				320F37C7702F503A0706E01D /* BackNavigation.swift */,
+				D368E62A824CA4D6E32B458F /* SystemUI.swift */,
 				9DDB09974D4E21E2C28839AB /* Permissions.swift */,
 				B6BB0F3EA39293D08D7E0EA0 /* EventInbox.swift */,
 				D4C7C07BA65820663A8DFBC8 /* BridgeAccess.swift */,
@@ -279,6 +285,8 @@
 				3517AEFE0C31BCD0941BA02A /* PluginHost.swift in Sources */,
 				632628727EFF6AF5955E138F /* WefterText.swift in Sources */,
 				C63A03B05CE85B19DAFCB81D /* OrientationLock.swift in Sources */,
+				4C799C864082B38EDC749567 /* BackNavigation.swift in Sources */,
+				AC44D4BA00EE5608A304144F /* SystemUI.swift in Sources */,
 				2B4B395E603CC06717A63C7A /* Permissions.swift in Sources */,
 				9787FFC33B9EA78B32395203 /* EventInbox.swift in Sources */,
 				F8167CAD929F34D11E70360E /* BridgeAccess.swift in Sources */,

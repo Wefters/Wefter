@@ -19,7 +19,6 @@ import android.widget.TextView
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
-import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.webkit.ProfileStore
 import androidx.webkit.WebViewCompat
@@ -65,6 +64,11 @@ internal class WebWindows(
         private val root: FrameLayout,
         private val chromeClient: WefterChromeClient,
         private val downloads: WebDownloads,
+        /**
+         * Gives the system bars the window's icon colour while it is open (`true` for dark icons), and the
+         * app's again when it closes (`null`). See [SystemUI].
+         */
+        private val setBarIcons: (Boolean?) -> Unit,
         /** Sends a `__system:webWindow` event to the app's page. */
         private val notify: (JSONObject) -> Unit,
 ) {
@@ -76,8 +80,6 @@ internal class WebWindows(
             val profile: String?,
             /** Whether the window's bars are light, so the status bar needs dark icons. */
             val lightBars: Boolean,
-            /** The status bar icons before the window opened, restored when it closes. */
-            val previousLightStatusBar: Boolean,
             val webView: WebView,
             val container: View,
             val titleView: TextView?,
@@ -159,7 +161,6 @@ internal class WebWindows(
                         injectScript = options.optString("injectScript"),
                         profile = profile,
                         lightBars = !isNight(),
-                        previousLightStatusBar = insetsController().isAppearanceLightStatusBars,
                         webView = webView,
                         container = container,
                         titleView = titleView,
@@ -170,7 +171,7 @@ internal class WebWindows(
         // Tied to the activity's lifecycle like the app's other back handlers, so it is added back after
         // them when the app returns from the background, and keeps handling back while the window is open.
         activity.onBackPressedDispatcher.addCallback(activity, back)
-        setLightStatusBar(window.lightBars)
+        setBarIcons(window.lightBars)
         root.addView(container, ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT)
         webView.loadUrl(url)
     }
@@ -180,7 +181,7 @@ internal class WebWindows(
         val window = current?.takeIf { it.id == id } ?: return
         current = null
         window.back.remove()
-        setLightStatusBar(window.previousLightStatusBar)
+        setBarIcons(null)
         root.removeView(window.container)
         window.webView.destroy()
         window.profile?.let { name -> root.post { runCatching { ProfileStore.getInstance().deleteProfile(name) } } }
@@ -342,16 +343,6 @@ internal class WebWindows(
 
     private fun isNight(): Boolean =
             activity.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
-
-    private fun insetsController() = WindowCompat.getInsetsController(activity.window, root)
-
-    /** Dark status bar icons on the window's light bar, light ones on its dark bar. */
-    private fun setLightStatusBar(light: Boolean) {
-        insetsController().apply {
-            isAppearanceLightStatusBars = light
-            isAppearanceLightNavigationBars = light
-        }
-    }
 
     private fun dp(value: Int): Int = (value * activity.resources.displayMetrics.density).toInt()
 }
