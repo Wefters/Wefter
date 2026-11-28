@@ -28,6 +28,14 @@ private const val NO_ZOOM_CSS = "html{touch-action:pan-x pan-y}"
 private const val EDGE_STRIP_DP = 48
 
 /**
+ * Height of those strips, at the bottom of each side edge, where thumbs rest on a game's controls. It is
+ * the most Android honours per edge outside full screen; with the bars hidden Android honours whole edges,
+ * which would leave no way back on gesture navigation, so the strips stop here and back keeps working
+ * from the upper part of the edges.
+ */
+private const val EDGE_STRIP_HEIGHT_DP = 200
+
+/**
  * Applies [state] to the page it runs in: the safe area as `--wefter-safe-area-*` CSS variables and the
  * CSS for gestures that are off. Runs at document start in every page and again whenever a setting changes;
  * frames inside the page are left alone.
@@ -227,7 +235,11 @@ internal class SystemUI(
                 when (val protection = edgeProtection) {
                     true -> {
                         val strip = (EDGE_STRIP_DP * density).toInt()
-                        listOf(Rect(0, 0, strip, view.height), Rect(view.width - strip, 0, view.width, view.height))
+                        val top = (view.height - (EDGE_STRIP_HEIGHT_DP * density).toInt()).coerceAtLeast(0)
+                        listOf(
+                                Rect(0, top, strip, view.height),
+                                Rect(view.width - strip, top, view.width, view.height)
+                        )
                     }
                     is JSONArray ->
                             (0 until protection.length()).mapNotNull { index ->
