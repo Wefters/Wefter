@@ -354,7 +354,7 @@ export async function sync(projectDir: string, options: SyncOptions = {}): Promi
     injectKeyboardConfigIos(iosBuildConfigPathVar, config.keyboard?.accessoryBar ?? false);
 
     const systemUI = resolveSystemUI(config);
-    injectSystemUIAndroid(buildGradlePath, systemUI);
+    injectSystemUIAndroid(buildGradlePath, systemUI, manifestPath);
     injectSystemUIIos(iosBuildConfigPathVar, iosInfoPlistPathVar, systemUI);
 
     const frames = resolveFrames(config.frames);

@@ -14,6 +14,7 @@ import { WefterConfigSchema } from "../src/config/wefter-config-schema.js";
 
 const shells = join(dirname(fileURLToPath(import.meta.url)), "../../../shells");
 const templateGradle = join(shells, "android-template/app/build.gradle.kts");
+const templateManifest = join(shells, "android-template/app/src/main/AndroidManifest.xml");
 const templateBuildConfig = join(shells, "ios-template/WefterBridge/BuildConfig.swift");
 const templatePlist = join(shells, "ios-template/WefterBridge/Info.plist");
 
@@ -79,17 +80,23 @@ describe("system UI injection", () => {
 
   it("writes the settings as JSON both shells read, and replaces them on the next sync", () => {
     const gradle = join(dir, "build.gradle.kts");
+    const manifest = join(dir, "AndroidManifest.xml");
     const buildConfig = join(dir, "BuildConfig.swift");
     const plist = join(dir, "Info.plist");
     copyFileSync(templateGradle, gradle);
+    copyFileSync(templateManifest, manifest);
     copyFileSync(templateBuildConfig, buildConfig);
     copyFileSync(templatePlist, plist);
 
     const game = resolveSystemUI(parse({ profile: "game" }));
-    injectSystemUIAndroid(gradle, game);
+    injectSystemUIAndroid(gradle, game, manifest);
     injectSystemUIIos(buildConfig, plist, game);
-    injectSystemUIAndroid(gradle, game);
+    injectSystemUIAndroid(gradle, game, manifest);
     injectSystemUIIos(buildConfig, plist, game);
+
+    const manifestGame = readFileSync(manifest, "utf-8");
+    expect(manifestGame.match(/android:appCategory="game"/g)).toHaveLength(1);
+    expect(manifestGame.match(/android:isGame="true"/g)).toHaveLength(1);
 
     const gradleText = readFileSync(gradle, "utf-8");
     const field = gradleText.match(/buildConfigField\("String", "SYSTEM_UI", (".*")\)/)![1];
@@ -104,7 +111,10 @@ describe("system UI injection", () => {
     expect(readFileSync(plist, "utf-8").match(/<key>UIStatusBarHidden<\/key>/g)).toHaveLength(1);
 
     const app = resolveSystemUI(parse({}));
+    injectSystemUIAndroid(gradle, app, manifest);
     injectSystemUIIos(buildConfig, plist, app);
+    expect(readFileSync(manifest, "utf-8")).not.toContain('android:appCategory="game"');
+    expect(readFileSync(manifest, "utf-8")).not.toContain('android:isGame="true"');
     expect(readFileSync(plist, "utf-8")).not.toContain("<key>UIStatusBarHidden</key>");
   });
 

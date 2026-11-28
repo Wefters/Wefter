@@ -128,8 +128,12 @@ function replaceBlock(source: string, start: string, end: string, block: string,
   return pattern.test(source) ? source.replace(pattern, () => block) : add(source);
 }
 
-/** Writes the `SYSTEM_UI` build config field. */
-export function injectSystemUIAndroid(buildGradlePath: string, resolved: ResolvedSystemUI): void {
+/** Writes the `SYSTEM_UI` build config field, and sets Android's game category when `profile === "game"`. */
+export function injectSystemUIAndroid(
+  buildGradlePath: string,
+  resolved: ResolvedSystemUI,
+  manifestPath?: string,
+): void {
   const current = readFileSync(buildGradlePath, "utf-8");
   const field = JSON.stringify(JSON.stringify(shellJson(resolved)));
   const block = [
@@ -142,6 +146,20 @@ export function injectSystemUIAndroid(buildGradlePath: string, resolved: Resolve
     return source.replace(/(defaultConfig\s*\{)/, (match) => `${match}\n        ${block}\n`);
   });
   writeFileSync(buildGradlePath, next, "utf-8");
+  if (manifestPath) injectGameCategoryAndroid(manifestPath, resolved.profile === "game");
+}
+
+/** Sets or removes `android:appCategory="game"` and `android:isGame="true"` on `<application>`. */
+export function injectGameCategoryAndroid(manifestPath: string, isGame: boolean): void {
+  const current = readFileSync(manifestPath, "utf-8");
+  const next = current.replace(/<application\b([^>]*)>/, (_full, attrs: string) => {
+    const cleaned = attrs
+      .replace(/[ \t]*\r?\n[ \t]*android:(?:appCategory="game"|isGame="true")/g, "")
+      .replace(/[ \t]+android:(?:appCategory="game"|isGame="true")/g, "");
+    if (!isGame) return `<application${cleaned}>`;
+    return `<application\n        android:appCategory="game"\n        android:isGame="true"${cleaned}>`;
+  });
+  writeFileSync(manifestPath, next, "utf-8");
 }
 
 /**
