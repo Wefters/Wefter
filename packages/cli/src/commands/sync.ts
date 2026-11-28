@@ -73,6 +73,12 @@ import {
 import { injectOrientationAndroid, injectOrientationIos } from "../native/inject-orientation.js";
 import { injectKeyboardConfigIos } from "../native/inject-keyboard-ios.js";
 import {
+  describeSystemUI,
+  injectSystemUIAndroid,
+  injectSystemUIIos,
+  resolveSystemUI,
+} from "../native/inject-system-ui.js";
+import {
   androidFlavorManifestPath,
   injectDeepLinksAndroid,
   injectDeepLinksIos,
@@ -129,6 +135,8 @@ export interface SyncResult {
   iosWebAssetsDir: string;
   /** The app's languages, English first. */
   languages: string[];
+  /** The system bars, gestures, sound and text settings that differ from an ordinary app, or `null`. */
+  systemUI: string | null;
   /** Problems with `frames`, `localization` and plugins' Gradle plugins that don't stop the sync. */
   warnings: string[];
 }
@@ -345,6 +353,10 @@ export async function sync(projectDir: string, options: SyncOptions = {}): Promi
     injectOrientationIos(iosInfoPlistPathVar, iosBuildConfigPathVar, config.orientation ?? "portrait");
     injectKeyboardConfigIos(iosBuildConfigPathVar, config.keyboard?.accessoryBar ?? false);
 
+    const systemUI = resolveSystemUI(config);
+    injectSystemUIAndroid(buildGradlePath, systemUI);
+    injectSystemUIIos(iosBuildConfigPathVar, iosInfoPlistPathVar, systemUI);
+
     const frames = resolveFrames(config.frames);
     injectFramesAndroid(buildGradlePath, frames);
     injectFramesIos(iosBuildConfigPathVar, frames);
@@ -414,6 +426,7 @@ export async function sync(projectDir: string, options: SyncOptions = {}): Promi
       iosPermissionsAdded,
       iosWebAssetsDir: iosWebAssetsDirPath,
       languages: messages.languages,
+      systemUI: describeSystemUI(systemUI),
       warnings,
     };
   };

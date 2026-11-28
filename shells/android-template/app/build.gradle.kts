@@ -34,6 +34,12 @@ android {
         buildConfigField("String", "FRAME_SOURCES", "\"\"")
         buildConfigField("String", "FRAME_PLUGIN_GRANTS", "\"\"")
         // WEFTER-FRAMES-CONFIG-END
+
+        // The system bars, gestures, audio and text settings, from "profile", "systemBars", "gestures",
+        // "audio" and "text" in wefter.config.json, as JSON (see SystemUI.kt).
+        // WEFTER-SYSTEM-UI-CONFIG-START
+        buildConfigField("String", "SYSTEM_UI", "\"\"")
+        // WEFTER-SYSTEM-UI-CONFIG-END
     }
 
     compileOptions {
@@ -103,6 +109,8 @@ android {
 
 dependencies {
     implementation("androidx.appcompat:appcompat:1.7.0")
+    // Back gestures with their edge (BackEventCompat), for predictive back. Already part of appcompat.
+    implementation("androidx.activity:activity:1.9.3")
     implementation("androidx.webkit:webkit:1.11.0")
     implementation("androidx.core:core-splashscreen:1.0.1")
 

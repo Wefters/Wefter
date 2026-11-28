@@ -82,6 +82,71 @@ const KeyboardSchema = z.object({
   accessoryBar: z.boolean().optional(),
 });
 
+/**
+ * What kind of app this is, which sets the defaults of `systemBars`, `gestures`, `audio` and `text`:
+ *
+ * - `app` (the default): visible bars, the iOS swipe back through history, zoom and long press as in a
+ *   browser.
+ * - `game`: hidden bars, protected screen edges, no swipe back, zoom, long press or overscroll, sound that
+ *   may start without a tap, and text that ignores the system font size.
+ */
+export const ProfileSchema = z.enum(["app", "game"]);
+
+/**
+ * The status bar and, on Android, the navigation bar.
+ *
+ * - `hidden`: hides them; a swipe from the edge shows them for a moment. On iOS the home indicator fades out.
+ * - `icons`: their icon colour, `auto` (suits `launchBackground`), `dark` or `light`.
+ */
+const SystemBarsSchema = z.object({
+  hidden: z.boolean().optional(),
+  icons: z.enum(["auto", "dark", "light"]).optional(),
+});
+
+/** An area of the page in CSS pixels, from its top left corner. */
+const GestureAreaSchema = z.object({
+  x: z.number().min(0),
+  y: z.number().min(0),
+  width: z.number().positive(),
+  height: z.number().positive(),
+});
+
+/**
+ * Touch gestures the app's web view responds to.
+ *
+ * - `swipeBack`: the iOS swipe from the left edge: `history` (back through the web view's history), `page`
+ *   (sent to `onBack()` listeners) or `false`.
+ * - `zoom`: pinch and double-tap zoom, as the page's viewport allows.
+ * - `longPress`: link previews, the text selection callout, tap highlights and dragging images and links.
+ * - `overscroll`: Android's stretch at the ends of a scrolled page.
+ * - `edgeProtection`: holds back the system's edge gestures, so the first swipe only shows the bar; `true`
+ *   for every edge, or areas (Android protects only those; iOS every edge).
+ */
+const GesturesSchema = z.object({
+  swipeBack: z.union([z.enum(["history", "page"]), z.literal(false)]).optional(),
+  zoom: z.boolean().optional(),
+  longPress: z.boolean().optional(),
+  overscroll: z.boolean().optional(),
+  edgeProtection: z.union([z.boolean(), z.array(GestureAreaSchema)]).optional(),
+});
+
+/**
+ * Sound and video.
+ *
+ * - `autoplay`: media may start playing without a tap.
+ * - `silentSwitch`: on iOS, whether sound follows the silent switch: `auto` (Web Audio follows it, media
+ *   elements don't), `respect` (everything follows it and mixes with other apps' audio) or `ignore`.
+ */
+const AudioSchema = z.object({
+  autoplay: z.boolean().optional(),
+  silentSwitch: z.enum(["auto", "respect", "ignore"]).optional(),
+});
+
+/** Text: `followSystemSize` scales the page's text with Android's font size setting (on by default). */
+const TextSchema = z.object({
+  followSystemSize: z.boolean().optional(),
+});
+
 /** The message iOS shows when asking for a permission, such as "Used to scan receipts". */
 const UsageDescriptionSchema = z.string().trim().min(1, "must be the message shown when asking for the permission");
 
@@ -361,6 +426,8 @@ export function legacyConfigNotes(raw: unknown): string[] {
  * - `icon`, `launchBackground`, `splash`, `orientation`: app look and orientation.
  * - `deepLinks`: custom URL schemes and verified web domains the app opens for.
  * - `keyboard`: keyboard behaviour in the web view.
+ * - `profile`, `systemBars`, `gestures`, `audio`, `text`: the kind of app, and the system bars, gestures,
+ *   sound and text size it starts with.
  * - `permissions`: camera, microphone and location used by the web app itself, with the iOS messages.
  * - `frames`: other sites the app's pages may embed, and plugin methods some of them may call.
  * - `localization`: the app's languages, and text replacing the shell's and plugins'.
@@ -399,6 +466,12 @@ export const WefterConfigSchema = z.preprocess(
 
     keyboard: KeyboardSchema.optional(),
 
+    profile: ProfileSchema.optional(),
+    systemBars: SystemBarsSchema.optional(),
+    gestures: GesturesSchema.optional(),
+    audio: AudioSchema.optional(),
+    text: TextSchema.optional(),
+
     permissions: PermissionsSchema.optional(),
 
     splash: z
@@ -432,6 +505,12 @@ export type WefterConfig = z.infer<typeof WefterConfigSchema>;
 
 /** The `permissions` the web app uses, as written in the config. */
 export type AppPermissionsConfig = z.infer<typeof PermissionsSchema>;
+
+/** `profile` from `wefter.config.json`. */
+export type AppProfile = z.infer<typeof ProfileSchema>;
+
+/** An area in `gestures.edgeProtection`. */
+export type GestureArea = z.infer<typeof GestureAreaSchema>;
 
 /** `orientation` from `wefter.config.json`. */
 export type AppOrientation = z.infer<typeof OrientationSchema>;

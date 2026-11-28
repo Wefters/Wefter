@@ -44,6 +44,13 @@ final class ViewController: UIViewController {
         self?.dispatcher.emit("__system:webWindow", event)
     }
 
+    /// The status bar, home indicator, gestures and safe area (`systemBars`, `gestures` …).
+    let systemUI = SystemUI()
+    /// The swipe back while `gestures.swipeBack` is `"page"`, which the page may handle with `onBack()`.
+    private(set) lazy var backNavigation = BackNavigation { [weak self] event in
+        self?.dispatcher.emit("__system:back", event)
+    }
+
     private var usingDevServer = false
     private var renderProcessCrashCount = 0
 
@@ -84,9 +91,28 @@ final class ViewController: UIViewController {
         OrientationLock.shared.supportedOrientations
     }
 
+    /// `systemBars.hidden`, or `setSystemBars({ hidden })`.
+    override var prefersStatusBarHidden: Bool { systemUI.barsHidden }
+    /// `systemBars.icons`; `auto` suits `launchBackground`.
+    override var preferredStatusBarStyle: UIStatusBarStyle { systemUI.statusBarStyle }
+    override var preferredStatusBarUpdateAnimation: UIStatusBarAnimation { .fade }
+    /// The home indicator fades out with the bars hidden.
+    override var prefersHomeIndicatorAutoHidden: Bool { systemUI.barsHidden }
+    /// `gestures.edgeProtection`: a first swipe from an edge only shows the indicator, a second one acts.
+    override var preferredScreenEdgesDeferringSystemGestures: UIRectEdge {
+        systemUI.defersEdgeGestures ? .all : []
+    }
+
+    /// Tells the page the safe area changed: on rotation, and when the bars hide or show.
+    override func viewSafeAreaInsetsDidChange() {
+        super.viewSafeAreaInsetsDidChange()
+        dispatcher?.emit("__system:safeArea", SystemUI.safeArea(of: view))
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = Self.launchBackground
+        systemUI.onChange = { [weak self] in self?.applySystemUI() }
 
         setUpBridge()
         mainWebView = makePrimaryWebView()
@@ -232,7 +258,9 @@ final class ViewController: UIViewController {
         userContentController.addUserScript(envScript)
         userContentController.addUserScript(WebGeolocation.userScript)
         userContentController.addUserScript(WebDownloads.userScript)
+        systemUI.userScripts().forEach(userContentController.addUserScript)
         config.userContentController = userContentController
+        config.mediaTypesRequiringUserActionForPlayback = SystemUI.autoplay ? [] : .audio
 
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = self
@@ -254,9 +282,21 @@ final class ViewController: UIViewController {
         }
         #endif
 
-        webView.allowsBackForwardNavigationGestures = true
+        backNavigation.attach(to: webView, in: view)
+        backNavigation.setSwipeEnabled(systemUI.swipeBack == "page")
+        systemUI.apply(to: webView)
 
         return webView
+    }
+
+    /// Applies changed system bar and gesture settings to the screen and the page.
+    private func applySystemUI() {
+        setNeedsStatusBarAppearanceUpdate()
+        setNeedsUpdateOfHomeIndicatorAutoHidden()
+        setNeedsUpdateOfScreenEdgesDeferringSystemGestures()
+        systemUI.apply(to: mainWebView)
+        systemUI.applyScript(to: mainWebView)
+        backNavigation.setSwipeEnabled(systemUI.swipeBack == "page")
     }
 
     /// Shows the splash page over the app. It is dismissed when the app calls `hideSplash()`, or after the
@@ -406,6 +446,13 @@ final class ViewController: UIViewController {
 }
 
 extension ViewController: WKNavigationDelegate {
+    /// A new page started showing: it registers its own back listeners and gets the current gesture CSS.
+    func webView(_ webView: WKWebView, didCommit navigation: WKNavigation!) {
+        guard webView === mainWebView else { return }
+        backNavigation.onPageStarted()
+        systemUI.applyScript(to: webView)
+    }
+
     /// A page finished loading: the dev server is reachable again, and plugins get the `appReady` hook. The
     /// web view becomes opaque again, so pages without a background of their own show white as in a browser.
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
@@ -421,6 +468,7 @@ extension ViewController: WKNavigationDelegate {
             devServerUnreachableNotified = false
         }
 
+        systemUI.apply(to: webView)
         dispatcher.dispatchHook("appReady")
     }
 

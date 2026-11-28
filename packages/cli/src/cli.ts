@@ -149,6 +149,7 @@ program
       for (const note of legacyConfigNotes(readRawConfig(root))) logger.warn(`wefter.config.json: ${note}`);
       for (const warning of result.warnings) logger.warn(warning);
       if (result.languages.length > 1) logger.info(`Languages: ${result.languages.join(", ")}`);
+      if (result.systemUI) logger.info(`Screen: ${result.systemUI}`);
       const syncedConfig = loadWefterConfig(root);
       try {
         const outputRoot = resolveOutputRoot(root, syncedConfig.build.output, syncedConfig.webDir);
