@@ -119,8 +119,8 @@ const GestureAreaSchema = z.object({
  * - `zoom`: pinch and double-tap zoom, as the page's viewport allows.
  * - `longPress`: link previews, the text selection callout, tap highlights and dragging images and links.
  * - `overscroll`: Android's stretch at the ends of a scrolled page.
- * - `edgeProtection`: holds back the system's edge gestures, so the first swipe only shows the bar; `true`
- *   for every edge, or areas (Android protects only those; iOS every edge).
+ * - `edgeProtection`: holds back the system's edge gestures where the page needs the touches: `true` for the
+ *   lowest 200dp of both side edges on Android (back still works above), or areas; iOS defers every edge.
  */
 const GesturesSchema = z.object({
   swipeBack: z.union([z.enum(["history", "page"]), z.literal(false)]).optional(),

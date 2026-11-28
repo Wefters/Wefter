@@ -42,9 +42,10 @@ export interface Gestures {
   /** Android's stretch at the ends of a scrolled page. */
   overscroll: boolean;
   /**
-   * Holds back the system's edge gestures, so a first swipe from an edge only shows the bar or indicator
-   * and a second one acts. `true` protects every edge; areas protect only those on Android (where the
-   * system honours at most 200dp of height per side edge) and every edge on iOS.
+   * Holds back the system's edge gestures where the page needs the touches. On Android, `true` keeps the
+   * back gesture off the lowest 200dp of both side edges, where thumbs rest on a game's controls, and back
+   * still works from the upper part; areas protect only themselves. On iOS any value defers the home
+   * indicator and Control Center on every edge, so a first swipe only shows the indicator.
    */
   edgeProtection: boolean | GestureArea[];
 }
